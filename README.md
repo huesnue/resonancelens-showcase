@@ -128,3 +128,10 @@ If you are interested in the idea, feedback or collaboration:
 This repository contains a **demonstration version**.
 
 It is intentionally simplified and does not represent the full model or its calibration.
+
+## License
+
+This project is licensed under the MIT License.
+
+Note: This repository contains a simplified demonstration version of the Resonanzraum approach.
+The full model and its implementation are not part of this repository.
