@@ -36,7 +36,7 @@ But:
 ## 🚀 Run locally
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/resonanzraum-showcase.git
+git clone https://github.com/huesnue/resonanzraum-showcase.git
 cd resonanzraum-showcase
 
 pip install -r requirements.txt
