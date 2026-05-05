@@ -50,23 +50,51 @@ def plot_network(G, node_load, edge_state, highlight_nodes=None, highlight_edges
         "new": 4.5
     }
 
+    # ------------------------------------------
+    # 🔥 FIX: Highlighted edges
+    # -------------------------------------------
     for (u, v) in G.edges():
-        state = edge_state.get(tuple(sorted((u, v))), "strong")
+        key = tuple(sorted((u, v)))
+        state = edge_state.get(key, "strong")
 
         x0, y0 = pos[u]
         x1, y1 = pos[v]
+
+        # 🔥 Highlight has priority
+        if key in highlight_edges:
+            color = "#00cfff"   # blue (Event)
+            width = 4.5
+        else:
+            color = color_map[state]
+            width = width_map[state]
 
         edge_traces.append(go.Scatter(
             x=[x0, x1, None],
             y=[y0, y1, None],
             mode="lines",
             line=dict(
-                width=width_map[state],
-                color=color_map[state]
+                width=width,
+                color=color
             ),
             hoverinfo="none"
         ))
 
+        # ------------------------------------------
+        # 🔥 Event Overlay (NEU – HIER!)
+        # ------------------------------------------
+        if key in highlight_edges:
+            edge_traces.append(go.Scatter(
+                x=[x0, x1, None],
+                y=[y0, y1, None],
+                mode="lines",
+                line=dict(
+                    width=width_map[state] + 2,
+                    color="purple"
+                ),
+                opacity=0.6,
+                hoverinfo="none"
+            ))
+        
     # ------------------------------------------
     # 🔥 FIX: NORMALISIERTE FARBE
     # ------------------------------------------

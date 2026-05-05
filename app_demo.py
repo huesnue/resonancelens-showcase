@@ -381,10 +381,20 @@ elif scenario["type"] == "energy":
                 name="Stability (St)"
             ))
 
+            # -------------------------------------------
+            # FIX 4 (Discrepancy 4): Improved layout and legend
+            # -------------------------------------------
             fig.update_layout(
-                height=250,
-                margin=dict(l=20, r=20, t=40, b=20),
-                legend=dict(orientation="h")
+                height=300,  # 🔥 etwas mehr Platz
+                margin=dict(l=20, r=20, t=40, b=60),  # 🔥 mehr Bottom-Abstand
+
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=-0.3,   # 🔥 unterhalb des Charts
+                    xanchor="center",
+                    x=0.5
+                )
             )
 
             st.plotly_chart(fig, use_container_width=True)
@@ -393,11 +403,22 @@ elif scenario["type"] == "energy":
         # Netzwork-Plot
         # ------------------------------------------
         with col_right:
+            # ------------------------------------------
+            # HIGHLIGHT NODES & EDGES BASED ON ACTIVE EVENTS
+            # ------------------------------------------
+            highlight_nodes = set()
+            highlight_edges = set()
+            
+            # ------------------------------------------
+            # FIX 3 (Discrepancy 3): Highlighting based on active events
+            # ------------------------------------------  
             st.plotly_chart(
                 plot_network(
                     current["graph"],
                     current["load"],
-                    current["edges"]
+                    current["edges"],
+                    highlight_nodes=highlight_nodes,
+                    highlight_edges=highlight_edges
                 ),
                 use_container_width=True
             )
@@ -425,14 +446,17 @@ elif scenario["type"] == "energy":
                 if current_step >= event_step and current_step < event_step + duration:
                     active_events.append(event)
 
-            # ------------------------------------------
-            # HIGHLIGHT NODES & EDGES BASED ON ACTIVE EVENTS
-            # ------------------------------------------
-            highlight_nodes = set()
-            highlight_edges = set()
-
             for event in active_events:
-
+                # -------------------------------------------
+                # Fix 3 (Discrepancy 3): Event-Target-Handling corrected.
+                # Prior: all events highlighted all edges, regardless of target.
+                # Neu: Nur Events mit target="pipeline" heben alle Kanten hervor.
+                # Other events can specify clusters to highlight specific nodes.
+                # -------------------------------------------
+                if event.get("target") == "pipeline":
+                    for edge_key in current["edges"]:
+                        highlight_edges.add(edge_key)
+            
                 if "cluster" in event:
                     for node, data in current["nodes"].items():
                         if data.get("cluster") == event["cluster"]:
