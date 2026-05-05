@@ -405,9 +405,11 @@ elif scenario["type"] == "energy":
             step = st.session_state["step"]
 
             # ------------------------------------------
-            # EVENTS (korrekt für aktuellen Step)
+            # ACTIVE EVENTS (NEU – sauber)
             # ------------------------------------------
             current_step = st.session_state["step"]
+
+            active_events = []
 
             for event in EVENTS:
 
@@ -421,7 +423,30 @@ elif scenario["type"] == "energy":
                 duration = event.get("duration", 1)
 
                 if current_step >= event_step and current_step < event_step + duration:
-                    st.warning(f"⚠️ {event['name']}")
+                    active_events.append(event)
+
+            # ------------------------------------------
+            # HIGHLIGHT NODES & EDGES BASED ON ACTIVE EVENTS
+            # ------------------------------------------
+            highlight_nodes = set()
+            highlight_edges = set()
+
+            for event in active_events:
+
+                if "cluster" in event:
+                    for node, data in current["nodes"].items():
+                        if data.get("cluster") == event["cluster"]:
+                            highlight_nodes.add(node)
+
+                if event.get("target") == "pipeline":
+                    for edge_key in current["edges"]:
+                        highlight_edges.add(edge_key)
+            
+            # ------------------------------------------
+            # EVENTS anzeigen
+            # ------------------------------------------
+            for event in active_events:
+                st.warning(f"⚠️ {event['name']}")
                     
     # Fragment aufrufen
     playback_panel(history, max_step)

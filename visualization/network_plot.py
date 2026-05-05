@@ -3,7 +3,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 
-def plot_network(G, node_load=None, edge_state=None):
+def plot_network(G, node_load, edge_state, highlight_nodes=None, highlight_edges=None):
 
     # ------------------------------------------
     # Fallbacks
@@ -14,6 +14,12 @@ def plot_network(G, node_load=None, edge_state=None):
     if edge_state is None:
         edge_state = {tuple(sorted(e)): "strong" for e in G.edges()}
 
+    if highlight_nodes is None:
+        highlight_nodes = set()
+
+    if highlight_edges is None:
+        highlight_edges = set()
+    
     # ------------------------------------------
     # 🔥 FIX: Layout nur wiederverwenden wenn Nodes identisch
     # ------------------------------------------
@@ -79,14 +85,40 @@ def plot_network(G, node_load=None, edge_state=None):
 
         load = node_load.get(node, 0.1)
         normalized_load = load / max_load if max_load > 0 else 0
-        node_colors.append(normalized_load)
 
-        degree = degrees[node]
-        norm_degree = degree / max_degree if max_degree > 0 else 0
+        # -------------------------------------------
+        # 🔥 FIX: Highlighted nodes
+        # 🔥 Highlight has priority
+        # -------------------------------------------
+        if node in highlight_nodes:
+            node_sizes.append(size * 1.5)
+            node_colors.append("purple")
+        else:
+            if normalized_load > 0.7:
+                node_colors.append("#ff3b3b")   # red
+            elif normalized_load > 0.4:
+                node_colors.append("#ff9c3b")   # orange
+            else:
+                node_colors.append("#6bd96b")   # green
+                
+        # ------------------------------------------
+        # 🔥 FIX: Node size based on degree
+        # ------------------------------------------
+        capacity = G.nodes[node].get("capacity", 1.0)
 
-        size = 8 + (norm_degree ** 2) * 30
+        # Normalization of capacity for size scaling
+        max_capacity = max(nx.get_node_attributes(G, "capacity").values()) if G.nodes else 1
+        norm_capacity = capacity / max_capacity if max_capacity > 0 else 0
+
+        # Skaling (non-linear → better Differentiation)
+        size = 10 + (norm_capacity ** 1.5) * 40
+        
         node_sizes.append(size)
 
+    # ------------------------------------------
+    # NODES
+    # Fix: Hovertext shows Node ID
+    # ------------------------------------------
     node_trace = go.Scatter(
         x=node_x,
         y=node_y,
@@ -96,7 +128,6 @@ def plot_network(G, node_load=None, edge_state=None):
         marker=dict(
             size=node_sizes,
             color=node_colors,
-            colorscale="YlOrRd",
             showscale=False,
             opacity=1.0,
             line=dict(width=1.5, color="#111")
