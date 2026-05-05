@@ -22,7 +22,12 @@ def compute_coherence(nodes):
     if total_demand == 0:
         return 1.0
 
-    return satisfied / total_demand
+    raw = satisfied / total_demand
+
+    # 🔥 Soft floor (System kollabiert nicht komplett)
+    K = max(0.05, raw)
+
+    return K
 
 
 def run_energy_simulation(nodes, edges, steps=10, month_to_step=None):
@@ -120,16 +125,16 @@ def run_energy_simulation(nodes, edges, steps=10, month_to_step=None):
                         n["supply"] *= (1 + random.uniform(-0.1, 0.1))
                         
         # ------------------------------------------
-        # 🔥 FIX: GRAPH MIT ALLEN NODES
+        # 🔥 FIX: GRAPH WITH ALL NODES
         # ------------------------------------------
         G = nx.Graph()
         edge_map = {}
 
-        # 🔥 ALLE Nodes hinzufügen (wichtig!)
+        # 🔥 Add all nodes
         for node_id, node_data in nodes.items():
             G.add_node(node_id, **node_data)
 
-        # Edges hinzufügen (nur aktive)
+        # Add active Edges
         for e in edges:
 
             if e["status"] == "failed":
@@ -214,7 +219,7 @@ def run_energy_simulation(nodes, edges, steps=10, month_to_step=None):
             nodes[consumer]["received"] += flow
 
         # ------------------------------------------
-        # EDGE FAILURE
+        # EDGE DYNAMICS (FIXED)
         # ------------------------------------------
         for e in edges:
 
@@ -224,12 +229,32 @@ def run_energy_simulation(nodes, edges, steps=10, month_to_step=None):
             flow = e["flow"]
             capacity = e["capacity"]
 
-            if flow > capacity * 1.5:
+            if capacity <= 0:
+                continue
+
+            flow_ratio = (flow / capacity) * e["strength"]
+
+            # ------------------------------------------
+            # 🔥 harte Überlast → Failure
+            # ------------------------------------------
+            if flow_ratio > 1.5:
                 e["status"] = "failed"
                 e["strength"] = max(0.1, e["strength"] * 0.2)
 
-            elif flow > capacity:
-                e["strength"] = max(0.3, e["strength"] * 0.7)
+            # ------------------------------------------
+            # 🔥 hohe Last → strukturelle Erosion
+            # ------------------------------------------
+            elif flow_ratio > 1.0:
+                e["strength"] = max(0.2, e["strength"] * 0.7)
+
+            elif flow_ratio > 0.7:
+                e["strength"] = max(0.4, e["strength"] * 0.85)
+
+            # ------------------------------------------
+            # 🔥 niedrige Last → Erholung
+            # ------------------------------------------
+            else:
+                e["strength"] = min(1.0, e["strength"] * 1.02)
 
         # ------------------------------------------
         # STRESS
@@ -240,8 +265,15 @@ def run_energy_simulation(nodes, edges, steps=10, month_to_step=None):
                 n["stress"] = 100.0
                 continue
 
-            stress = max(0.0, n["demand"] - n["received"])
-            n["stress"] = stress
+            # externer Stress
+            external_stress = max(0.0, n["demand"] - n["received"])
+
+            # 🔥 interner Stress (Netzwerk)
+            neighbors = list(G.neighbors(node_id))
+            neighbor_stress = sum(nodes[n]["stress"] for n in neighbors) / len(neighbors) if neighbors else 0
+
+            # 🔥 kombinierter Stress
+            n["stress"] = external_stress + 0.3 * neighbor_stress
 
         # ------------------------------------------
         # NODE FAILURE
@@ -253,10 +285,12 @@ def run_energy_simulation(nodes, edges, steps=10, month_to_step=None):
 
             if n["stress"] > 60:
                 n["status"] = "failed"
-                n["supply"] = 0.0
 
-            elif n["stress"] > 25:
-                n["supply"] *= 0.6
+            elif n["stress"] > 30:
+                n["supply"] *= 0.7
+
+            elif n["stress"] > 15:
+                n["supply"] *= 0.9
 
         # ------------------------------------------
         # COHERENCE

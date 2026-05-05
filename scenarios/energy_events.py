@@ -19,10 +19,33 @@ EVENTS = [
     # 2021 – PRE-STRESS
     # -----------------------------
     {
+        "month": "Feb 2021",
+        "type": "supply_shock",
+        "cluster": "US",
+        "factor": 0.7,
+        "duration": 3,
+        "plateau": 1,
+        "decay": 0.6,
+        "name": "Texas Freeze Power Crisis"
+    },
+    {
+        "month": "Apr 2021",
+        "type": "uncertainty_shock",
+        "cluster": "EU",
+        "factor": 1.05,
+        "duration": 4,
+        "plateau": 1,
+        "decay": 0.6,
+        "name": "EU Gas Storage Deficit"
+    },
+    {
         "month": "Oct 2021",
         "type": "demand_shock",
         "cluster": "ASIA",
         "factor": 1.1,
+        "duration": 4,
+        "plateau": 1,
+        "decay": 0.5,
         "name": "China Energy Crisis"
         # Note: This event represents a surge in energy demand in Asia due to economic recovery and supply constraints, leading to global price impacts.
     },
@@ -31,6 +54,9 @@ EVENTS = [
         "type": "demand_shock",
         "cluster": "EU",
         "factor": 1.05,
+        "duration": 4,
+        "plateau": 1,
+        "decay": 0.5,
         "name": "EU Gas Price Surge"
         # Note: This event captures the sharp increase in natural gas prices in Europe, driven by supply concerns and increased demand, contributing to market volatility.
     },
@@ -43,6 +69,9 @@ EVENTS = [
         "type": "supply_shock",
         "cluster": "RU",
         "factor": 0.5,
+        "duration": 12,
+        "plateau": 6,
+        "decay": 0.2,
         "name": "Ukraine War Begins"
         # Note: This event models the significant disruption in energy supply from Russia to Europe due to the onset of the Ukraine conflict, leading to reduced exports and heightened geopolitical tensions.
     },
@@ -51,6 +80,9 @@ EVENTS = [
         "type": "capacity_shock",
         "target": "pipeline",
         "factor": 0.5,
+        "duration": 12,
+        "plateau": 6,
+        "decay": 0.2,
         "name": "Nord Stream 2 Halt"
         # Note: This event represents the halting of the Nord Stream 2 pipeline project, which was intended to increase gas supply to Europe, exacerbating supply constraints and market uncertainty.
     },
@@ -59,6 +91,9 @@ EVENTS = [
         "type": "capacity_shock",
         "target": "pipeline",
         "factor": 0.7,
+        "duration": 6,
+        "plateau": 2,
+        "decay": 0.4,        
         "name": "Nord Stream 1 Reduction"
         # Note: This event captures the reduction in gas flow through the Nord Stream 1 pipeline, which was a critical supply route for Europe, further tightening the energy market and increasing prices.
     },
@@ -67,6 +102,9 @@ EVENTS = [
         "type": "supply_shock",
         "cluster": "US",
         "factor": 0.8,
+        "duration": 4,
+        "plateau": 1,
+        "decay": 0.5,
         "name": "Freeport LNG Outage"
         # Note: This event models the temporary shutdown of the Freeport LNG terminal in the US due to an explosion, which reduced LNG exports and contributed to global supply constraints.
     },
@@ -86,6 +124,9 @@ EVENTS = [
         "type": "demand_shock",
         "cluster": "EU",
         "factor": 0.95,
+        "duration": 5,
+        "plateau": 2,
+        "decay": 0.4,
         "name": "EU Demand Reduction Policy"
         # Note: This event captures the implementation of demand reduction policies in Europe in response to the energy crisis, which aimed to reduce consumption and alleviate supply pressures, contributing to a temporary decrease in demand.
     },
@@ -97,6 +138,9 @@ EVENTS = [
         "month": "Jan 2023",
         "type": "coupling_shift",
         "factor": 1.2,
+        "duration": 12,
+        "plateau": 6,
+        "decay": 0.2,
         "name": "LNG Shift to Europe"
         # Note: This event models the structural shift in global LNG trade patterns, where increased LNG exports from the US and other producers were redirected to Europe to compensate for reduced Russian gas supplies, leading to changes in global energy flows and market dynamics.
     },
@@ -105,6 +149,9 @@ EVENTS = [
         "type": "capacity_shock",
         "cluster": "EU",
         "factor": 0.9,
+        "duration": 12,
+        "plateau": 6,
+        "decay": 0.2,
         "name": "German Nuclear Phase-Out"
         # Note: This event represents the continued phase-out of nuclear power in Germany, which reduced the country's energy generation capacity and increased reliance on other sources, contributing to supply challenges and market adjustments.
     },
@@ -113,6 +160,9 @@ EVENTS = [
         "type": "supply_shock",
         "cluster": "EU",
         "factor": 0.9,
+        "duration": 5,
+        "plateau": 2,
+        "decay": 0.5,
         "name": "European Drought"
         # Note: This event captures the impact of severe drought conditions in Europe, which reduced hydropower generation and agricultural output, leading to increased energy demand for cooling and irrigation, and further straining the energy system.
     },
@@ -121,6 +171,9 @@ EVENTS = [
         "type": "capacity_increase",
         "cluster": "EU",
         "factor": 1.1,
+        "duration": 8,
+        "plateau": 4,
+        "decay": 0.3,
         "name": "Coal Reactivation"
         # Note: This event models the temporary reactivation of coal-fired power plants in Europe as a response to the energy crisis, which increased generation capacity but also raised concerns about emissions and long-term sustainability.
     },
@@ -133,6 +186,9 @@ EVENTS = [
         "type": "supply_shock",
         "cluster": "ME",
         "factor": 0.8,
+        "duration": 6,
+        "plateau": 2,
+        "decay": 0.4,
         "name": "Israel-Gaza Conflict"
         # Note: This event represents the outbreak of conflict
     },
@@ -141,6 +197,9 @@ EVENTS = [
         "type": "capacity_shock",
         "target": "shipping",
         "factor": 0.7,
+        "duration": 6,
+        "plateau": 2,
+        "decay": 0.4,
         "name": "Red Sea Disruptions"
         # Note: This event captures the disruptions in maritime shipping through the Red Sea due to geopolitical tensions, which affected global energy supply chains and contributed to increased transportation costs and delays.
     },
@@ -149,6 +208,9 @@ EVENTS = [
         "type": "demand_shock",
         "cluster": "ASIA",
         "factor": 1.1,
+        "duration": 4,
+        "plateau": 1,
+        "decay": 0.5,
         "name": "China Demand Surge"
         # Note: This event models a surge in energy demand in China due to economic recovery and increased industrial activity, which put additional pressure on global energy markets and contributed to price volatility.
     },
@@ -156,6 +218,9 @@ EVENTS = [
         "month": "Apr 2024",
         "type": "uncertainty_shock",
         "factor": 1.05,
+        "duration": 3,
+        "plateau": 1,
+        "decay": 0.7,
         "name": "US LNG Policy Uncertainty"
         # Note: This event represents the uncertainty surrounding US LNG export policies, which created volatility in global energy markets as traders and producers reacted to potential changes in supply availability and trade dynamics.
     },
