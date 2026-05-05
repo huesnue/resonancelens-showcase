@@ -1,13 +1,12 @@
 import networkx as nx
 import plotly.graph_objects as go
+import streamlit as st
 
-# ------------------------------------------
-# Plot network (final showcase version)
-# ------------------------------------------
+
 def plot_network(G, node_load=None, edge_state=None):
 
     # ------------------------------------------
-    # Fallbacks (robustness)
+    # Fallbacks
     # ------------------------------------------
     if node_load is None:
         node_load = {n: 0.1 for n in G.nodes()}
@@ -16,19 +15,27 @@ def plot_network(G, node_load=None, edge_state=None):
         edge_state = {tuple(sorted(e)): "strong" for e in G.edges()}
 
     # ------------------------------------------
-    # Layout (deterministic for comparison)
+    # 🔥 FIX: Layout nur wiederverwenden wenn Nodes identisch
     # ------------------------------------------
-    pos = nx.spring_layout(G, seed=42, k=0.3)
+    nodes_key = tuple(sorted(G.nodes()))
+
+    if "pos_cache" not in st.session_state:
+        st.session_state["pos_cache"] = {}
+
+    if nodes_key not in st.session_state["pos_cache"]:
+        st.session_state["pos_cache"][nodes_key] = nx.spring_layout(G, seed=42, k=0.3)
+
+    pos = st.session_state["pos_cache"][nodes_key]
 
     # ------------------------------------------
-    # EDGES (strong / weak / new)
+    # EDGES
     # ------------------------------------------
     edge_traces = []
 
     color_map = {
-        "strong": "#aaaaaa",   # heller grau → weniger dominant
-        "weak": "#ff3b3b",     # kräftiges rot
-        "new": "#0077ff"       # blau statt grün!
+        "strong": "#aaaaaa",
+        "weak": "#ff3b3b",
+        "new": "#0077ff"
     }
 
     width_map = {
@@ -55,12 +62,11 @@ def plot_network(G, node_load=None, edge_state=None):
         ))
 
     # ------------------------------------------
-    # NODES (cluster core via degree)
+    # 🔥 FIX: NORMALISIERTE FARBE
     # ------------------------------------------
-    node_x = []
-    node_y = []
-    node_colors = []
-    node_sizes = []
+    max_load = max(node_load.values()) if node_load else 1
+
+    node_x, node_y, node_colors, node_sizes = [], [], [], []
 
     degrees = dict(G.degree())
     max_degree = max(degrees.values()) if degrees else 1
@@ -71,41 +77,32 @@ def plot_network(G, node_load=None, edge_state=None):
         node_x.append(x)
         node_y.append(y)
 
-        # --------------------------------------
-        # COLOR = Load (stress proxy)
-        # --------------------------------------
         load = node_load.get(node, 0.1)
-        node_colors.append(load)
+        normalized_load = load / max_load if max_load > 0 else 0
+        node_colors.append(normalized_load)
 
-        # --------------------------------------
-        # SIZE = local coupling (cluster core)
-        # --------------------------------------
         degree = degrees[node]
         norm_degree = degree / max_degree if max_degree > 0 else 0
 
-        # cluster core emphasis (non-linear boost)
-        size = 6 + (norm_degree ** 2) * 25 + load * 5
-
+        size = 8 + (norm_degree ** 2) * 30
         node_sizes.append(size)
 
     node_trace = go.Scatter(
         x=node_x,
         y=node_y,
         mode="markers",
-        hoverinfo="none",
+        text=[str(n) for n in G.nodes()],
+        hoverinfo="text",
         marker=dict(
             size=node_sizes,
             color=node_colors,
-            colorscale="YlOrRd",     # strong differentiation
+            colorscale="YlOrRd",
             showscale=False,
-            opacity=1.0,            # FIX: no transparency
-            line=dict(width=1.5, color="#111")  # FIX: solid nodes
+            opacity=1.0,
+            line=dict(width=1.5, color="#111")
         )
     )
 
-    # ------------------------------------------
-    # FIGURE
-    # ------------------------------------------
     fig = go.Figure(data=edge_traces + [node_trace])
 
     fig.update_layout(

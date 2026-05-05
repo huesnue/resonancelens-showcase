@@ -1,4 +1,6 @@
 import networkx as nx
+from scenarios.energy_events import EVENTS
+import random
 
 def compute_coherence(nodes):
 
@@ -21,6 +23,7 @@ def compute_coherence(nodes):
 
     return satisfied / total_demand
 
+
 def run_energy_simulation(nodes, edges, steps=10):
 
     history = []
@@ -28,7 +31,7 @@ def run_energy_simulation(nodes, edges, steps=10):
     for step in range(steps):
 
         # ------------------------------------------
-        # RESET (pro Tick)
+        # RESET
         # ------------------------------------------
         for n in nodes.values():
             n["received"] = 0.0
@@ -37,11 +40,70 @@ def run_energy_simulation(nodes, edges, steps=10):
             e["flow"] = 0.0
 
         # ------------------------------------------
-        # GRAPH (nur aktive Struktur!)
+        # 🔥 FIX: SUPPLY RESET (einmal initial setzen)
+        # ------------------------------------------
+        if step == 0:
+            for n in nodes.values():
+                n["initial_supply"] = n["supply"]
+
+        # ------------------------------------------
+        # RESET SUPPLY pro Tick
+        # ------------------------------------------
+        for n in nodes.values():
+            if "initial_supply" in n:
+                n["supply"] = n["initial_supply"]
+
+        # ------------------------------------------
+        # 🔥 APPLY EVENTS (ΔZ Injection)
+        # ------------------------------------------
+        for event in EVENTS:
+            if event["step"] != step:
+                continue
+
+            if event["type"] == "capacity_shock":
+                for e in edges:
+                    if e.get("type") == event.get("target"):
+                        e["capacity"] *= event["factor"]
+
+            elif event["type"] == "supply_shock":
+                for n in nodes.values():
+                    if n.get("cluster") == event.get("cluster") and n["type"] == "producer":
+                        n["supply"] *= event["factor"]
+
+            elif event["type"] == "demand_shock":
+                for n in nodes.values():
+                    if n.get("cluster") == event.get("cluster") and n["type"] == "consumer":
+                        n["demand"] *= event["factor"]
+
+            elif event["type"] == "capacity_increase":
+                for n in nodes.values():
+                    if n.get("cluster") == event.get("cluster"):
+                        n["capacity"] *= event["factor"]
+
+            elif event["type"] == "coupling_shift":
+                for e in edges:
+                    e["strength"] *= event["factor"]
+
+            elif event["type"] == "uncertainty_shock":
+                for n in nodes.values():
+                    n["stress"] *= event["factor"]
+
+            elif event["type"] == "variability_shock":
+                for n in nodes.values():
+                    if n["type"] == "producer":
+                        n["supply"] *= (1 + random.uniform(-0.1, 0.1))
+                        
+        # ------------------------------------------
+        # 🔥 FIX: GRAPH MIT ALLEN NODES
         # ------------------------------------------
         G = nx.Graph()
         edge_map = {}
 
+        # 🔥 ALLE Nodes hinzufügen (wichtig!)
+        for node_id, node_data in nodes.items():
+            G.add_node(node_id, **node_data)
+
+        # Edges hinzufügen (nur aktive)
         for e in edges:
 
             if e["status"] == "failed":
@@ -59,7 +121,7 @@ def run_energy_simulation(nodes, edges, steps=10):
             edge_map[(v, u)] = e
 
         # ------------------------------------------
-        # PRODUCERS / CONSUMERS (nur aktive!)
+        # PRODUCERS / CONSUMERS
         # ------------------------------------------
         producers = [
             n for n in nodes
@@ -72,7 +134,7 @@ def run_energy_simulation(nodes, edges, steps=10):
         ]
 
         # ------------------------------------------
-        # MARKET LOGIC (Demand-driven)
+        # MARKET LOGIC
         # ------------------------------------------
         for consumer in consumers:
 
@@ -126,7 +188,7 @@ def run_energy_simulation(nodes, edges, steps=10):
             nodes[consumer]["received"] += flow
 
         # ------------------------------------------
-        # EDGE FAILURE / DEGRADATION
+        # EDGE FAILURE
         # ------------------------------------------
         for e in edges:
 
@@ -169,19 +231,45 @@ def run_energy_simulation(nodes, edges, steps=10):
 
             elif n["stress"] > 25:
                 n["supply"] *= 0.6
-                
+
         # ------------------------------------------
         # COHERENCE
         # ------------------------------------------
         K = compute_coherence(nodes)
 
         # ------------------------------------------
+        # 🔥 FIX: EDGE STATE ALS DICT
+        # ------------------------------------------
+        edge_state = {}
+
+        for e in edges:
+            u = e["source"]
+            v = e["target"]
+
+            key = tuple(sorted((u, v)))
+
+            flow = e.get("flow", 0.0)
+            capacity = e.get("capacity", 1.0)
+            status = e.get("status", "active")
+
+            if status == "failed":
+                edge_state[key] = "weak"
+            elif flow > capacity:
+                edge_state[key] = "weak"
+            elif flow > 0:
+                edge_state[key] = "strong"
+            else:
+                edge_state[key] = "new"
+
+        # ------------------------------------------
         # SNAPSHOT
         # ------------------------------------------
         history.append({
+            "graph": G,
             "nodes": {k: v.copy() for k, v in nodes.items()},
-            "edges": [e.copy() for e in edges],
-            "coherence": K
+            "edges": edge_state,   # ✅ DICT
+            "coherence": K,
+            "load": {k: nodes[k]["stress"] for k in nodes}
         })
 
     return history

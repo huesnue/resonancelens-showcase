@@ -3,16 +3,15 @@ import plotly.graph_objects as go
 
 from core_lite.simulation import run_simulation
 from core_lite.energy_simulation import run_energy_simulation
-
 from visualization.network_plot import plot_network
-from visualization.graph_adapter import build_graph_for_plot
 
 from scenarios.basic import load_scenario as load_basic
 from scenarios.energy import load_scenario as load_energy
+from scenarios.energy_events import EVENTS
 
 
 # ------------------------------------------
-# BASIC DEMO (bestehend)
+# BASIC DEMO
 # ------------------------------------------
 def run_stable():
     return run_simulation(
@@ -53,8 +52,7 @@ st.set_page_config(layout="wide")
 
 st.title("Why systems fail before they break")
 
-st.markdown(
-"""
+st.markdown("""
 Most systems don't collapse suddenly.
 
 They start to **erode structurally** long before anything becomes visible.
@@ -64,8 +62,17 @@ This demo shows:
 - an **early signal (dE/dt)**
 - a **structural confirmation (W_grad)**
 - while the system still appears **stable**
-"""
-)
+""")
+
+
+# ------------------------------------------
+# SESSION STATE INIT
+# ------------------------------------------
+if "mode" not in st.session_state:
+    st.session_state["mode"] = "manual"
+
+if "step" not in st.session_state:
+    st.session_state["step"] = 0
 
 
 # ------------------------------------------
@@ -76,14 +83,11 @@ scenario_name = st.selectbox(
     options=["Basic Demo", "Energy Crisis"]
 )
 
-if scenario_name == "Basic Demo":
-    scenario = load_basic()
-else:
-    scenario = load_energy()
+scenario = load_basic() if scenario_name == "Basic Demo" else load_energy()
 
 
 # ------------------------------------------
-# SCENARIO CHANGE DETECTION (FIX)
+# SCENARIO RESET
 # ------------------------------------------
 if "last_scenario" not in st.session_state:
     st.session_state["last_scenario"] = scenario_name
@@ -91,22 +95,14 @@ if "last_scenario" not in st.session_state:
 if st.session_state["last_scenario"] != scenario_name:
     st.session_state.pop("energy_history", None)
     st.session_state["last_scenario"] = scenario_name
+    st.session_state["step"] = 0
+    st.session_state["mode"] = "manual"
 
 
 # ------------------------------------------
-# RUN BUTTON (GLOBAL FIX)
+# RUN BUTTON
 # ------------------------------------------
-run_clicked = st.button("▶ Run Simulation", key="run_simulation")
-
-
-# ------------------------------------------
-# INFO
-# ------------------------------------------
-if scenario["type"] == "basic":
-    st.warning(
-        "This is a basic demo with synthetic data. "
-        "For a more realistic scenario, select 'Energy Crisis'."
-    )
+run_clicked = st.button("▶ Run Simulation")
 
 
 # ==========================================
@@ -115,96 +111,27 @@ if scenario["type"] == "basic":
 if scenario["type"] == "basic":
 
     if run_clicked:
-        G1, hist_stable, load1, edges1 = run_stable()
-        G2, hist_collapse, load2, edges2 = run_collapse()
-
-        st.session_state["basic_data"] = (G1, hist_stable, load1, edges1,
-                                         G2, hist_collapse, load2, edges2)
+        st.session_state["basic_data"] = (
+            *run_stable(),
+            *run_collapse()
+        )
 
     if "basic_data" in st.session_state:
 
         G1, hist_stable, load1, edges1, G2, hist_collapse, load2, edges2 = st.session_state["basic_data"]
 
         st.divider()
-
         st.subheader("System Structure")
 
-        st.markdown("""
-### 🔎 How to read this visualization
-
-**Nodes**
-- 🟡 → 🔴 Stress level  
-- ⭕ Small → Large = structural importance  
-
-**Edges**
-- ⚪ Stable  
-- 🔴 Weak  
-- 🔵 New  
-
----
-
-**Interpretation**
-
-- A stable system maintains **strong connectivity and central structure**
-- A collapsing system shows **fragmentation and loss of structure**
-- Early signals appear **before visible breakdown**
-""")
-
         col1_es, col2_es = st.columns(2)
-
-        col1_es.markdown("**System A (Stable)**")
-        col1_es.plotly_chart(
-            plot_network(G1, load1, edges1),
-            use_container_width=True
-        )
-
-        col2_es.markdown("**System B (Collapse)**")
-        col2_es.plotly_chart(
-            plot_network(G2, load2, edges2),
-            use_container_width=True
-        )
+        col1_es.plotly_chart(plot_network(G1, load1, edges1), use_container_width=True)
+        col2_es.plotly_chart(plot_network(G2, load2, edges2), use_container_width=True)
 
         st.subheader("Early Signals")
 
         col1, col2 = st.columns(2)
-
-        col1.plotly_chart(
-            plot_series(hist_stable["dE_dt"], "dE/dt A"),
-            use_container_width=True
-        )
-
-        col2.plotly_chart(
-            plot_series(hist_collapse["dE_dt"], "dE/dt B"),
-            use_container_width=True
-        )
-
-        st.subheader("Structural Change (W_grad)")
-
-        col1, col2 = st.columns(2)
-
-        col1.plotly_chart(
-            plot_series(hist_stable["W_grad"], "W_grad A"),
-            use_container_width=True
-        )
-
-        col2.plotly_chart(
-            plot_series(hist_collapse["W_grad"], "W_grad B"),
-            use_container_width=True
-        )
-
-        st.subheader("System Stability")
-
-        col1, col2 = st.columns(2)
-
-        col1.plotly_chart(
-            plot_series(hist_stable["stability"], "Stability A"),
-            use_container_width=True
-        )
-
-        col2.plotly_chart(
-            plot_series(hist_collapse["stability"], "Stability B"),
-            use_container_width=True
-        )
+        col1.plotly_chart(plot_series(hist_stable["dE_dt"], "dE/dt A"), use_container_width=True)
+        col2.plotly_chart(plot_series(hist_collapse["dE_dt"], "dE/dt B"), use_container_width=True)
 
 
 # ==========================================
@@ -216,79 +143,150 @@ elif scenario["type"] == "energy":
     edges = scenario["edges"]
 
     if run_clicked:
-        history = run_energy_simulation(nodes, edges, steps=10)
-        st.session_state["energy_history"] = history
+        st.session_state["energy_history"] = run_energy_simulation(nodes, edges, steps=11)
+        st.session_state["step"] = 0
+        st.session_state["mode"] = "manual"
 
-    if "energy_history" in st.session_state:
+    if "energy_history" not in st.session_state:
+        st.info("Press 'Run Simulation' to start.")
+        st.stop()
 
-        history = st.session_state["energy_history"]
+    history = st.session_state["energy_history"]
+    max_step = len(history) - 1
+
+    st.divider()
+    st.subheader("Energy Network Simulation")
+
+    # ==========================================
+    # PLAYBACK FRAGMENT
+    #
+    # FIX 2 (Diskrepanz 2): Ersetzt time.sleep() + blindes st.rerun().
+    #
+    # @st.fragment(run_every=1.0) lässt Streamlit den Fragment-Body
+    # automatisch jede Sekunde neu ausführen, OHNE den Server-Thread
+    # zu blockieren (kein time.sleep) und OHNE das gesamte Script neu
+    # zu starten (kein vollständiges st.rerun im Takt-Pfad).
+    #
+    # Quelle: https://docs.streamlit.io/develop/api-reference/execution-flow/st.fragment
+    # „If run_every is set, Streamlit will also rerun the fragment at
+    #  the specified interval while the session is active, even if the
+    #  user is not interacting with your app."
+    #
+    # run_every=None deaktiviert den Timer → Fragment verhält sich
+    # wie normaler Code, kein automatischer Rerun.
+    # ==========================================
+    run_every = 1.0 if st.session_state["mode"] == "playback" else None
+
+    @st.fragment(run_every=run_every)
+    def playback_panel(history, max_step):
+        """
+        Enthält den gesamten interaktiven Bereich (Slider, Buttons,
+        Charts). Als Fragment läuft nur dieser Block beim Timer-Tick
+        neu — der Rest der Seite (Titel, Markdown, Szenario-Auswahl)
+        bleibt unberührt.
+        """
+        is_playing = st.session_state["mode"] == "playback"
 
         # ------------------------------------------
-        # TIME CONTROL + COMPACT LAYOUT (FIX)
+        # Schritt automatisch weiterschalten (Playback)
         # ------------------------------------------
-        st.divider()
-        st.subheader("Energy Network Simulation")
+        if is_playing:
+            current_step = st.session_state["step"]
+            if current_step < max_step:
+                st.session_state["step"] = current_step + 1
+            else:
+                # Ende erreicht → manuellen Modus aktivieren und
+                # vollständigen App-Rerun auslösen, damit run_every
+                # im Decorator auf None wechselt und der Timer stoppt.
+                st.session_state["mode"] = "manual"
+                st.rerun()          # volles App-Rerun, nicht scope="fragment"
 
-        st.markdown("""
-        This scenario shows a simplified but realistic energy network:
-
-        - Producers (Russia, Norway, Middle East)
-        - Transit hubs (Ukraine, Turkey, Balkans)
-        - Demand centers (Germany, Italy, France)
-
-        The system evolves dynamically based on demand, flow, and structural constraints.
-        """)
-
+        # ------------------------------------------
+        # Layout
+        # ------------------------------------------
         col_left, col_right = st.columns([1, 2])
 
-        # ------------------------------------------
-        # LEFT: CONTROL + METRICS
-        # ------------------------------------------
         with col_left:
+
+            col_b1, col_b2 = st.columns(2)
+
+            with col_b1:
+                if st.button("▶ Start Playback", disabled=is_playing):
+                    st.session_state["mode"] = "playback"
+                    st.session_state["step"] = 0
+                    # Vollständigen App-Rerun, damit der Decorator
+                    # mit run_every=1.0 neu instanziiert wird.
+                    st.rerun()
+
+            with col_b2:
+                if st.button("⏸ Step Mode", disabled=not is_playing):
+                    st.session_state["mode"] = "manual"
+                    st.rerun()
+
+            # ------------------------------------------
+            # FIX 1 (Diskrepanz 1): Slider mit stabilem key.
+            #
+            # key="simulation_step" verankert die Widget-Identität
+            # im Session State. Damit bleibt der angezeigte Wert
+            # beim Wechsel von disabled=True → disabled=False
+            # erhalten, weil Streamlit den Key-Wert bevorzugt
+            # gegenüber dem value-Parameter.
+            #
+            # Quelle: Streamlit Widget Behavior Docs:
+            # „Note that [...] disabling a widget do not affect
+            #  the widget identity."
+            # Und GitHub Issue #4318:
+            # „Disabling a widget resets the widget's value
+            #  to its default." → abgesichert durch key + Session State.
+            #
+            # Wichtig: Der Session-State-Key "simulation_step" wird
+            # VOR dem Slider-Aufruf auf den aktuellen step gesetzt,
+            # damit der Slider beim Rendern den richtigen Wert zeigt.
+            # ------------------------------------------
+            st.session_state["simulation_step"] = st.session_state["step"]
+
             step = st.slider(
                 "Simulation Step",
                 min_value=0,
-                max_value=len(history) - 1,
-                value=len(history) - 1,
-                key="energy_slider"
+                max_value=max_step,
+                key="simulation_step",   # stabiler Key sichert Wert bei disabled-Wechsel
+                disabled=is_playing,
             )
 
-            st.write(f"Current Step: {step}")
-
-            current = history[step]
-
-            # ------------------------------------------
-            # COHERENCE DISPLAY
-            # ------------------------------------------
-            K = current["coherence"]
-
-            st.metric("System Coherence (K)", f"{K:.2f}")
-            
-            if K > 0.8:
-                st.success("System stable")
-            elif K > 0.6:
-                st.warning("Early signs of stress")
-            elif K > 0.4:
-                st.warning("Critical state")
-            else:
-                st.error("System unstable")
+            # Manuelle Slider-Änderung nur im Step-Mode übernehmen.
+            # Im Playback-Modus ist der Slider disabled, sein Wert
+            # wird nicht vom Nutzer verändert — wir lesen ihn daher
+            # nicht zurück (das würde den programmatisch gesetzten
+            # step überschreiben).
+            if not is_playing:
+                st.session_state["step"] = step
 
             # ------------------------------------------
-            # COHERENCE OVER TIME
+            # Metriken & Chart
             # ------------------------------------------
+            current = history[st.session_state["step"]]
+
+            st.metric("System Coherence (K)", f"{current['coherence']:.2f}")
+
             coherence_series = [h["coherence"] for h in history]
             st.line_chart(coherence_series, height=150)
 
         # ------------------------------------------
-        # RIGHT: NETWORK (VISIBLE WITHOUT SCROLL)
+        # Netzwerk-Plot
         # ------------------------------------------
         with col_right:
-            G_plot, node_load, edge_state = build_graph_for_plot(
-                current["nodes"],
-                current["edges"]
-            )
-
             st.plotly_chart(
-                plot_network(G_plot, node_load, edge_state),
+                plot_network(
+                    current["graph"],
+                    current["load"],
+                    current["edges"]
+                ),
                 use_container_width=True
             )
+
+            for event in EVENTS:
+                if event["step"] == st.session_state["step"]:
+                    st.warning(f"⚠️ {event['name']}")
+
+    # Fragment aufrufen
+    playback_panel(history, max_step)

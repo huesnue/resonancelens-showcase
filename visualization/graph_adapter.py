@@ -3,12 +3,12 @@ import networkx as nx
 
 def build_graph_for_plot(nodes, edges):
     """
-    Adapter zwischen Simulation (nodes/edges) und Plot (network_plot.py)
+    Adapter zwischen Simulation und Plot
 
-    Ziel:
-    - kompatibel mit plot_network(G, node_load, edge_state)
-    - berücksichtigt FAILED nodes/edges
-    - robust gegen fehlende Werte
+    FIX:
+    - KEINE Nodes mehr entfernen
+    - KEINE Edges mehr entfernen
+    - Status nur visuell darstellen
     """
 
     G = nx.Graph()
@@ -16,34 +16,22 @@ def build_graph_for_plot(nodes, edges):
     edge_state = {}
 
     # ------------------------------------------
-    # NODES
+    # NODES (ALLE behalten!)
     # ------------------------------------------
     for node_id, data in nodes.items():
 
-        # FAILED Nodes werden NICHT angezeigt
-        if data.get("status") == "failed":
-            continue
-
         G.add_node(node_id)
 
-        # Stress → Farbwert (Load)
+        # Stress → Farbwert
         node_load[node_id] = data.get("stress", 0.0)
 
     # ------------------------------------------
-    # EDGES
+    # EDGES (ALLE behalten!)
     # ------------------------------------------
     for e in edges:
 
-        # FAILED Edges nicht anzeigen
-        if e.get("status") == "failed":
-            continue
-
         u = e["source"]
         v = e["target"]
-
-        # Wenn Node fehlt (failed), skip
-        if u not in G.nodes or v not in G.nodes:
-            continue
 
         G.add_edge(u, v)
 
@@ -51,15 +39,18 @@ def build_graph_for_plot(nodes, edges):
 
         flow = e.get("flow", 0.0)
         capacity = e.get("capacity", 1.0)
+        status = e.get("status", "active")
 
         # --------------------------------------
-        # EDGE STATE (Visualisierung)
+        # EDGE STATE (VISUAL ONLY)
         # --------------------------------------
-        if flow > capacity:
-            edge_state[key] = "weak"     # überlastet → rot
+        if status == "failed":
+            edge_state[key] = "weak"     # failed → rot
+        elif flow > capacity:
+            edge_state[key] = "weak"
         elif flow > 0:
-            edge_state[key] = "strong"   # aktiv → grau
+            edge_state[key] = "strong"
         else:
-            edge_state[key] = "new"      # ungenutzt → blau
+            edge_state[key] = "new"
 
     return G, node_load, edge_state
