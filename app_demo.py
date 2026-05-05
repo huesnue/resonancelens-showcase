@@ -336,25 +336,61 @@ elif scenario["type"] == "energy":
             st.metric("System Coherence (K)", f"{current['coherence']:.2f}")
 
             coherence_series = [h["coherence"] for h in history]
+            
+            # ------------------------------------------
+            # Erosion Signal: Negative change in Coherence (dK/dt)
+            # ------------------------------------------
+            w_grad_series = []
+
+            for i in range(len(coherence_series)):
+                if i == 0:
+                    w_grad_series.append(0)
+                else:
+                    delta = coherence_series[i] - coherence_series[i-1]
+                    w_grad_series.append(-delta)  # negative change = erosion signal
+                    
+            # ------------------------------------------
+            # Stability Series: Combined Signal
+            # ------------------------------------------
+            stability_series = [
+                h["coherence"] * (1 - (sum(h["load"].values()) / len(h["load"])))
+                for h in history
+            ]
+            
             fig = go.Figure()
 
-            fig.add_trace(go.Scatter(
-                y=coherence_series,
-                mode="lines",
-                name="Coherence (K)"
-            ))
-
+            # 1. Event Intensity (ΔZ)
             fig.add_trace(go.Scatter(
                 y=event_intensity_series,
                 mode="lines",
-                name="Event Intensity",
+                name="Event Intensity (ΔZ)",
                 line=dict(dash="dot")
             ))
+
+            # 2. Early Warning Indicator (W_grad)
+            fig.add_trace(go.Scatter(
+                y=w_grad_series,
+                mode="lines",
+                name="Early Warning (W)"
+            ))
+
+            # 3. Stability (St)
+            fig.add_trace(go.Scatter(
+                y=stability_series,
+                mode="lines",
+                name="Stability (St)"
+            ))
+
+            fig.update_layout(
+                height=250,
+                margin=dict(l=20, r=20, t=40, b=20),
+                legend=dict(orientation="h")
+            )
 
             st.plotly_chart(fig, use_container_width=True)
 
         # ------------------------------------------
-        # Netzwerk-Plot
+        # Netzwork-Plot
         # ------------------------------------------
         with col_right:
             st.plotly_chart(
