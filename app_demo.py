@@ -268,69 +268,120 @@ elif scenario["type"] == "energy":
         # Row 2: EW lead-time box – always visible, directly below metrics
         # ------------------------------------------
         # Find ALL EW-spike / Stability-drop pairs across the full timeline
+        # Fix 1: normalize per local window to avoid early spikes being suppressed
+        # Fix 2: show active pair (spike seen, drop not yet reached) OR last completed pair
         # ------------------------------------------
         health_series_pre = [h["system_health"] for h in history]
         n_pre = len(health_series_pre)
         raw_ew_pre = [0.0] + [max(0.0, health_series_pre[i-1] - health_series_pre[i]) for i in range(1, n_pre)]
+
+        # Smooth over 3-step window
         ew_smooth_pre = [sum(raw_ew_pre[max(0,i-2):i+1]) / len(raw_ew_pre[max(0,i-2):i+1]) for i in range(n_pre)]
-        ew_max_pre = max(ew_smooth_pre) if max(ew_smooth_pre) > 0 else 1.0
-        ew_norm_pre = [v / ew_max_pre for v in ew_smooth_pre]
+
+        # Normalize per local rolling window (12 steps) instead of global max
+        # This prevents large later spikes from suppressing early warnings
+        ew_norm_pre = []
+        for i in range(n_pre):
+            local_window = ew_smooth_pre[max(0, i-11):i+1]
+            local_max = max(local_window) if local_window else 1.0
+            # Also consider a small absolute threshold so tiny changes don't normalize to 1.0
+            local_max = max(local_max, 0.02)
+            ew_norm_pre.append(ew_smooth_pre[i] / local_max)
+
         stab_pre = health_series_pre
 
-        EW_THRESHOLD   = 0.25
+        EW_THRESHOLD   = 0.35   # slightly higher threshold for local normalization
         STAB_THRESHOLD = 0.6
 
         def find_all_ew_pairs(ew_norm, stab, ew_thr, stab_thr):
-            """Find all (ew_spike, stab_drop, lead_months) triples."""
+            """Find all (ew_spike, stab_drop, lead_months) triples.
+            Also returns open pairs where spike occurred but drop not yet seen."""
             pairs = []
+            open_pair = None  # spike seen, waiting for drop
             i = 1
             while i < len(ew_norm):
-                # Find next EW spike
                 if ew_norm[i] > ew_thr and ew_norm[i-1] <= ew_thr:
                     spike = i
-                    # Find next Stability drop after this spike
-                    for j in range(spike, len(stab)):
+                    found_drop = False
+                    for j in range(spike + 1, len(stab)):
                         if stab[j] < stab_thr and stab[j-1] >= stab_thr:
                             lead = j - spike
                             if lead >= 0:
                                 pairs.append((spike, j, lead))
-                            # Advance i past this drop to find next cycle
                             i = j + 1
+                            found_drop = True
                             break
-                    else:
+                    if not found_drop:
+                        open_pair = (spike, None, None)
                         i += 1
                 else:
                     i += 1
-            return pairs
+            return pairs, open_pair
 
-        all_pairs = find_all_ew_pairs(ew_norm_pre, stab_pre, EW_THRESHOLD, STAB_THRESHOLD)
-
-        # Show the pair most relevant to current step
         current_step_idx = st.session_state["step"]
-        relevant_pair = None
-        if all_pairs:
-            # Find pair whose EW spike is closest to (but not after) current step
-            before = [(s, d, l) for s, d, l in all_pairs if s <= current_step_idx]
-            relevant_pair = before[-1] if before else all_pairs[0]
 
-        if relevant_pair and relevant_pair[2] > 0:
-            r_spike, r_drop, r_lead = relevant_pair
+        # Find pairs using only data up to current step (simulate real-time view)
+        all_pairs, open_pair = find_all_ew_pairs(
+            ew_norm_pre[:current_step_idx + 1],
+            stab_pre[:current_step_idx + 1],
+            EW_THRESHOLD, STAB_THRESHOLD
+        )
+
+        # Determine what to show:
+        # Priority 1: active pair – EW spike visible but drop not yet reached
+        # Priority 2: last completed pair that is still "recent" (drop was within last 6 steps)
+        # Priority 3: nothing (too old)
+        display_pair = None
+        display_open = False
+
+        if open_pair is not None:
+            # EW signal fired but stability hasn't dropped yet – show prospective warning
+            display_pair = open_pair
+            display_open = True
+        elif all_pairs:
+            last = all_pairs[-1]
+            _, last_drop, _ = last
+            if current_step_idx - last_drop <= 6:
+                # Drop happened recently – keep showing it
+                display_pair = last
+                display_open = False
+
+        if display_pair:
+            r_spike = display_pair[0]
             r_month_spike = MONTHS[r_spike] if r_spike < len(MONTHS) else ""
-            st.markdown(
-                f"<div style='"
-                f"background:rgba(244,162,97,0.12);"
-                f"border-left:3px solid #f4a261;"
-                f"border-radius:0 6px 6px 0;"
-                f"padding:8px 14px;"
-                f"font-size:13px;"
-                f"color:var(--color-text-primary);"
-                f"margin-bottom:8px;"
-                f"'>"
-                f"💡 <strong>Early Warning</strong> ({r_month_spike}) signaled structural weakening "
-                f"<strong>{r_lead} months</strong> before Stability visibly dropped."
-                f"</div>",
-                unsafe_allow_html=True
-            )
+            if display_open:
+                # Prospective: we know EW fired, drop hasn't happened yet
+                steps_since_spike = current_step_idx - r_spike
+                st.markdown(
+                    f"<div style='"
+                    f"background:rgba(244,162,97,0.15);"
+                    f"border-left:3px solid #f4a261;"
+                    f"border-radius:0 6px 6px 0;"
+                    f"padding:8px 14px; font-size:13px;"
+                    f"color:var(--color-text-primary); margin-bottom:8px;"
+                    f"'>"
+                    f"⚠️ <strong>Early Warning active</strong> since {r_month_spike} "
+                    f"— structural weakening detected "
+                    f"<strong>{steps_since_spike} month{'s' if steps_since_spike != 1 else ''} ago</strong>. "
+                    f"Stability drop not yet confirmed."
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+            else:
+                r_lead = display_pair[2]
+                st.markdown(
+                    f"<div style='"
+                    f"background:rgba(244,162,97,0.12);"
+                    f"border-left:3px solid #f4a261;"
+                    f"border-radius:0 6px 6px 0;"
+                    f"padding:8px 14px; font-size:13px;"
+                    f"color:var(--color-text-primary); margin-bottom:8px;"
+                    f"'>"
+                    f"💡 <strong>Early Warning</strong> ({r_month_spike}) signaled structural weakening "
+                    f"<strong>{r_lead} months</strong> before Stability visibly dropped."
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
 
         # Row 3: chart left, network right – equal width
         col_left, col_right = st.columns([1, 1])
@@ -344,18 +395,21 @@ elif scenario["type"] == "energy":
             health_series = [h["system_health"] for h in history]
             n = len(health_series)
 
-            # Early Warning: smoothed rate-of-decline, normalized [0,1]
+            # Early Warning: smoothed rate-of-decline, locally normalized
             raw_ew = [0.0] + [max(0.0, health_series[i-1] - health_series[i]) for i in range(1, n)]
             ew_smooth = [sum(raw_ew[max(0,i-2):i+1]) / len(raw_ew[max(0,i-2):i+1]) for i in range(n)]
-            ew_max = max(ew_smooth) if max(ew_smooth) > 0 else 1.0
-            ew_norm = [v / ew_max for v in ew_smooth]
+            # Local rolling normalization (12-step window) – early spikes stay visible
+            ew_norm = []
+            for i in range(n):
+                local_win = ew_smooth[max(0, i-11):i+1]
+                local_max = max(max(local_win) if local_win else 1.0, 0.02)
+                ew_norm.append(ew_smooth[i] / local_max)
 
             # Stability = system health directly (0-1)
             stability_norm = health_series
 
-            # All EW/Stability pairs
-            all_pairs_chart = find_all_ew_pairs(ew_norm, stability_norm, EW_THRESHOLD, STAB_THRESHOLD)
-            # Also expose first pair for backward compat
+            # All EW/Stability pairs – unpack tuple (pairs, open_pair)
+            all_pairs_chart, _ = find_all_ew_pairs(ew_norm, stability_norm, EW_THRESHOLD, STAB_THRESHOLD)
             ew_first_spike  = all_pairs_chart[0][0] if all_pairs_chart else None
             stab_first_drop = all_pairs_chart[0][1] if all_pairs_chart else None
             lead_months     = all_pairs_chart[0][2] if all_pairs_chart else None
