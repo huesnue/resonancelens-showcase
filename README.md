@@ -2,6 +2,11 @@
 
 **EN** | [DE](#deutsch)
 
+[![Python](https://img.shields.io/badge/Python-3.9%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.43%2B-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Streamlit%20Cloud-FF4B4B?logo=streamlit&logoColor=white)](https://resonanzraum-showcase-pknuehcutptzma7vsov6gg.streamlit.app/)
+
 ---
 
 ## Why systems fail before they break
@@ -11,6 +16,8 @@ Most systems don't collapse suddenly — they erode structurally long before any
 This project demonstrates one core idea:
 
 > The difference between a stable and a failing system can be detected **before** failure happens.
+
+### 🚀 [Try the live demo →](https://resonanzraum-showcase-pknuehcutptzma7vsov6gg.streamlit.app/)
 
 ![Demo Screenshot](assets/demo_screenshot.png)
 
@@ -123,7 +130,7 @@ This is a first public showcase. Future work:
 
 Interested in the idea, feedback, or collaboration?
 
-→ [Connect on LinkedIn](https://www.linkedin.com/in/huesnue-turkac)
+→ [Connect on LinkedIn](https://www.linkedin.com/in/hüsnü-turkac-1b2a11331)
 
 ---
 
@@ -145,6 +152,15 @@ MIT License
 # Resonanzraum Showcase
 
 [EN](#resonanzraum-showcase) | **DE**
+
+[![Python](https://img.shields.io/badge/Python-3.9%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.43%2B-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Streamlit%20Cloud-FF4B4B?logo=streamlit&logoColor=white)](https://resonanzraum-showcase-pknuehcutptzma7vsov6gg.streamlit.app/)
+
+---
+
+### 🚀 [Live Demo ausprobieren →](https://resonanzraum-showcase-pknuehcutptzma7vsov6gg.streamlit.app/)
 
 ---
 
@@ -252,7 +268,7 @@ Dies ist ein erster öffentlicher Showcase. Geplante nächste Schritte:
 
 Interesse am Ansatz, Feedback oder Zusammenarbeit?
 
-→ [Auf LinkedIn verbinden](https://www.linkedin.com/in/huesnue-turkac)
+→ [Auf LinkedIn verbinden](https://www.linkedin.com/in/hüsnü-turkac-1b2a11331)
 
 ---
 
