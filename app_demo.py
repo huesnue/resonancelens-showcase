@@ -69,13 +69,15 @@ st.title("Why systems fail before they break")
 st.markdown("""
 Most systems don't collapse suddenly.
 
-They start to **erode structurally** long before anything becomes visible.
+They erode **structurally** — long before anything becomes visible on the surface.
 
-This demo shows two signals that emerge **before** the system breaks:
+This demo tracks two signals that emerge **before** the system breaks:
 
-- a **Structural Drift** signal — detects early change in system behavior
-- an **Early Warning** signal — confirms structural weakening
-- while the system still appears **stable on the surface**
+- a **Structural Change** signal — detects early internal shifts before they become observable
+- an **Early Warning** signal — confirms that structural weakening is accumulating
+- while **Stability** still looks normal from the outside
+
+Traditional monitoring reacts to Stability. This demo shows why the first two signals matter.
 """)
 
 # ------------------------------------------
