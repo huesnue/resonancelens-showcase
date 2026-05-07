@@ -126,23 +126,224 @@ if scenario["type"] == "basic":
             *run_stable(),
             *run_collapse()
         )
+        st.session_state["basic_step"] = 0
+        st.session_state["basic_mode"] = "manual"
 
-    if "basic_data" in st.session_state:
+    if "basic_data" not in st.session_state:
+        st.info("Press '▶ Run Simulation' to start.")
+        st.stop()
 
-        G1, hist_stable, load1, edges1, G2, hist_collapse, load2, edges2 = st.session_state["basic_data"]
+    G1, hist_stable, load1, edges1, G2, hist_collapse, load2, edges2 = st.session_state["basic_data"]
 
-        st.divider()
-        st.subheader("System Structure")
+    if "basic_step" not in st.session_state:
+        st.session_state["basic_step"] = 0
+    if "basic_mode" not in st.session_state:
+        st.session_state["basic_mode"] = "manual"
 
-        col1_es, col2_es = st.columns(2)
-        col1_es.plotly_chart(plot_network(G1, load1, edges1), use_container_width=True)
-        col2_es.plotly_chart(plot_network(G2, load2, edges2), use_container_width=True)
+    n_steps = len(hist_stable["stability"])
+    max_basic = n_steps - 1
 
-        st.subheader("Early Signals")
+    st.divider()
+    st.subheader("Two systems. Same starting point. Different outcomes.")
 
-        col1, col2 = st.columns(2)
-        col1.plotly_chart(plot_series(hist_stable["drift_signal"], "Structural Drift – System A"), use_container_width=True)
-        col2.plotly_chart(plot_series(hist_collapse["drift_signal"], "Structural Drift – System B"), use_container_width=True)
+    # ------------------------------------------
+    # Controls + Lead-time box
+    # ------------------------------------------
+    # Compute lead time for System B (collapsing)
+    stab_b = hist_collapse["stability"]
+    ew_b   = hist_collapse["early_warning"]
+    ew_max_b = max(ew_b) if max(ew_b) > 0 else 1.0
+    ew_norm_b = [v / ew_max_b for v in ew_b]
+
+    EW_THR, ST_THR = 0.3, 0.6
+    ew_spike_b  = next((i for i in range(1, n_steps) if ew_norm_b[i] > EW_THR and ew_norm_b[i-1] <= EW_THR), None)
+    stab_drop_b = next((i for i in range(1, n_steps) if stab_b[i] < ST_THR and stab_b[i-1] >= ST_THR), None)
+    lead_b = (stab_drop_b - ew_spike_b) if (ew_spike_b and stab_drop_b) else None
+
+    # Controls row
+    bc1, bc2, bc3 = st.columns([1, 1, 3])
+    is_basic_playing = st.session_state["basic_mode"] == "playback"
+
+    with bc1:
+        if st.button("▶ Play", key="basic_play", disabled=is_basic_playing, use_container_width=True):
+            st.session_state["basic_mode"] = "playback"
+            st.session_state["basic_step"] = 0
+            st.rerun()
+    with bc2:
+        if st.button("⏸ Step", key="basic_step_btn", disabled=not is_basic_playing, use_container_width=True):
+            st.session_state["basic_mode"] = "manual"
+            st.rerun()
+    with bc3:
+        if not is_basic_playing:
+            new_val = st.slider(
+                "Step", 0, max_basic,
+                value=st.session_state["basic_step"],
+                label_visibility="collapsed"
+            )
+            st.session_state["basic_step"] = new_val
+
+    # Lead-time box
+    if lead_b and lead_b > 0 and ew_spike_b is not None:
+        active = st.session_state["basic_step"] >= ew_spike_b and (stab_drop_b is None or st.session_state["basic_step"] < stab_drop_b)
+        if active:
+            st.markdown(
+                f"<div style='background:rgba(244,162,97,0.15);border-left:3px solid #f4a261;"
+                f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;margin-bottom:8px;'>"
+                f"⚠️ <strong>Early Warning active</strong> — structural weakening detected in System B. "
+                f"Stability has not yet dropped.</div>",
+                unsafe_allow_html=True
+            )
+        elif st.session_state["basic_step"] >= (stab_drop_b or 0):
+            st.markdown(
+                f"<div style='background:rgba(244,162,97,0.12);border-left:3px solid #f4a261;"
+                f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;margin-bottom:8px;'>"
+                f"💡 <strong>Early Warning</strong> signaled structural weakening "
+                f"<strong>{lead_b} steps</strong> before Stability visibly dropped in System B."
+                f"</div>",
+                unsafe_allow_html=True
+            )
+
+    # ------------------------------------------
+    # Playback fragment
+    # ------------------------------------------
+    run_every_b = 1.2 if is_basic_playing else None
+
+    @st.fragment(run_every=run_every_b)
+    def basic_panel(hist_stable, hist_collapse, G1, G2, load1, load2, edges1, edges2, n_steps, max_basic,
+                    ew_norm_b, stab_b, ew_spike_b, stab_drop_b):
+
+        is_playing = st.session_state["basic_mode"] == "playback"
+
+        if is_playing:
+            cur = st.session_state["basic_step"]
+            if cur < max_basic:
+                st.session_state["basic_step"] = cur + 1
+            else:
+                st.session_state["basic_mode"] = "manual"
+                st.rerun()
+
+        t = st.session_state["basic_step"]
+
+        # ------------------------------------------
+        # Metrics row
+        # ------------------------------------------
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Step", f"{t + 1} / {n_steps}")
+        m2.metric("System A – Stability", f"{hist_stable['stability'][t]:.0%}")
+        m3.metric("System B – Stability", f"{hist_collapse['stability'][t]:.0%}")
+        delta = hist_collapse["stability"][t] - hist_stable["stability"][t]
+        m4.metric("Divergence", f"{abs(delta):.0%}", delta=f"{'B weaker' if delta < 0 else 'converging'}", delta_color="inverse")
+
+        # ------------------------------------------
+        # Networks – update every 2 steps, stable key prevents Plotly rebuild
+        # when the graph hasn't changed → no flicker
+        # ------------------------------------------
+        net_step = (t // 2) * 2
+
+        net_col1, net_col2 = st.columns(2)
+        with net_col1:
+            st.caption("**System A** – stable under constant stress")
+            fig_net_a = plot_network(hist_stable["graphs"][net_step], load1, edges1)
+            fig_net_a.update_layout(height=280, margin=dict(l=0, r=0, t=0, b=0),
+                                    paper_bgcolor="rgba(0,0,0,0)",
+                                    plot_bgcolor="rgba(0,0,0,0)")
+            st.plotly_chart(fig_net_a, use_container_width=True,
+                            key=f"net_a_{net_step}")
+        with net_col2:
+            st.caption("**System B** – increasing stress, structural erosion")
+            fig_net_b = plot_network(hist_collapse["graphs"][net_step], load2, edges2)
+            fig_net_b.update_layout(height=280, margin=dict(l=0, r=0, t=0, b=0),
+                                    paper_bgcolor="rgba(0,0,0,0)",
+                                    plot_bgcolor="rgba(0,0,0,0)")
+            st.plotly_chart(fig_net_b, use_container_width=True,
+                            key=f"net_b_{net_step}")
+
+        # ------------------------------------------
+        # Signal chart: both systems, both signals
+        # ------------------------------------------
+        xs = list(range(n_steps))
+        stab_a = hist_stable["stability"]
+        ew_a_raw = hist_stable["early_warning"]
+        ew_a_max = max(ew_a_raw) if max(ew_a_raw) > 0 else 1.0
+        ew_a_norm = [v / ew_a_max for v in ew_a_raw]
+        ew_b_norm_full = ew_norm_b
+
+        fig = go.Figure()
+
+        # Background: mark collapse zone
+        if stab_drop_b:
+            fig.add_vrect(x0=stab_drop_b, x1=n_steps - 1,
+                          fillcolor="#E24B4A", opacity=0.07, layer="below", line_width=0)
+
+        # Stability traces
+        fig.add_trace(go.Scatter(
+            x=xs[:t+1], y=stab_a[:t+1], mode="lines",
+            name="Stability A", line=dict(color="#4fc3f7", width=2.5),
+        ))
+        fig.add_trace(go.Scatter(
+            x=xs[:t+1], y=stab_b[:t+1], mode="lines",
+            name="Stability B", line=dict(color="#ff6b6b", width=2.5),
+        ))
+
+        # Early Warning traces
+        fig.add_trace(go.Scatter(
+            x=xs[:t+1], y=ew_a_norm[:t+1], mode="lines",
+            name="EW – System A", line=dict(color="#74c0fc", width=1.5, dash="dot"),
+            fill="tozeroy", fillcolor="rgba(116,192,252,0.05)",
+        ))
+        fig.add_trace(go.Scatter(
+            x=xs[:t+1], y=ew_b_norm_full[:t+1], mode="lines",
+            name="EW – System B", line=dict(color="#f4a261", width=1.5, dash="dot"),
+            fill="tozeroy", fillcolor="rgba(244,162,97,0.08)",
+        ))
+
+        # EW spike annotation for B
+        if ew_spike_b and t >= ew_spike_b:
+            fig.add_vline(x=ew_spike_b, line_width=1, line_dash="dot",
+                          line_color="#f4a261", opacity=0.8,
+                          annotation_text="EW signal B",
+                          annotation_position="top right",
+                          annotation_font_size=9,
+                          annotation_font_color="#f4a261")
+
+        # Stability drop annotation for B
+        if stab_drop_b and t >= stab_drop_b:
+            fig.add_vline(x=stab_drop_b, line_width=1, line_dash="dot",
+                          line_color="#ff6b6b", opacity=0.8,
+                          annotation_text="Stability drops",
+                          annotation_position="top left",
+                          annotation_font_size=9,
+                          annotation_font_color="#ff6b6b")
+
+        # Lead bracket
+        if ew_spike_b and stab_drop_b and t >= stab_drop_b and lead_b and lead_b > 0:
+            fig.add_shape(type="line", x0=ew_spike_b, x1=stab_drop_b,
+                          y0=0.97, y1=0.97, line=dict(color="#888", width=1, dash="dot"))
+            fig.add_annotation(x=(ew_spike_b + stab_drop_b)//2, y=1.01,
+                                text=f"{lead_b} steps ahead",
+                                showarrow=False, font=dict(size=10, color="#aaaaaa"))
+
+        # Current step marker
+        fig.add_vline(x=t, line_width=1.5, line_dash="dash",
+                      line_color="rgba(255,255,255,0.3)")
+
+        fig.update_layout(
+            height=240,
+            margin=dict(l=20, r=20, t=10, b=60),
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            yaxis=dict(range=[0, 1.08], showgrid=True,
+                       gridcolor="rgba(128,128,128,0.1)",
+                       tickformat=".0%", tickfont=dict(size=9)),
+            xaxis=dict(tickfont=dict(size=9), showgrid=False,
+                       title="Simulation step"),
+            legend=dict(orientation="h", yanchor="bottom", y=-0.55,
+                        xanchor="center", x=0.5, font=dict(size=10)),
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+    basic_panel(hist_stable, hist_collapse, G1, G2, load1, load2, edges1, edges2,
+                n_steps, max_basic, ew_norm_b, stab_b, ew_spike_b, stab_drop_b)
 
 
 # ==========================================
