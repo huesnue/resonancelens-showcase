@@ -3,15 +3,6 @@ from scenarios.energy_events import EVENTS
 import random
 import math
 import copy
-import logging
-
-logging.basicConfig(
-    filename='simulation.log',
-    filemode='w',
-    level=logging.INFO,
-    format='%(message)s'
-)
-log = logging.getLogger('energy_sim')
 
 
 def compute_system_health(nodes):
@@ -595,30 +586,6 @@ def run_energy_simulation(nodes, edges, steps=10, month_to_step=None):
                 edge_state[key] = "strong"
             else:
                 edge_state[key] = "new"
-
-        # ------------------------------------------
-        # LOGGING
-        # ------------------------------------------
-        active_nodes_count = sum(1 for n in nodes.values() if n["status"] != "failed")
-        active_edges_count = sum(1 for e in edges if e["status"] == "active")
-        failed_nodes = [nid for nid, n in nodes.items() if n["status"] == "failed"]
-        avg_stress = sum(n.get("stress", 0) for n in nodes.values() if n["status"] != "failed") / max(active_nodes_count, 1)
-        ms_summary = ", ".join(f"{c}={v:.2f}" for c, v in sorted(market_stress.items()) if v > 0.01)
-        active_event_names = []
-        for event in EVENTS:
-            if "month" not in event or event["month"] not in (month_to_step or {}):
-                continue
-            es = month_to_step[event["month"]]
-            if step >= es and step < es + event.get("duration", 1):
-                active_event_names.append(event["name"])
-
-        log.info(
-            f"STEP {step:02d} | {list(month_to_step.keys())[step] if month_to_step and step < len(month_to_step) else '?':8s} | "
-            f"health={system_health:.3f} | nodes={active_nodes_count:02d}/{len(nodes)} | edges={active_edges_count:02d} | "
-            f"avg_stress={avg_stress:5.1f} | market=[{ms_summary}] | "
-            f"failed={failed_nodes if failed_nodes else '-'} | "
-            f"events={active_event_names if active_event_names else '-'}"
-        )
 
         # ------------------------------------------
         # SNAPSHOT

@@ -160,57 +160,14 @@ if scenario["type"] == "basic":
     stab_drop_b = next((i for i in range(1, n_steps) if stab_b[i] < ST_THR and stab_b[i-1] >= ST_THR), None)
     lead_b = (stab_drop_b - ew_spike_b) if (ew_spike_b and stab_drop_b) else None
 
-    # Controls row
-    bc1, bc2, bc3 = st.columns([1, 1, 3])
-    is_basic_playing = st.session_state["basic_mode"] == "playback"
-
-    with bc1:
-        if st.button("▶ Play", key="basic_play", disabled=is_basic_playing, use_container_width=True):
-            st.session_state["basic_mode"] = "playback"
-            st.session_state["basic_step"] = 0
-            st.rerun()
-    with bc2:
-        if st.button("⏸ Step", key="basic_step_btn", disabled=not is_basic_playing, use_container_width=True):
-            st.session_state["basic_mode"] = "manual"
-            st.rerun()
-    with bc3:
-        if not is_basic_playing:
-            new_val = st.slider(
-                "Step", 0, max_basic,
-                value=st.session_state["basic_step"],
-                label_visibility="collapsed"
-            )
-            st.session_state["basic_step"] = new_val
-
-    # Lead-time box
-    if lead_b and lead_b > 0 and ew_spike_b is not None:
-        active = st.session_state["basic_step"] >= ew_spike_b and (stab_drop_b is None or st.session_state["basic_step"] < stab_drop_b)
-        if active:
-            st.markdown(
-                f"<div style='background:rgba(244,162,97,0.15);border-left:3px solid #f4a261;"
-                f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;margin-bottom:8px;'>"
-                f"⚠️ <strong>Early Warning active</strong> — structural weakening detected in System B. "
-                f"Stability has not yet dropped.</div>",
-                unsafe_allow_html=True
-            )
-        elif st.session_state["basic_step"] >= (stab_drop_b or 0):
-            st.markdown(
-                f"<div style='background:rgba(244,162,97,0.12);border-left:3px solid #f4a261;"
-                f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;margin-bottom:8px;'>"
-                f"💡 <strong>Early Warning</strong> signaled structural weakening "
-                f"<strong>{lead_b} steps</strong> before Stability visibly dropped in System B."
-                f"</div>",
-                unsafe_allow_html=True
-            )
-
     # ------------------------------------------
-    # Playback fragment
+    # Playback fragment – controls + content in one block to avoid slider flicker
     # ------------------------------------------
-    run_every_b = 1.2 if is_basic_playing else None
+    run_every_b = 1.2 if st.session_state["basic_mode"] == "playback" else None
 
     @st.fragment(run_every=run_every_b)
     def basic_panel(hist_stable, hist_collapse, G1, G2, load1, load2, edges1, edges2, n_steps, max_basic,
-                    ew_norm_b, stab_b, ew_spike_b, stab_drop_b):
+                    ew_norm_b, stab_b, ew_spike_b, stab_drop_b, lead_b):
 
         is_playing = st.session_state["basic_mode"] == "playback"
 
@@ -223,6 +180,55 @@ if scenario["type"] == "basic":
                 st.rerun()
 
         t = st.session_state["basic_step"]
+
+        # Controls – inside fragment so slider never disappears
+        bc1, bc2, bc3 = st.columns([1, 1, 3])
+        with bc1:
+            if st.button("▶ Play", key="basic_play", disabled=is_playing, width='stretch'):
+                st.session_state["basic_mode"] = "playback"
+                st.session_state["basic_step"] = 0
+                st.rerun()
+        with bc2:
+            if st.button("⏸ Step", key="basic_step_btn", disabled=not is_playing, width='stretch'):
+                st.session_state["basic_mode"] = "manual"
+                st.rerun()
+        with bc3:
+            if is_playing:
+                # During playback: show progress bar instead of slider
+                # (slider value can't be updated programmatically in Streamlit)
+                progress = t / max_basic if max_basic > 0 else 0
+                st.progress(progress, text=f"Step {t + 1} / {n_steps}")
+            else:
+                new_val = st.slider(
+                    "Step", 0, max_basic,
+                    value=t,
+                    label_visibility="collapsed",
+                    key=f"basic_slider_{t}"
+                )
+                if new_val != t:
+                    st.session_state["basic_step"] = new_val
+                    t = new_val
+
+        # Lead-time box
+        if lead_b and lead_b > 0 and ew_spike_b is not None:
+            active = t >= ew_spike_b and (stab_drop_b is None or t < stab_drop_b)
+            if active:
+                st.markdown(
+                    f"<div style='background:rgba(244,162,97,0.15);border-left:3px solid #f4a261;"
+                    f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;margin-bottom:8px;'>"
+                    f"⚠️ <strong>Early Warning active</strong> — structural weakening detected in System B. "
+                    f"Stability has not yet dropped.</div>",
+                    unsafe_allow_html=True
+                )
+            elif t >= (stab_drop_b or 0):
+                st.markdown(
+                    f"<div style='background:rgba(244,162,97,0.12);border-left:3px solid #f4a261;"
+                    f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;margin-bottom:8px;'>"
+                    f"💡 <strong>Early Warning</strong> signaled structural weakening "
+                    f"<strong>{lead_b} steps</strong> before Stability visibly dropped in System B."
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
 
         # ------------------------------------------
         # Metrics row
@@ -247,7 +253,7 @@ if scenario["type"] == "basic":
             fig_net_a.update_layout(height=280, margin=dict(l=0, r=0, t=0, b=0),
                                     paper_bgcolor="rgba(0,0,0,0)",
                                     plot_bgcolor="rgba(0,0,0,0)")
-            st.plotly_chart(fig_net_a, use_container_width=True,
+            st.plotly_chart(fig_net_a, width='stretch',
                             key=f"net_a_{net_step}")
         with net_col2:
             st.caption("**System B** – increasing stress, structural erosion")
@@ -255,7 +261,7 @@ if scenario["type"] == "basic":
             fig_net_b.update_layout(height=280, margin=dict(l=0, r=0, t=0, b=0),
                                     paper_bgcolor="rgba(0,0,0,0)",
                                     plot_bgcolor="rgba(0,0,0,0)")
-            st.plotly_chart(fig_net_b, use_container_width=True,
+            st.plotly_chart(fig_net_b, width='stretch',
                             key=f"net_b_{net_step}")
 
         # ------------------------------------------
@@ -340,10 +346,10 @@ if scenario["type"] == "basic":
             legend=dict(orientation="h", yanchor="bottom", y=-0.55,
                         xanchor="center", x=0.5, font=dict(size=10)),
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
     basic_panel(hist_stable, hist_collapse, G1, G2, load1, load2, edges1, edges2,
-                n_steps, max_basic, ew_norm_b, stab_b, ew_spike_b, stab_drop_b)
+                n_steps, max_basic, ew_norm_b, stab_b, ew_spike_b, stab_drop_b, lead_b)
 
 
 # ==========================================
@@ -414,12 +420,12 @@ elif scenario["type"] == "energy":
         # Row 1: controls + metrics in one compact line
         ctrl1, ctrl2, ctrl3, m1, m2, m3 = st.columns([1, 1, 2, 1, 1, 2])
         with ctrl1:
-            if st.button("▶ Play", disabled=is_playing, use_container_width=True):
+            if st.button("▶ Play", disabled=is_playing, width='stretch'):
                 st.session_state["mode"] = "playback"
                 st.session_state["step"] = 0
                 st.rerun()
         with ctrl2:
-            if st.button("⏸ Step", disabled=not is_playing, use_container_width=True):
+            if st.button("⏸ Step", disabled=not is_playing, width='stretch'):
                 st.session_state["mode"] = "manual"
                 st.rerun()
         with ctrl3:
@@ -716,7 +722,7 @@ elif scenario["type"] == "energy":
                             xanchor="center", x=0.5, font=dict(size=11)),
             )
 
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
 
             pass  # EW box is shown above the columns
 
@@ -777,7 +783,7 @@ elif scenario["type"] == "energy":
                     pos=current.get("pos"),
                     cluster_anchors=current.get("cluster_anchors")
                 ),
-                use_container_width=True
+                width='stretch'
             )
 
             pass  # pills shown below columns
