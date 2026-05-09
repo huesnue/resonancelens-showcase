@@ -2,11 +2,6 @@
 
 **EN** | [DE](#deutsch)
 
-[![Python](https://img.shields.io/badge/Python-3.9%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.43%2B-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Streamlit%20Cloud-FF4B4B?logo=streamlit&logoColor=white)](https://resonanzraum-showcase-pknuehcutptzma7vsov6gg.streamlit.app/)
-
 ---
 
 ## Why systems fail before they break
@@ -17,19 +12,19 @@ This project demonstrates one core idea:
 
 > The difference between a stable and a failing system can be detected **before** failure happens.
 
-### 🚀 [Try the live demo →](https://resonanzraum-showcase-pknuehcutptzma7vsov6gg.streamlit.app/)
-
 ![Demo Screenshot](assets/demo_screenshot.png)
 
 ---
 
 ## 🔍 What this demo shows
 
-Two scenarios, one insight:
+Three scenarios, one insight:
 
 **Basic Demo** — Two network systems start identically. One remains stable under constant stress. One collapses under increasing pressure. The Early Warning signal diverges **months before** the Stability signal drops — making the coming failure visible long before it occurs.
 
 **Energy Crisis 2021–2026** — A simulated European energy supply network driven by 28 real-world geopolitical events: the Ukraine war, Nord Stream sabotage, LNG rerouting, the US-Israel strikes on Iran, the Strait of Hormuz closure, and more. Watch how shocks propagate through the network — and how structural signals respond **before** system health visibly collapses.
+
+**Pandemic 2020–2030** — A simulated European public health and economic network across 20 country nodes and 5 regional clusters. Phase 1 (2020–2024) reconstructs real events: COVID-19 waves, the Omicron shock, Mpox outbreaks, and the H5N1 escalation. Phase 2 (2025–2030) projects three structural pathways — Resilient, Drifting, and Cascade — driven by stochastic event generation. A dual-layer signal tracks both health system capacity and economic output simultaneously.
 
 ### Signals tracked
 
@@ -78,17 +73,20 @@ It is about detecting *when it starts to fail* — before anyone notices.
 This is a **simplified showcase version** — designed to illustrate behavior, not to expose the full model.
 
 ```
-core_lite/          # Lightweight network simulation
-scenarios/          # Basic demo + Energy crisis scenario
+core_lite/          # Lightweight network simulation (energy + pandemic)
+scenarios/          # Basic demo, Energy crisis, Pandemic scenario
 visualization/      # Network plot with dynamic layout
+data/               # Node and edge definitions per scenario
 app_demo.py         # Streamlit app
 ```
 
 Key technical choices:
 - Network dynamics: `networkx` spring layout with affinity-driven repositioning
 - Cluster formation: anchor nodes gravitate to center, isolated nodes drift to periphery
-- Events: real-world geopolitical timeline 2021–2026 with supply shocks, alliance shifts, capacity changes
+- Events: real-world timelines with supply shocks, alliance shifts, capacity changes
+- Pandemic projection: Poisson event generation + Beta-distributed intensities across three structural pathways
 - Signals: locally-normalized Early Warning with automatic lead-time detection
+- Dual-layer monitoring (Pandemic): health system capacity and economic output tracked independently
 
 ---
 
@@ -96,7 +94,7 @@ Key technical choices:
 
 This demo is based on the broader **Resonanzraum framework** — a structural approach to detecting instability in complex systems before it becomes observable.
 
-The framework applies to financial networks, organizations, technical platforms, energy infrastructure, and ecosystems. The full model, its formalization, and implementation are **not part of this repository**.
+The framework applies to financial networks, organizations, technical platforms, energy infrastructure, health systems, and ecosystems. The full model, its formalization, and implementation are **not part of this repository**.
 
 ---
 
@@ -108,6 +106,7 @@ In most domains, failure is detected too late — after the fact, not before it:
 - Organizations deteriorate before performance metrics show it
 - Technical platforms fail before monitoring alerts fire
 - Energy systems break before demand forecasts catch it
+- Health systems are overwhelmed before capacity models react
 
 The question this project explores:
 
@@ -117,9 +116,9 @@ The question this project explores:
 
 ## 🧭 Roadmap
 
-This is a first public showcase. Future work:
+This is a public showcase. Planned next steps:
 
-- Real-world data integration
+- Real-world data ingestion and live calibration
 - Domain-specific calibration (finance, organizations, platforms)
 - Extended multi-cycle early warning systems
 - Enterprise version with MARL and live data pipelines
@@ -130,7 +129,7 @@ This is a first public showcase. Future work:
 
 Interested in the idea, feedback, or collaboration?
 
-→ [Connect on LinkedIn](https://www.linkedin.com/in/hüsnü-turkac-1b2a11331)
+→ [Connect on LinkedIn](https://www.linkedin.com/in/huesnue-turkac)
 
 ---
 
@@ -153,15 +152,6 @@ MIT License
 
 [EN](#resonanzraum-showcase) | **DE**
 
-[![Python](https://img.shields.io/badge/Python-3.9%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.43%2B-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Streamlit%20Cloud-FF4B4B?logo=streamlit&logoColor=white)](https://resonanzraum-showcase-pknuehcutptzma7vsov6gg.streamlit.app/)
-
----
-
-### 🚀 [Live Demo ausprobieren →](https://resonanzraum-showcase-pknuehcutptzma7vsov6gg.streamlit.app/)
-
 ---
 
 ## Warum Systeme scheitern, bevor sie brechen
@@ -176,11 +166,13 @@ Dieses Projekt veranschaulicht einen zentralen Gedanken:
 
 ## 🔍 Was diese Demo zeigt
 
-Zwei Szenarien, eine Erkenntnis:
+Drei Szenarien, eine Erkenntnis:
 
 **Basic Demo** — Zwei Netzwerksysteme starten identisch. Eines bleibt stabil unter konstantem Stress. Das andere kollabiert unter zunehmendem Druck. Das Early-Warning-Signal divergiert **Monate bevor** das Stabilitätssignal sinkt — die kommende Krise wird sichtbar, lange bevor sie eintritt.
 
 **Energiekrise 2021–2026** — Ein simuliertes europäisches Energieversorgungsnetzwerk, gesteuert durch 28 reale geopolitische Ereignisse: der Ukraine-Krieg, Nord-Stream-Sabotage, LNG-Umleitung, US-israelische Angriffe auf den Iran, Schließung der Straße von Hormuz und mehr. Verfolge, wie sich Schocks durch das Netzwerk ausbreiten — und wie strukturelle Signale reagieren, **bevor** die Systemgesundheit sichtbar einbricht.
+
+**Pandemie 2020–2030** — Ein simuliertes europäisches Gesundheits- und Wirtschaftsnetzwerk mit 20 Länderknoten und 5 regionalen Clustern. Phase 1 (2020–2024) rekonstruiert reale Ereignisse: COVID-19-Wellen, den Omikron-Schock, Mpox-Ausbrüche und die H5N1-Eskalation. Phase 2 (2025–2030) projiziert drei strukturelle Entwicklungspfade — Resilient, Drifting und Cascade — auf Basis stochastischer Ereignisgenerierung. Ein dualer Signallayer beobachtet Gesundheitssystemkapazität und Wirtschaftsleistung gleichzeitig.
 
 ### Gemessene Signale
 
@@ -222,11 +214,21 @@ Es geht darum zu erkennen, *wann es beginnt zu scheitern* — bevor es jemand be
 
 Dieses Repository enthält eine **vereinfachte Showcase-Version** — konzipiert, um Verhalten zu veranschaulichen, nicht um das vollständige Modell offenzulegen.
 
+```
+core_lite/          # Leichtgewichtige Netzwerksimulation (Energie + Pandemie)
+scenarios/          # Basic Demo, Energiekrise, Pandemie-Szenario
+visualization/      # Netzwerk-Plot mit dynamischem Layout
+data/               # Knoten- und Kantendefinitionen je Szenario
+app_demo.py         # Streamlit-App
+```
+
 Wesentliche technische Entscheidungen:
 - Netzwerkdynamik: `networkx` Spring-Layout mit affinitätsgesteuerter Neupositionierung
 - Clusterbildung: Anker-Knoten gravitieren zur Mitte, isolierte Knoten driften an den Rand
-- Events: reale geopolitische Zeitlinie 2021–2026 mit Angebotsschocks, Bündnisverschiebungen und Kapazitätsänderungen
+- Events: reale Zeitlinien mit Angebotsschocks, Bündnisverschiebungen und Kapazitätsänderungen
+- Pandemie-Projektion: Poisson-Ereignisgenerierung + Beta-verteilte Intensitäten über drei Strukturpfade
 - Signale: lokal normiertes Early Warning mit automatischer Vorlaufzeit-Erkennung
+- Dual-Layer-Monitoring (Pandemie): Gesundheitssystemkapazität und Wirtschaftsleistung werden separat erfasst
 
 ---
 
@@ -234,7 +236,7 @@ Wesentliche technische Entscheidungen:
 
 Diese Demo basiert auf dem übergeordneten **Resonanzraum-Framework** — einem strukturellen Ansatz zur Erkennung von Instabilität in komplexen Systemen, bevor sie beobachtbar wird.
 
-Das Framework gilt für Finanznetzwerke, Organisationen, technische Plattformen, Energieinfrastruktur und Ökosysteme. Das vollständige Modell, seine Formalisierung und Implementierung sind **nicht Teil dieses Repositories**.
+Das Framework gilt für Finanznetzwerke, Organisationen, technische Plattformen, Energieinfrastruktur, Gesundheitssysteme und Ökosysteme. Das vollständige Modell, seine Formalisierung und Implementierung sind **nicht Teil dieses Repositories**.
 
 ---
 
@@ -246,6 +248,7 @@ In den meisten Bereichen wird Scheitern zu spät erkannt — im Nachhinein, nich
 - Organisationen verfallen, bevor Performance-Metriken es zeigen
 - Technische Plattformen versagen, bevor Monitoring-Alarme ausgelöst werden
 - Energiesysteme brechen, bevor Nachfrageprognosen es erfassen
+- Gesundheitssysteme werden überlastet, bevor Kapazitätsmodelle reagieren
 
 Die Frage, die dieses Projekt untersucht:
 
@@ -255,9 +258,9 @@ Die Frage, die dieses Projekt untersucht:
 
 ## 🧭 Roadmap
 
-Dies ist ein erster öffentlicher Showcase. Geplante nächste Schritte:
+Dies ist ein öffentlicher Showcase. Geplante nächste Schritte:
 
-- Integration realer Daten
+- Integration realer Daten und Live-Kalibrierung
 - Domänenspezifische Kalibrierung (Finanzen, Organisationen, Plattformen)
 - Erweiterte Multi-Zyklus-Frühwarnsysteme
 - Enterprise-Version mit MARL und Live-Datenpipelines
@@ -268,7 +271,7 @@ Dies ist ein erster öffentlicher Showcase. Geplante nächste Schritte:
 
 Interesse am Ansatz, Feedback oder Zusammenarbeit?
 
-→ [Auf LinkedIn verbinden](https://www.linkedin.com/in/hüsnü-turkac-1b2a11331)
+→ [Auf LinkedIn verbinden](https://www.linkedin.com/in/huesnue-turkac)
 
 ---
 

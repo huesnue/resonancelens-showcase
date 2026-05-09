@@ -100,3 +100,8 @@ notebooks/
 # Scripts (optional, falls du Skripte außerhalb von Jupyter hast)
 # --------------------------------------
 scripts/
+
+# --------------------------------------
+# Sonstiges
+# --------------------------------------
+DEPLOYMENT.md

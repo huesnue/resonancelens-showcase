@@ -46,15 +46,22 @@ def plot_network(G, node_load, edge_state, highlight_nodes=None, highlight_edges
     # ------------------------------------------
     edge_traces = []
 
+    # Kanten-Zustände:
+    #   strong = aktiver Fluss vorhanden         → sichtbar, grau
+    #   ready  = aktiv, kein Fluss, gute Stärke  → dünn, sichtbar
+    #   weak   = überlastet oder ausgefallen      → rot, dünn
+    #   new    = inaktiv / sehr schwach           → kaum sichtbar
     color_map = {
         "strong": "#aaaaaa",
+        "ready":  "rgba(160,160,160,0.45)",
         "weak":   "#ff3b3b",
-        "new":    "#0077ff"
+        "new":    "rgba(120,120,120,0.12)"
     }
     width_map = {
         "strong": 1.5,
-        "weak":   0.5,
-        "new":    3.0
+        "ready":  0.9,
+        "weak":   0.8,
+        "new":    0.4
     }
 
     for (u, v) in G.edges():
@@ -144,8 +151,8 @@ def plot_network(G, node_load, edge_state, highlight_nodes=None, highlight_edges
         hover = f"{node}<br>{node_type} · {cluster}"
 
         if node in highlight_nodes:
-            node_colors.append("purple")
-            node_sizes.append(size * 1.5)
+            node_colors.append("#e879f9")
+            node_sizes.append(size * 1.3)
         elif is_isolated:
             node_colors.append("#aaaaaa")
             node_sizes.append(max(4, size * 0.45))
@@ -189,7 +196,58 @@ def plot_network(G, node_load, edge_state, highlight_nodes=None, highlight_edges
         showlegend=False,
         margin=dict(l=0, r=0, t=20, b=0),
         xaxis=dict(showgrid=False, zeroline=False, visible=False),
-        yaxis=dict(showgrid=False, zeroline=False, visible=False)
+        yaxis=dict(showgrid=False, zeroline=False, visible=False),
     )
 
     return fig
+
+
+def network_legend_html():
+    """
+    HTML-Legende für st.markdown — zwei Spalten: Nodes / Connections.
+    Wird direkt unter dem Network-Plot gerendert.
+    """
+    node_items = [
+        ("#4fc3f7", "Hub / Anchor — low stress"),
+        ("#6bd96b", "Node — low stress"),
+        ("#ff9c3b", "Node — medium stress"),
+        ("#ff3b3b", "Node — high stress / failed"),
+        ("#e879f9", "Node — event active"),
+        ("#aaaaaa", "Node — isolated"),
+    ]
+    edge_items = [
+        ("#aaaaaa", "Connection with active flow"),
+        ("rgba(160,160,160,0.55)", "Connection available (no flow)"),
+        ("#ff3b3b", "Overloaded / failed connection"),
+    ]
+
+    def dot(color):
+        return (f"<span style='display:inline-block;width:10px;height:10px;"
+                f"border-radius:50%;background:{color};margin-right:7px;"
+                f"flex-shrink:0;'></span>")
+
+    def dash(color):
+        return (f"<span style='display:inline-block;width:20px;height:3px;"
+                f"background:{color};margin-right:7px;border-radius:2px;"
+                f"flex-shrink:0;margin-top:1px;'></span>")
+
+    def row(sym_fn, color, label):
+        return (f"<div style='display:flex;align-items:center;margin-bottom:5px;'>"
+                f"{sym_fn(color)}"
+                f"<span style='font-size:12px;color:#444;'>{label}</span></div>")
+
+    def header(text):
+        return (f"<div style='font-size:11px;font-weight:700;color:#666;"
+                f"text-transform:uppercase;letter-spacing:0.06em;"
+                f"margin-bottom:7px;margin-top:2px;'>{text}</div>")
+
+    nodes_html  = header("Nodes")  + "".join(row(dot,  c, l) for c, l in node_items)
+    edges_html  = header("Connections") + "".join(row(dash, c, l) for c, l in edge_items)
+
+    return f"""<div style='display:flex;gap:32px;flex-wrap:wrap;
+        padding:10px 14px 8px 14px;margin-top:4px;
+        background:#f8f9fa;border-radius:8px;
+        border:1px solid #e5e7eb;font-family:sans-serif;'>
+        <div>{nodes_html}</div>
+        <div>{edges_html}</div>
+    </div>"""

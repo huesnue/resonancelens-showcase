@@ -5,7 +5,6 @@ from core_lite.simulation import run_simulation
 from core_lite.energy_simulation import run_energy_simulation
 from core_lite.pandemic_simulation import run_pandemic_simulation
 from visualization.network_plot import plot_network, network_legend_html
-from core_lite.pandemic_ensemble import run_ensemble
 
 from scenarios.basic import load_scenario as load_basic
 from scenarios.energy import load_scenario as load_energy
@@ -616,38 +615,23 @@ elif scenario["type"] == "pandemic":
     # ------------------------------------------
     history_key = f"pandemic_history_{selected_path}"
 
-    ensemble_key = f"pandemic_ensemble_{selected_path}"
     if run_clicked or history_key not in st.session_state:
-        sc     = load_pandemic(path=selected_path)
+        sc = load_pandemic(path=selected_path)
+        events = get_pandemic_events(selected_path)
         params = STOCHASTIC_PARAMS[selected_path]
 
-        # Hilfsfunktionen für Ensemble-Runner
-        def _load_nodes():
-            return load_pandemic(path=selected_path)["nodes"]
-        def _load_edges():
-            return load_pandemic(path=selected_path)["edges"]
-
-        with st.spinner(f"Running ensemble (50 simulations)…"):
-            ensemble = run_ensemble(
-                load_nodes_fn=_load_nodes,
-                load_edges_fn=_load_edges,
-                run_simulation_fn=run_pandemic_simulation,
-                get_events_fn=get_pandemic_events,
-                stochastic_params=params,
-                path_name=selected_path,
-                steps=PANDEMIC_STEPS,
-                month_to_step=PANDEMIC_MONTH_TO_STEP,
-                projection_start_month=PROJECTION_START,
-                month_labels=PANDEMIC_MONTHS,
-                n_runs=50,
-            )
-
-        st.session_state[ensemble_key] = ensemble
-        st.session_state[history_key]  = ensemble["median_history"]
+        st.session_state[history_key] = run_pandemic_simulation(
+            nodes=sc["nodes"],
+            edges=sc["edges"],
+            events=events,
+            steps=PANDEMIC_STEPS,
+            month_to_step=PANDEMIC_MONTH_TO_STEP,
+            stochastic_params=params,
+            projection_start_month=PROJECTION_START,
+            month_labels=PANDEMIC_MONTHS,
+        )
         st.session_state["step"] = 0
         st.session_state["mode"] = "manual"
-
-    ensemble = st.session_state.get(ensemble_key)
 
     history  = st.session_state[history_key]
     max_step = len(history) - 1
@@ -867,12 +851,11 @@ elif scenario["type"] == "pandemic":
 
             fig = go.Figure()
 
-            # Projection zone — wächst mit Slider mit (bis visible_end)
-            if current_idx >= proj_step:
-                fig.add_vrect(x0=proj_step, x1=current_idx,
-                              fillcolor="#1E3A5F", opacity=0.04, layer="below", line_width=0)
+            # Projection zone
+            fig.add_vrect(x0=proj_step, x1=n-1,
+                          fillcolor="#1E3A5F", opacity=0.07, layer="below", line_width=0)
             fig.add_vline(x=proj_step, line_width=1, line_dash="dash",
-                          line_color="rgba(147,197,253,0.6)",
+                          line_color="rgba(147,197,253,0.5)",
                           annotation_text="▶ Projection", annotation_position="top right",
                           annotation_font_size=9, annotation_font_color="#93C5FD")
 
@@ -906,62 +889,27 @@ elif scenario["type"] == "pandemic":
                 x=xs_hist, y=hist_slice(stability_norm), mode="lines",
                 name="Stability (combined)",
                 line=dict(color="#4fc3f7", width=2.5)))
-
-            # Ensemble-Bänder in Projektionsphase (p10–p90, p25–p75)
-            if xs_proj and ensemble:
-                hp = ensemble["health"]
-                # p10–p90 Band (äußeres, sehr transparent)
-                p90_proj = hp["p90"][PANDEMIC_MONTH_TO_STEP.get(PROJECTION_START,60):visible_end]
-                p10_proj = hp["p10"][PANDEMIC_MONTH_TO_STEP.get(PROJECTION_START,60):visible_end]
-                p75_proj = hp["p75"][PANDEMIC_MONTH_TO_STEP.get(PROJECTION_START,60):visible_end]
-                p25_proj = hp["p25"][PANDEMIC_MONTH_TO_STEP.get(PROJECTION_START,60):visible_end]
-                p50_proj = hp["p50"][PANDEMIC_MONTH_TO_STEP.get(PROJECTION_START,60):visible_end]
-
-                if p90_proj:
-                    fig.add_trace(go.Scatter(
-                        x=xs_proj, y=p90_proj, mode="lines",
-                        name="p90", showlegend=False,
-                        line=dict(width=0),
-                        fillcolor="rgba(79,195,247,0.08)", fill="tonexty"))
-                    fig.add_trace(go.Scatter(
-                        x=xs_proj, y=p10_proj, mode="lines",
-                        name="p10–p90 band", showlegend=True,
-                        line=dict(width=0),
-                        fillcolor="rgba(79,195,247,0.08)", fill="tonexty"))
-                    fig.add_trace(go.Scatter(
-                        x=xs_proj, y=p75_proj, mode="lines",
-                        name="p75", showlegend=False,
-                        line=dict(width=0),
-                        fillcolor="rgba(79,195,247,0.14)", fill="tonexty"))
-                    fig.add_trace(go.Scatter(
-                        x=xs_proj, y=p25_proj, mode="lines",
-                        name="p25–p75 band", showlegend=True,
-                        line=dict(width=0),
-                        fillcolor="rgba(79,195,247,0.14)", fill="tonexty"))
-                    # Median-Linie
-                    fig.add_trace(go.Scatter(
-                        x=xs_proj, y=p50_proj, mode="lines",
-                        name="Median (p50)", showlegend=True,
-                        line=dict(color="#4fc3f7", width=2.0, dash="dash")))
-            elif xs_proj:
-                # Fallback: einfache gestrichelte Linie
+            # Stability — Projektion (gestrichelt)
+            if xs_proj:
                 fig.add_trace(go.Scatter(
                     x=xs_proj, y=proj_slice(stability_norm), mode="lines",
                     name="Stability (projection)", showlegend=False,
-                    line=dict(color="#4fc3f7", width=2.0, dash="dash")))
+                    line=dict(color="#4fc3f7", width=1.8, dash="dash"),
+                    opacity=0.6))
 
-            # Health layer — historisch (mit leichter Fläche)
+            # Health layer — historisch
             fig.add_trace(go.Scatter(
                 x=xs_hist, y=hist_slice(health_layer_avg), mode="lines",
                 name="Health Capacity",
                 line=dict(color="#86EFAC", width=1.5, dash="dot"),
                 fill="tozeroy", fillcolor="rgba(134,239,172,0.06)"))
-            # Health layer — Projektion: Linie ohne Fläche
             if xs_proj:
                 fig.add_trace(go.Scatter(
                     x=xs_proj, y=proj_slice(health_layer_avg), mode="lines",
                     name="Health Capacity (proj)", showlegend=False,
-                    line=dict(color="#86EFAC", width=1.5, dash="dot")))
+                    line=dict(color="#86EFAC", width=1.2, dash="dot"),
+                    fill="tozeroy", fillcolor="rgba(134,239,172,0.03)",
+                    opacity=0.5))
 
             # Econ layer — historisch
             fig.add_trace(go.Scatter(
@@ -969,12 +917,13 @@ elif scenario["type"] == "pandemic":
                 name="Econ Output",
                 line=dict(color="#FCD34D", width=1.5, dash="dot"),
                 fill="tozeroy", fillcolor="rgba(252,211,77,0.05)"))
-            # Econ layer — Projektion: Linie ohne Fläche
             if xs_proj:
                 fig.add_trace(go.Scatter(
                     x=xs_proj, y=proj_slice(econ_layer_avg), mode="lines",
                     name="Econ Output (proj)", showlegend=False,
-                    line=dict(color="#FCD34D", width=1.5, dash="dot")))
+                    line=dict(color="#FCD34D", width=1.2, dash="dot"),
+                    fill="tozeroy", fillcolor="rgba(252,211,77,0.02)",
+                    opacity=0.5))
 
             # Early Warning — historisch
             fig.add_trace(go.Scatter(
@@ -982,12 +931,13 @@ elif scenario["type"] == "pandemic":
                 name="Early Warning",
                 line=dict(color="#f4a261", width=1.8),
                 fill="tozeroy", fillcolor="rgba(244,162,97,0.07)"))
-            # Early Warning — Projektion: Linie ohne Fläche
             if xs_proj:
                 fig.add_trace(go.Scatter(
                     x=xs_proj, y=proj_slice(ew_norm), mode="lines",
                     name="Early Warning (proj)", showlegend=False,
-                    line=dict(color="#f4a261", width=1.4, dash="dot")))
+                    line=dict(color="#f4a261", width=1.4, dash="dot"),
+                    fill="tozeroy", fillcolor="rgba(244,162,97,0.03)",
+                    opacity=0.5))
 
             # EW pair annotations
             all_pairs_chart, _ = find_ew_pairs(ew_norm, stability_norm, L0_THR, STAB_THR)
@@ -1056,27 +1006,29 @@ elif scenario["type"] == "pandemic":
                              highlight_nodes=highlight_nodes, highlight_edges=highlight_edges,
                              pos=current.get("pos"), cluster_anchors=current.get("cluster_anchors")),
                 width='stretch')
-
-            # Event pills direkt unter dem Netzwerk-Plot (vor Legende)
-            if active_events:
-                type_colors = {
-                    "supply_shock":("#7C1D1D","#FCA5A5"), "capacity_shock":("#7C1D1D","#FCA5A5"),
-                    "demand_shock":("#78350F","#FCD34D"), "uncertainty_shock":("#78350F","#FCD34D"),
-                    "variability_shock":("#78350F","#FCD34D"), "capacity_increase":("#14532D","#86EFAC"),
-                    "coupling_shift":("#1E3A5F","#93C5FD"), "alliance_shift":("#312E81","#C4B5FD"),
-                }
-                pills_html = "<div style='display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;margin-bottom:8px;'>"
-                for ev in active_events:
-                    bg, fg = type_colors.get(ev.get("type",""),("#374151","#D1D5DB"))
-                    icon = "🎲" if ev.get("stochastic") else "⚡"
-                    name = ev.get("name", ev.get("type","event"))
-                    pills_html += (f"<span style='background:{bg};color:{fg};font-size:11px;font-weight:500;"
-                                   f"padding:3px 10px;border-radius:12px;white-space:nowrap;'>"
-                                   f"{icon} {name}</span>")
-                pills_html += "</div>"
-                st.markdown(pills_html, unsafe_allow_html=True)
-
-            # Legende ganz unten in der rechten Spalte
             st.markdown(network_legend_html(), unsafe_allow_html=True)
+
+        # ------------------------------------------
+        # Event pills
+        # ------------------------------------------
+        if active_events:
+            type_colors = {
+                "supply_shock":("#7C1D1D","#FCA5A5"), "capacity_shock":("#7C1D1D","#FCA5A5"),
+                "demand_shock":("#78350F","#FCD34D"), "uncertainty_shock":("#78350F","#FCD34D"),
+                "variability_shock":("#78350F","#FCD34D"), "capacity_increase":("#14532D","#86EFAC"),
+                "coupling_shift":("#1E3A5F","#93C5FD"), "alliance_shift":("#312E81","#C4B5FD"),
+            }
+            path_icon = {"resilient":"🟢","drifting":"🟡","cascade":"🔴"}.get(selected_path,"")
+            pills_html = "<div style='display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;'>"
+            for ev in active_events:
+                bg, fg = type_colors.get(ev.get("type",""),("#374151","#D1D5DB"))
+                is_stoch = ev.get("stochastic", False)
+                icon = "🎲" if is_stoch else "⚡"
+                name = ev.get("name", ev.get("type","event"))
+                pills_html += (f"<span style='background:{bg};color:{fg};font-size:11px;font-weight:500;"
+                               f"padding:3px 10px;border-radius:12px;white-space:nowrap;'>"
+                               f"{icon} {name}</span>")
+            pills_html += "</div>"
+            st.markdown(pills_html, unsafe_allow_html=True)
 
     pandemic_panel(history, max_step, proj_step, selected_path)
