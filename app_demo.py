@@ -4,14 +4,17 @@ import plotly.graph_objects as go
 from core_lite.simulation import run_simulation
 from core_lite.energy_simulation import run_energy_simulation
 from core_lite.pandemic_simulation import run_pandemic_simulation
+from core_lite.financial_simulation import run_financial_simulation
 from visualization.network_plot import plot_network, network_legend_html
 from core_lite.pandemic_ensemble import run_ensemble
 
 from scenarios.basic import load_scenario as load_basic
 from scenarios.energy import load_scenario as load_energy
 from scenarios.pandemic import load_scenario as load_pandemic
+from scenarios.financial import load_scenario as load_financial
 from scenarios.energy_events import EVENTS as ENERGY_EVENTS
-from scenarios.pandemic_events import get_events as get_pandemic_events, STOCHASTIC_PARAMS
+from scenarios.pandemic_events import get_events as get_pandemic_events, STOCHASTIC_PARAMS as PANDEMIC_STOCHASTIC_PARAMS
+from scenarios.financial_events import get_events as get_financial_events, STOCHASTIC_PARAMS as FINANCIAL_STOCHASTIC_PARAMS
 
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
@@ -43,6 +46,12 @@ PANDEMIC_MONTHS        = generate_months_pandemic(start="2020-01", steps=126)
 PANDEMIC_MONTH_TO_STEP = {m: i for i, m in enumerate(PANDEMIC_MONTHS)}
 PANDEMIC_STEPS         = len(PANDEMIC_MONTHS)
 PROJECTION_START       = "Jan 2025"
+
+# Financial timeline: Jan 2020 → Jun 2030 (126 months, konsistent mit Pandemic)
+FINANCIAL_MONTHS        = generate_months_pandemic(start="2020-01", steps=126)
+FINANCIAL_MONTH_TO_STEP = {m: i for i, m in enumerate(FINANCIAL_MONTHS)}
+FINANCIAL_STEPS         = len(FINANCIAL_MONTHS)
+FINANCIAL_PROJECTION_START = "Jun 2026"
 
 # ------------------------------------------
 # Basic Demo helpers
@@ -97,13 +106,15 @@ if "step" not in st.session_state:
 # ------------------------------------------
 scenario_name = st.selectbox(
     "Select a scenario",
-    options=["Basic Demo", "Energy Crisis", "Pandemic 2020–2030"]
+    options=["Basic Demo", "Energy Crisis", "Pandemic 2020–2030", "Eurozone Financial Stability"]
 )
 
 if scenario_name == "Basic Demo":
     scenario = load_basic()
 elif scenario_name == "Energy Crisis":
     scenario = load_energy()
+elif scenario_name == "Eurozone Financial Stability":
+    scenario = {"type": "financial"}   # path selected inside panel
 else:
     scenario = {"type": "pandemic"}   # path selected inside panel
 
@@ -117,7 +128,10 @@ if st.session_state["last_scenario"] != scenario_name:
     for key in ["energy_history", "basic_data",
                 "pandemic_history_resilient",
                 "pandemic_history_drifting",
-                "pandemic_history_cascade"]:
+                "pandemic_history_cascade",
+                "financial_history_contained",
+                "financial_history_prolonged",
+                "financial_history_systemic"]:
         st.session_state.pop(key, None)
     st.session_state["last_scenario"] = scenario_name
     st.session_state["step"] = 0
@@ -619,7 +633,7 @@ elif scenario["type"] == "pandemic":
     ensemble_key = f"pandemic_ensemble_{selected_path}"
     if run_clicked or history_key not in st.session_state:
         sc     = load_pandemic(path=selected_path)
-        params = STOCHASTIC_PARAMS[selected_path]
+        params = PANDEMIC_STOCHASTIC_PARAMS[selected_path]
 
         # Hilfsfunktionen für Ensemble-Runner
         def _load_nodes():
@@ -1088,3 +1102,427 @@ elif scenario["type"] == "pandemic":
             st.markdown(network_legend_html(), unsafe_allow_html=True)
 
     pandemic_panel(history, max_step, proj_step, selected_path)
+
+
+# ==========================================
+# FINANCIAL SCENARIO
+# ==========================================
+elif scenario["type"] == "financial":
+
+    st.divider()
+    st.subheader("Eurozone Financial Stability Stress Scenario 2020–2035")
+    st.caption(
+        "This scenario is not a forecast. It is a structural stress-test demonstrator "
+        "showing how sector and regional dynamics interact under financial stress."
+    )
+
+    path_options = {
+        "🟢 Contained":  "contained",
+        "🟡 Prolonged":  "prolonged",
+        "🔴 Systemic":   "systemic",
+    }
+    selected_label = st.radio(
+        "Structural path",
+        options=list(path_options.keys()),
+        horizontal=True,
+        key="financial_path_radio"
+    )
+    selected_path  = path_options[selected_label]
+    history_key    = f"financial_history_{selected_path}"
+
+    if run_clicked or history_key not in st.session_state:
+        sc     = load_financial(path=selected_path)
+        params = FINANCIAL_STOCHASTIC_PARAMS[selected_path]
+        events = get_financial_events(selected_path)
+
+        path_label = selected_label
+        progress_bar = st.progress(0, text=f"Running — {path_label} …")
+
+        history_raw = run_financial_simulation(
+            nodes=sc["nodes"],
+            edges=sc["edges"],
+            events=events,
+            steps=FINANCIAL_STEPS,
+            month_to_step=FINANCIAL_MONTH_TO_STEP,
+            stochastic_params=params,
+            projection_start_month=FINANCIAL_PROJECTION_START,
+            month_labels=FINANCIAL_MONTHS,
+        )
+        progress_bar.empty()
+
+        st.session_state[history_key] = history_raw
+        st.session_state["step"] = 0
+        st.session_state["mode"] = "manual"
+
+    history  = st.session_state[history_key]
+    max_step = len(history) - 1
+    proj_step = FINANCIAL_MONTH_TO_STEP.get(FINANCIAL_PROJECTION_START, max_step)
+
+    run_every_f = 1.0 if st.session_state["mode"] == "playback" else None
+
+    @st.fragment(run_every=run_every_f)
+    def financial_panel(history, max_step, proj_step, selected_path):
+
+        is_playing = st.session_state["mode"] == "playback"
+        if is_playing:
+            cur = st.session_state["step"]
+            if cur < max_step:
+                st.session_state["step"] = cur + 1
+            else:
+                st.session_state["mode"] = "manual"
+                st.rerun()
+
+        # ------------------------------------------
+        # Controls
+        # ------------------------------------------
+        ctrl1, ctrl2, ctrl3 = st.columns([1, 1, 4])
+        with ctrl1:
+            if st.button("▶ Play", key="fin_play", disabled=is_playing, width='stretch'):
+                st.session_state["mode"] = "playback"
+                st.session_state["step"] = 0
+                st.rerun()
+        with ctrl2:
+            if st.button("⏸ Step", key="fin_pause", disabled=not is_playing, width='stretch'):
+                st.session_state["mode"] = "manual"
+                st.rerun()
+        with ctrl3:
+            if "financial_sim_step" not in st.session_state:
+                st.session_state["financial_sim_step"] = st.session_state["step"]
+            if is_playing:
+                st.session_state["financial_sim_step"] = st.session_state["step"]
+            step = st.slider("Month", 0, max_step, key="financial_sim_step",
+                             disabled=is_playing, label_visibility="collapsed")
+            if not is_playing:
+                st.session_state["step"] = step
+
+        current     = history[st.session_state["step"]]
+        current_idx = st.session_state["step"]
+        current_month = FINANCIAL_MONTHS[current_idx]
+        is_proj     = current.get("is_projection", False)
+
+        # ------------------------------------------
+        # Phase badge
+        # ------------------------------------------
+        phase_badge = (
+            "<span style='background:#1E3A5F;color:#93C5FD;font-size:11px;font-weight:600;"
+            "padding:3px 10px;border-radius:12px;margin-left:8px;'>📡 PROJECTION</span>"
+            if is_proj else
+            "<span style='background:#14532D;color:#86EFAC;font-size:11px;font-weight:600;"
+            "padding:3px 10px;border-radius:12px;margin-left:8px;'>📂 HISTORICAL</span>"
+        )
+        st.markdown(f"**{current_month}** {phase_badge}", unsafe_allow_html=True)
+
+        # ------------------------------------------
+        # Metrics
+        # ------------------------------------------
+        m1, m2, m3, m4 = st.columns(4)
+        health_val = current["system_health"]
+
+        sec_layer = current.get("sector_layer", {})
+        reg_layer = current.get("regional_layer", {})
+        avg_sec = sum(sec_layer.values()) / len(sec_layer) if sec_layer else health_val
+        avg_reg = sum(reg_layer.values()) / len(reg_layer) if reg_layer else health_val
+
+        m1.metric("📅 Month", current_month)
+        m2.metric("System Health", f"{health_val:.0%}")
+        m3.metric("🏦 Financial System Capacity", f"{avg_sec:.0%}")
+        m4.metric("🌍 Economic Resilience", f"{avg_reg:.0%}")
+
+
+        # ------------------------------------------
+        # FRÜHWARNARCHITEKTUR (identisch zu Pandemic)
+        # ------------------------------------------
+        health_series = [h["system_health"] for h in history]
+        n = len(health_series)
+        stability_norm = health_series
+
+        cb_series   = [h.get("capacity_buffer",  0.60) for h in history]
+        sp_series   = [h.get("shock_pressure",   0.0)  for h in history]
+        sm_series   = [h.get("stability_margin", 0.0)  for h in history]
+        econ_series = [
+            sum(h.get("regional_layer", {}).values()) / max(len(h.get("regional_layer", {})), 1)
+            for h in history
+        ]
+
+        structural_drift_raw = [0.0]
+        for i in range(1, n):
+            d_cb     = max(0.0, cb_series[i-1]    - cb_series[i])
+            d_sp     = max(0.0, sp_series[i]       - sp_series[i-1])
+            d_health = max(0.0, health_series[i-1] - health_series[i])
+            d_econ   = max(0.0, econ_series[i-1]   - econ_series[i])
+            structural_drift_raw.append(
+                0.40 * d_cb + 0.25 * d_sp + 0.20 * d_health + 0.15 * d_econ
+            )
+
+        n_smooth = 3
+        structural_drift_smooth = []
+        for i in range(n):
+            window = structural_drift_raw[max(0, i-n_smooth+1):i+1]
+            structural_drift_smooth.append(sum(window) / len(window))
+
+        drift_max = max(structural_drift_smooth) if max(structural_drift_smooth) > 0 else 1.0
+        ew_norm = [max(0.0, v / drift_max) for v in structural_drift_smooth]
+
+        m_l1 = 3
+        level_1 = []
+        for i in range(n):
+            if i < m_l1:
+                level_1.append(0.0)
+            else:
+                cb_grad  = max(0.0, cb_series[i-m_l1]     - cb_series[i]) / m_l1
+                hlt_grad = max(0.0, health_series[i-m_l1] - health_series[i]) / m_l1
+                level_1.append(min(1.0, cb_grad * 8.0 + hlt_grad * 4.0))
+
+        m_l2 = 6
+        level_2 = []
+        for i in range(n):
+            if i < m_l2:
+                level_2.append(0.0)
+            else:
+                neg = sum(1 for j in range(i-m_l2, i) if sm_series[j] < 0)
+                level_2.append(neg / m_l2)
+
+        L0_THR   = 0.20
+        STAB_THR = 0.75
+
+        def find_ew_pairs(ew, stab, et, st_thr):
+            pairs, open_pair, i = [], None, 1
+            while i < len(ew):
+                if ew[i] > et and ew[i-1] <= et:
+                    spike, found = i, False
+                    for j in range(spike+1, len(stab)):
+                        if stab[j] < st_thr and stab[j-1] >= st_thr:
+                            pairs.append((spike, j, j-spike))
+                            i, found = j+1, True
+                            break
+                    if not found:
+                        open_pair = (spike, None, None)
+                        i += 1
+                else:
+                    i += 1
+            return pairs, open_pair
+
+        all_pairs, open_pair = find_ew_pairs(
+            ew_norm[:current_idx+1], stability_norm[:current_idx+1], L0_THR, STAB_THR)
+
+        display_pair, display_open = None, False
+        if open_pair:
+            display_pair, display_open = open_pair, True
+        elif all_pairs:
+            last = all_pairs[-1]
+            if current_idx - last[1] <= 8:
+                display_pair, display_open = last, False
+
+        if display_pair:
+            spike_m = FINANCIAL_MONTHS[display_pair[0]] if display_pair[0] < len(FINANCIAL_MONTHS) else ""
+            if display_open:
+                steps_since = current_idx - display_pair[0]
+                st.markdown(
+                    f"<div style='background:rgba(244,162,97,0.15);border-left:3px solid #f4a261;"
+                    f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;margin-bottom:8px;'>"
+                    f"⚠️ <strong>Early Warning active</strong> since {spike_m} "
+                    f"— structural weakening detected <strong>{steps_since} month{'s' if steps_since!=1 else ''} ago</strong>. "
+                    f"Stability drop not yet confirmed.</div>", unsafe_allow_html=True)
+            else:
+                st.markdown(
+                    f"<div style='background:rgba(244,162,97,0.12);border-left:3px solid #f4a261;"
+                    f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;margin-bottom:8px;'>"
+                    f"💡 <strong>Early Warning</strong> ({spike_m}) signaled structural weakening "
+                    f"<strong>{display_pair[2]} months</strong> before Stability visibly dropped.</div>",
+                    unsafe_allow_html=True)
+
+        # ------------------------------------------
+        # Chart | Network
+        # ------------------------------------------
+        col_left, col_right = st.columns([1, 1])
+
+        with col_left:
+            sec_layer_avg = [
+                sum(h.get("sector_layer", {}).values()) / max(len(h.get("sector_layer", {})), 1)
+                for h in history
+            ]
+            reg_layer_avg = [
+                sum(h.get("regional_layer", {}).values()) / max(len(h.get("regional_layer", {})), 1)
+                for h in history
+            ]
+
+            tick_vals = list(range(0, n, 12))
+            tick_text = [FINANCIAL_MONTHS[i] for i in tick_vals if i < len(FINANCIAL_MONTHS)]
+
+            fig = go.Figure()
+
+            # Projektionszone
+            if current_idx >= proj_step:
+                fig.add_vrect(x0=proj_step, x1=current_idx,
+                              fillcolor="#1E3A5F", opacity=0.04, layer="below", line_width=0)
+            fig.add_vline(x=proj_step, line_width=1, line_dash="dash",
+                          line_color="rgba(147,197,253,0.6)",
+                          annotation_text="▶ Projection", annotation_position="top right",
+                          annotation_font_size=9, annotation_font_color="#93C5FD")
+
+            # Historische Stress-Zonen
+            for zone_start, zone_end, color, label in [
+                ("Mar 2020", "Jun 2020",  "#E24B4A", "COVID shock"),
+                ("Feb 2022", "Jun 2022",  "#f4a261", "Rate hike cycle"),
+                ("Mar 2023", "Jun 2023",  "#E24B4A", "Bank stress 2023"),
+            ]:
+                s = FINANCIAL_MONTH_TO_STEP.get(zone_start)
+                e = FINANCIAL_MONTH_TO_STEP.get(zone_end)
+                if s is not None and e is not None:
+                    fig.add_vrect(x0=s, x1=e, fillcolor=color, opacity=0.07,
+                                  layer="below", line_width=0)
+
+            visible_end = current_idx + 1
+
+            xs_hist = list(range(min(visible_end, proj_step + 1)))
+            xs_proj = list(range(proj_step, visible_end)) if visible_end > proj_step else []
+
+            def hist_slice(series):
+                return series[:min(visible_end, proj_step + 1)]
+
+            def proj_slice(series):
+                return series[proj_step:visible_end] if visible_end > proj_step else []
+
+            # System Health — historisch
+            fig.add_trace(go.Scatter(
+                x=xs_hist, y=hist_slice(stability_norm), mode="lines",
+                name="Stability (combined)",
+                line=dict(color="#4fc3f7", width=2.5)))
+            if xs_proj:
+                fig.add_trace(go.Scatter(
+                    x=xs_proj, y=proj_slice(stability_norm), mode="lines",
+                    name="Stability (proj)", showlegend=False,
+                    line=dict(color="#4fc3f7", width=2.0, dash="dash")))
+
+            # Sector layer
+            fig.add_trace(go.Scatter(
+                x=xs_hist, y=hist_slice(sec_layer_avg), mode="lines",
+                name="Financial System Capacity",
+                line=dict(color="#86EFAC", width=1.5, dash="dot"),
+                fill="tozeroy", fillcolor="rgba(134,239,172,0.06)"))
+            if xs_proj:
+                fig.add_trace(go.Scatter(
+                    x=xs_proj, y=proj_slice(sec_layer_avg), mode="lines",
+                    name="Financial System Capacity (proj)", showlegend=False,
+                    line=dict(color="#86EFAC", width=1.5, dash="dot")))
+
+            # Regional layer
+            fig.add_trace(go.Scatter(
+                x=xs_hist, y=hist_slice(reg_layer_avg), mode="lines",
+                name="Economic Resilience",
+                line=dict(color="#FCD34D", width=1.5, dash="dot"),
+                fill="tozeroy", fillcolor="rgba(252,211,77,0.05)"))
+            if xs_proj:
+                fig.add_trace(go.Scatter(
+                    x=xs_proj, y=proj_slice(reg_layer_avg), mode="lines",
+                    name="Economic Resilience (proj)", showlegend=False,
+                    line=dict(color="#FCD34D", width=1.5, dash="dot")))
+
+            # Early Warning
+            fig.add_trace(go.Scatter(
+                x=xs_hist, y=hist_slice(ew_norm), mode="lines",
+                name="Early Warning",
+                line=dict(color="#f4a261", width=1.8),
+                fill="tozeroy", fillcolor="rgba(244,162,97,0.07)"))
+            if xs_proj:
+                fig.add_trace(go.Scatter(
+                    x=xs_proj, y=proj_slice(ew_norm), mode="lines",
+                    name="Early Warning (proj)", showlegend=False,
+                    line=dict(color="#f4a261", width=1.4, dash="dot")))
+
+            # EW pair annotations
+            for pair_idx, (spike, drop, lead) in enumerate(all_pairs[:3]):
+                if lead <= 0:
+                    continue
+                by = 0.97 - pair_idx * 0.07
+                fig.add_shape(type="line", x0=spike, x1=drop, y0=by, y1=by,
+                              line=dict(color="#888", width=1, dash="dot"))
+                fig.add_annotation(x=(spike+drop)//2, y=by+0.03,
+                                   text=f"{lead}mo ahead", showarrow=False,
+                                   font=dict(size=9, color="#aaaaaa"))
+
+            fig.add_vline(x=current_idx, line_width=1.5, line_dash="dash",
+                          line_color="rgba(255,255,255,0.35)")
+
+            # Gleitendes Fenster: 48 Monate
+            window = 48
+            win_end   = min(n-1, max(window-1, current_idx+8))
+            win_start = max(0, win_end-window+1)
+            win_tv = [i for i in tick_vals if win_start <= i <= win_end]
+            win_tt = [FINANCIAL_MONTHS[i] for i in win_tv if i < len(FINANCIAL_MONTHS)]
+
+            fig.update_layout(
+                height=440,
+                margin=dict(l=20, r=20, t=30, b=70),
+                plot_bgcolor="rgba(0,0,0,0)",
+                paper_bgcolor="rgba(0,0,0,0)",
+                yaxis=dict(range=[0,1.08], showgrid=True, gridcolor="rgba(255,255,255,0.05)",
+                           tickformat=".0%", tickfont=dict(size=9)),
+                xaxis=dict(range=[win_start-0.5, win_end+0.5], tickvals=win_tv, ticktext=win_tt,
+                           tickangle=-45, tickfont=dict(size=9), showgrid=False),
+                legend=dict(orientation="h", yanchor="bottom", y=-0.45,
+                            xanchor="center", x=0.5, font=dict(size=10)),
+            )
+            st.plotly_chart(fig, width='stretch')
+
+        with col_right:
+            # Event-Highlights
+            highlight_nodes, highlight_edges = set(), set()
+            active_events = []
+            all_evts = get_financial_events(selected_path)
+            for event in all_evts:
+                if "month" not in event or event["month"] not in FINANCIAL_MONTH_TO_STEP:
+                    continue
+                es = FINANCIAL_MONTH_TO_STEP[event["month"]]
+                if current_idx >= es and current_idx < es + event.get("duration", 1):
+                    active_events.append(event)
+            # Auch highlight_nodes aus Snapshot (stochastische Events)
+            for nid in current.get("highlight_nodes", []):
+                highlight_nodes.add(nid)
+            for event in active_events:
+                if "cluster" in event:
+                    for node, data in current["nodes"].items():
+                        if data.get("cluster") == event["cluster"]:
+                            highlight_nodes.add(node)
+                if event.get("type") == "alliance_shift":
+                    for ck in ["source_cluster", "target_cluster"]:
+                        c = event.get(ck)
+                        if c:
+                            for node, data in current["nodes"].items():
+                                if data.get("cluster") == c:
+                                    highlight_nodes.add(node)
+
+            st.plotly_chart(
+                plot_network(current["graph"], current["load"], current["edges"],
+                             highlight_nodes=highlight_nodes, highlight_edges=highlight_edges,
+                             pos=current.get("pos"), cluster_anchors=current.get("cluster_anchors")),
+                width='stretch')
+
+            # Event Pills
+            if active_events:
+                type_colors = {
+                    "supply_shock":       ("#7C1D1D", "#FCA5A5"),
+                    "capacity_shock":     ("#7C1D1D", "#FCA5A5"),
+                    "demand_shock":       ("#78350F", "#FCD34D"),
+                    "uncertainty_shock":  ("#78350F", "#FCD34D"),
+                    "variability_shock":  ("#78350F", "#FCD34D"),
+                    "capacity_increase":  ("#14532D", "#86EFAC"),
+                    "coupling_shift":     ("#1E3A5F", "#93C5FD"),
+                    "alliance_shift":     ("#312E81", "#C4B5FD"),
+                }
+                pills_html = "<div style='display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;margin-bottom:8px;'>"
+                for ev in active_events:
+                    bg, fg = type_colors.get(ev.get("type", ""), ("#374151", "#D1D5DB"))
+                    icon = "🎲" if ev.get("stochastic") else "⚡"
+                    name = ev.get("name", ev.get("type", "event"))
+                    pills_html += (
+                        f"<span style='background:{bg};color:{fg};font-size:11px;font-weight:500;"
+                        f"padding:3px 10px;border-radius:12px;white-space:nowrap;'>"
+                        f"{icon} {name}</span>"
+                    )
+                pills_html += "</div>"
+                st.markdown(pills_html, unsafe_allow_html=True)
+
+            st.markdown(network_legend_html(), unsafe_allow_html=True)
+
+    financial_panel(history, max_step, proj_step, selected_path)

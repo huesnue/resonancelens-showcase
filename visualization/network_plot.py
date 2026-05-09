@@ -52,16 +52,18 @@ def plot_network(G, node_load, edge_state, highlight_nodes=None, highlight_edges
     #   weak   = überlastet oder ausgefallen      → rot, dünn
     #   new    = inaktiv / sehr schwach           → kaum sichtbar
     color_map = {
-        "strong": "#aaaaaa",
-        "ready":  "rgba(160,160,160,0.45)",
-        "weak":   "#ff3b3b",
-        "new":    "rgba(120,120,120,0.12)"
+        "strong":        "#aaaaaa",
+        "ready":         "rgba(160,160,160,0.45)",
+        "weak":          "#ff3b3b",
+        "new":           "rgba(120,120,120,0.12)",
+        "bridge_active": "#b388ff",
     }
     width_map = {
-        "strong": 1.5,
-        "ready":  0.9,
-        "weak":   0.8,
-        "new":    0.4
+        "strong":        1.5,
+        "ready":         0.9,
+        "weak":          0.8,
+        "new":           0.4,
+        "bridge_active": 2.5,
     }
 
     for (u, v) in G.edges():
@@ -81,11 +83,13 @@ def plot_network(G, node_load, edge_state, highlight_nodes=None, highlight_edges
             color = color_map.get(state, "#aaaaaa")
             width = width_map.get(state, 1.5)
 
+        dash = "dash" if state == "bridge_active" else None
+
         edge_traces.append(go.Scatter(
             x=[x0, x1, None],
             y=[y0, y1, None],
             mode="lines",
-            line=dict(width=width, color=color),
+            line=dict(width=width, color=color, dash=dash),
             hoverinfo="none"
         ))
 
@@ -116,7 +120,7 @@ def plot_network(G, node_load, edge_state, highlight_nodes=None, highlight_edges
     # Node type for size bonus (hub > transit > producer > consumer)
     type_bonus = {"hub": 1.4, "transit": 1.0, "producer": 1.1, "consumer": 0.9}
 
-    node_x, node_y, node_colors, node_sizes, node_text = [], [], [], [], []
+    node_x, node_y, node_colors, node_sizes, node_text, node_symbols = [], [], [], [], [], []
 
     for node in G.nodes():
 
@@ -130,6 +134,7 @@ def plot_network(G, node_load, edge_state, highlight_nodes=None, highlight_edges
         is_anchor = node in anchor_nodes
         is_isolated = (G.degree(node) == 0)
         node_type = G.nodes[node].get("type", "unknown")
+        node_space = G.nodes[node].get("space", None)   # "sector" | "regional" | None
         bonus = type_bonus.get(node_type, 1.0)
 
         if has_capacity:
@@ -165,15 +170,22 @@ def plot_network(G, node_load, edge_state, highlight_nodes=None, highlight_edges
                 node_colors.append("#4fc3f7")
             node_sizes.append(size)
         else:
+            # space-abhängige Basisfarbe (rückwärtskompatibel)
+            if node_space == "sector":
+                low_stress_color = "#4fc3f7"   # blau — Sektor-Knoten
+            else:
+                low_stress_color = "#6bd96b"   # grün — Regional/default
             if normalized_load > 0.7:
                 node_colors.append("#ff3b3b")
             elif normalized_load > 0.4:
                 node_colors.append("#ff9c3b")
             else:
-                node_colors.append("#6bd96b")
+                node_colors.append(low_stress_color)
             node_sizes.append(size)
 
         node_text.append(hover)
+        # Symbol: regional_space → square, alles andere → circle
+        node_symbols.append("square" if node_space == "regional" else "circle")
 
     node_trace = go.Scatter(
         x=node_x,
@@ -184,6 +196,7 @@ def plot_network(G, node_load, edge_state, highlight_nodes=None, highlight_edges
         marker=dict(
             size=node_sizes,
             color=node_colors,
+            symbol=node_symbols,
             showscale=False,
             opacity=1.0,
             line=dict(width=1.5, color="#111")
@@ -208,8 +221,8 @@ def network_legend_html():
     Wird direkt unter dem Network-Plot gerendert.
     """
     node_items = [
-        ("#4fc3f7", "Hub / Anchor — low stress"),
-        ("#6bd96b", "Node — low stress"),
+        ("#4fc3f7", "● Sector node — low stress"),
+        ("#6bd96b", "■ Regional node — low stress"),
         ("#ff9c3b", "Node — medium stress"),
         ("#ff3b3b", "Node — high stress / failed"),
         ("#e879f9", "Node — event active"),
@@ -219,6 +232,7 @@ def network_legend_html():
         ("#aaaaaa", "Connection with active flow"),
         ("rgba(160,160,160,0.55)", "Connection available (no flow)"),
         ("#ff3b3b", "Overloaded / failed connection"),
+        ("#b388ff", "Cross-space bridge (sector ↔ regional)"),
     ]
 
     def dot(color):
@@ -244,10 +258,35 @@ def network_legend_html():
     nodes_html  = header("Nodes")  + "".join(row(dot,  c, l) for c, l in node_items)
     edges_html  = header("Connections") + "".join(row(dash, c, l) for c, l in edge_items)
 
+    metrics_items = [
+        ("●", "#4fc3f7", "Financial System Capacity",
+         "How well the financial sector (banks, funds, sovereigns) supplies liquidity."),
+        ("■", "#6bd96b", "Economic Resilience",
+         "Economic output and stability of countries / regions under stress."),
+    ]
+
+    def metric_row(symbol, color, label, desc):
+        sym_html = (
+            f"<span style='font-size:13px;color:{color};"
+            f"margin-right:7px;flex-shrink:0;line-height:1;'>{symbol}</span>"
+        )
+        return (
+            f"<div style='display:flex;align-items:flex-start;margin-bottom:6px;'>"
+            f"{sym_html}"
+            f"<span style='font-size:12px;color:#444;'>"
+            f"<strong>{label}</strong> — {desc}"
+            f"</span></div>"
+        )
+
+    metrics_html = header("Metrics") + "".join(
+        metric_row(sym, col, lbl, dsc) for sym, col, lbl, dsc in metrics_items
+    )
+
     return f"""<div style='display:flex;gap:32px;flex-wrap:wrap;
         padding:10px 14px 8px 14px;margin-top:4px;
         background:#f8f9fa;border-radius:8px;
         border:1px solid #e5e7eb;font-family:sans-serif;'>
         <div>{nodes_html}</div>
         <div>{edges_html}</div>
+        <div>{metrics_html}</div>
     </div>"""
