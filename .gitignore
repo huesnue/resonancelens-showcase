@@ -83,7 +83,7 @@ frames/
 # Allow demo GIF for showcase
 !assets/demo.gif
 !assets/demo_showcase.png
-!assets/Logo_R2M.png
+!ResonanceLens.png
 
 # --------------------------------------
 # Test artifacts
@@ -103,6 +103,12 @@ notebooks/
 scripts/
 
 # --------------------------------------
+# Tests
+# --------------------------------------
+tests/
+
+# --------------------------------------
 # Sonstiges
 # --------------------------------------
 DEPLOYMENT.md
+PHASE_G_PATCHES.md

@@ -4,6 +4,36 @@ import streamlit as st
 import math
 
 
+# ------------------------------------------------------------------
+# Space-Dispatch (rückwärtskompatibel)
+# ------------------------------------------------------------------
+# Symbol-/Farb-Identitäten je space-Wert:
+#   sector   / digital    -> Kreis,    Blau   (#4fc3f7)
+#   regional / financial  -> Quadrat,  Grün   (#6bd96b)
+#   economic              -> Raute,    Lila   (#c084fc)
+#   None / default / unbekannt -> Kreis, Grün (legacy default)
+#
+# Wichtig: Pandemic, Energy und Basic-Szenarien setzen kein space-
+# Attribut. Für diese Knoten wird die alte Default-Identität (grün,
+# Kreis) erhalten -- pixelidentisch zum Stand vor der Erweiterung.
+# ------------------------------------------------------------------
+
+def _node_low_stress_color(space):
+    if space in ("sector", "digital"):
+        return "#4fc3f7"
+    if space == "economic":
+        return "#c084fc"
+    return "#6bd96b"  # regional, financial, None, default
+
+
+def _node_symbol(space):
+    if space in ("regional", "financial"):
+        return "square"
+    if space == "economic":
+        return "diamond"
+    return "circle"  # sector, digital, None, default
+
+
 def plot_network(G, node_load, edge_state, highlight_nodes=None, highlight_edges=None,
                  pos=None, cluster_anchors=None):
 
@@ -156,10 +186,7 @@ def plot_network(G, node_load, edge_state, highlight_nodes=None, highlight_edges
             node_sizes.append(size)
         else:
             # space-abhängige Basisfarbe (rückwärtskompatibel)
-            if node_space == "sector":
-                low_stress_color = "#4fc3f7"   # blau — Sektor-Knoten
-            else:
-                low_stress_color = "#6bd96b"   # grün — Regional/default
+            low_stress_color = _node_low_stress_color(node_space)
             if normalized_load > 0.7:
                 node_colors.append("#ff3b3b")
             elif normalized_load > 0.4:
@@ -169,8 +196,8 @@ def plot_network(G, node_load, edge_state, highlight_nodes=None, highlight_edges
             node_sizes.append(size)
 
         node_text.append(hover)
-        # Symbol: regional_space → square, alles andere → circle
-        node_symbols.append("square" if node_space == "regional" else "circle")
+        # Symbol: sector/digital → circle, regional/financial → square, economic → diamond
+        node_symbols.append(_node_symbol(node_space))
 
     node_trace = go.Scatter(
         x=node_x,
@@ -208,7 +235,9 @@ def network_legend_html(spaces=None, has_bridge=False, metrics=None):
     Datengetriebene Legende — passt sich automatisch an den Snapshot an.
 
     Parameter:
-      spaces     : Liste aktiver Space-Typen im Graph, z.B. ["sector", "regional"]
+      spaces     : Liste aktiver Space-Typen im Graph. Unterstützte Werte:
+                     "sector", "regional"            (Financial)
+                     "digital", "financial", "economic"  (Cyber/Cloud)
                    None oder [] → generische Knotenfarben ohne Space-Labels
       has_bridge : True wenn Bridge-Kanten im Graph vorhanden sind
       metrics    : Liste von (symbol, color, label, description) für den
@@ -216,21 +245,35 @@ def network_legend_html(spaces=None, has_bridge=False, metrics=None):
                    Beispiel Financial:
                      [("●","#4fc3f7","Financial System Capacity","..."),
                       ("■","#6bd96b","Economic Resilience","...")]
-                   Später Energy-Erweiterung:
-                     [("●","#4fc3f7","Energy Flow Capacity","..."),
-                      ("■","#6bd96b","Economic Resilience","...")]
+                   Beispiel Cyber:
+                     [("●","#4fc3f7","Digital Resilience","..."),
+                      ("■","#6bd96b","Financial Stability","..."),
+                      ("◆","#c084fc","Economic Output","...")]
     """
-    # Node-Einträge: Space-Labels nur wenn spaces übergeben
-    has_sector   = spaces and "sector"   in spaces
-    has_regional = spaces and "regional" in spaces
+    spaces_set = set(spaces or [])
+
+    has_sector    = "sector"    in spaces_set
+    has_regional  = "regional"  in spaces_set
+    has_digital   = "digital"   in spaces_set
+    has_financial = "financial" in spaces_set
+    has_economic  = "economic"  in spaces_set
+    any_explicit  = bool(spaces_set)
 
     node_items = []
+    # Financial-Konvention (sector/regional) — Bestandstexte unverändert
     if has_sector:
         node_items.append(("#4fc3f7", "● Sector node — low stress"))
     if has_regional:
         node_items.append(("#6bd96b", "■ Regional node — low stress"))
-    if not has_sector and not has_regional:
-        # Generisch: kein Space-Kontext
+    # Cyber-Konvention (digital/financial/economic)
+    if has_digital:
+        node_items.append(("#4fc3f7", "● Digital infrastructure node — low stress"))
+    if has_financial:
+        node_items.append(("#6bd96b", "■ Financial system node — low stress"))
+    if has_economic:
+        node_items.append(("#c084fc", "◆ Economic resilience node — low stress"))
+    # Generischer Fallback (Energy/Pandemic/Basic, kein space-Attribut)
+    if not any_explicit:
         node_items.append(("#4fc3f7", "Hub / Anchor — low stress"))
         node_items.append(("#6bd96b", "Node — low stress"))
     node_items += [
@@ -247,7 +290,12 @@ def network_legend_html(spaces=None, has_bridge=False, metrics=None):
         ("#ff3b3b",                  "Overloaded / failed connection"),
     ]
     if has_bridge:
-        edge_items.append(("#b388ff", "Cross-space bridge (sector ↔ regional)"))
+        # Bestandsbeschriftung für Financial 1:1 erhalten;
+        # für andere Konfigurationen (Cyber u.a.) generischer Text
+        if has_sector and has_regional and not (has_digital or has_financial or has_economic):
+            edge_items.append(("#b388ff", "Cross-space bridge (sector ↔ regional)"))
+        else:
+            edge_items.append(("#b388ff", "Cross-space bridge"))
 
     def dot(color):
         return (f"<span style='display:inline-block;width:10px;height:10px;"
