@@ -702,7 +702,6 @@ elif scenario["type"] == "pandemic":
     **Phase 1 (2020–2024):** Reconstructed historical events — COVID-19 waves, Mpox outbreaks, H5N1 alerts.
     **Phase 2 (2025–2030):** Structural projection across three pathways. The system starts identically — divergence emerges from structural differences, not random chance.
     """)
-    render_intro_expander("Pandemic 2020–2030")
 
     # ------------------------------------------
     # Path selector
@@ -727,7 +726,7 @@ elif scenario["type"] == "pandemic":
     history_key = f"pandemic_history_{selected_path}"
 
     ensemble_key = f"pandemic_ensemble_{selected_path}"
-    if run_clicked or history_key not in st.session_state:
+    if run_clicked:
         sc     = load_pandemic(path=selected_path)
         params = PANDEMIC_STOCHASTIC_PARAMS[selected_path]
 
@@ -764,6 +763,16 @@ elif scenario["type"] == "pandemic":
         st.session_state[history_key]  = ensemble["median_history"]
         st.session_state["step"] = 0
         st.session_state["mode"] = "manual"
+
+    # ------------------------------------------
+    # Pre-Run-Guard: show primer card until user clicks Run for this path
+    # ------------------------------------------
+    if history_key not in st.session_state:
+        render_primer_card("Pandemic 2020–2030")
+        st.stop()
+
+    # Live-Dashboard: compact info expander above the controls
+    render_intro_expander("Pandemic 2020–2030")
 
     ensemble = st.session_state.get(ensemble_key)
 
@@ -1288,7 +1297,6 @@ elif scenario["type"] == "financial":
         "This scenario is not a forecast. It is a structural stress-test demonstrator "
         "showing how sector and regional dynamics interact under financial stress."
     )
-    render_intro_expander("Eurozone Financial Stability")
 
     path_options = {
         "🟢 Contained":  "contained",
@@ -1306,7 +1314,7 @@ elif scenario["type"] == "financial":
 
     ensemble_key = f"financial_ensemble_{selected_path}"
 
-    if run_clicked or history_key not in st.session_state:
+    if run_clicked:
         params = FINANCIAL_STOCHASTIC_PARAMS[selected_path]
 
         def _load_fin_nodes():
@@ -1340,6 +1348,16 @@ elif scenario["type"] == "financial":
         st.session_state[history_key]  = ensemble["median_history"]
         st.session_state["step"] = 0
         st.session_state["mode"] = "manual"
+
+    # ------------------------------------------
+    # Pre-Run-Guard: show primer card until user clicks Run for this path
+    # ------------------------------------------
+    if history_key not in st.session_state:
+        render_primer_card("Eurozone Financial Stability")
+        st.stop()
+
+    # Live-Dashboard: compact info expander above the controls
+    render_intro_expander("Eurozone Financial Stability")
 
     ensemble  = st.session_state.get(ensemble_key)
     history   = st.session_state[history_key]
@@ -1837,7 +1855,6 @@ elif scenario["type"] == "cyber_cloud":
         "This scenario is not a forecast. It is a structural stress-test demonstrator "
         "showing how digital, financial and economic layers interact under cyber stress."
     )
-    render_intro_expander("Cloud & Cyber Resilience")
 
     path_options = {
         "🟢 Resilient": "resilient",
@@ -1854,7 +1871,7 @@ elif scenario["type"] == "cyber_cloud":
     history_key   = f"cyber_cloud_history_{selected_path}"
     ensemble_key  = f"cyber_cloud_ensemble_{selected_path}"
 
-    if run_clicked or history_key not in st.session_state:
+    if run_clicked:
         params = CYBER_STOCHASTIC_PARAMS[selected_path]
 
         def _load_cy_nodes():
@@ -1888,6 +1905,16 @@ elif scenario["type"] == "cyber_cloud":
         st.session_state[history_key]  = ensemble["median_history"]
         st.session_state["step"] = 0
         st.session_state["mode"] = "manual"
+
+    # ------------------------------------------
+    # Pre-Run-Guard: show primer card until user clicks Run for this path
+    # ------------------------------------------
+    if history_key not in st.session_state:
+        render_primer_card("Cloud & Cyber Resilience")
+        st.stop()
+
+    # Live-Dashboard: compact info expander above the controls
+    render_intro_expander("Cloud & Cyber Resilience")
 
     ensemble  = st.session_state.get(ensemble_key)
     history   = st.session_state[history_key]
@@ -2071,11 +2098,36 @@ elif scenario["type"] == "cyber_cloud":
         L0_THR   = 0.20
         STAB_THR = 0.75
 
-        def find_ew_pairs(ew, stab, et, st_thr):
-            pairs, open_pair, i = [], None, 1
+        # ------------------------------------------------------------
+        # EW-Spike-Detektor — Cyber-Variante
+        # ------------------------------------------------------------
+        # Cyber-EW hat zwei Komponenten-Familien (acute + leading);
+        # auf dem Fragile-Pfad bleibt die Leading-Komponente chronisch
+        # hoch (~0.60–0.80). Reine Schwellen-Übergangs-Logik feuert
+        # dann nur einmal zu Beginn der Zeitreihe und niemals wieder
+        # — der Banner-Counter läuft anschließend gegen +∞.
+        #
+        # Daher: Spike = lokaler Anstieg von >= DELTA_THR ggü. dem
+        # rollenden Minimum der letzten WINDOW Monate. Das fängt
+        # echte Akut-Spitzen auch auf chronisch erhöhter Baseline,
+        # ohne den ursprünglichen Schwellen-Übergang zu verlieren.
+        DELTA_THR = 0.15   # min. Anstieg ggü. lokalem Tief
+        WINDOW    = 6      # Lookback in Monaten
+        COOLDOWN  = 3      # min. Abstand zwischen zwei offenen Spikes
+
+        def find_ew_pairs(ew, stab, et, st_thr,
+                          delta_thr=DELTA_THR, window=WINDOW,
+                          cooldown=COOLDOWN):
+            pairs, open_pair, last_spike, i = [], None, -10**9, 1
             while i < len(ew):
-                if ew[i] > et and ew[i-1] <= et:
+                lo = max(0, i - window)
+                local_min   = min(ew[lo:i+1])
+                absolute_ok = ew[i] > et and ew[i-1] <= et
+                delta_ok    = (ew[i] - local_min) >= delta_thr and ew[i] > et
+                cool_ok     = (i - last_spike) >= cooldown
+                if (absolute_ok or delta_ok) and cool_ok:
                     spike, found = i, False
+                    last_spike = i
                     for j in range(spike+1, len(stab)):
                         if stab[j] < st_thr and stab[j-1] >= st_thr:
                             pairs.append((spike, j, j-spike))
