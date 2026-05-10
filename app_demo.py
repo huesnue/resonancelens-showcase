@@ -107,6 +107,19 @@ st.set_page_config(
 with st.sidebar:
     st.image("assets/ResonanceLens.png", use_container_width=True)
     st.caption("Structural instability detection across complex systems.")
+    st.markdown(
+        "<div style='background:rgba(79,195,247,0.06);"
+        "border-left:2px solid rgba(79,195,247,0.55);"
+        "border-radius:0 4px 4px 0;"
+        "padding:8px 12px;"
+        "font-size:11.5px;"
+        "line-height:1.5;"
+        "margin:8px 0 4px 0;'>"
+        "<strong>Note.</strong> ResonanceLens is a structural simulation "
+        "showcase — not a forecasting tool."
+        "</div>",
+        unsafe_allow_html=True,
+    )
     st.divider()
 
 st.title("Why systems fail before they break")
