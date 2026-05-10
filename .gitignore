@@ -55,9 +55,7 @@ Thumbs.db
 # --------------------------------------
 # Data (wichtig!)
 # --------------------------------------
-data/
-*.parquet
-*.feather
+data/*
 !data/*.csv
 
 # --------------------------------------
@@ -83,7 +81,7 @@ frames/
 # Allow demo GIF for showcase
 !assets/demo.gif
 !assets/demo_showcase.png
-!ResonanceLens.png
+!assets/ResonanceLens.png
 
 # --------------------------------------
 # Test artifacts
