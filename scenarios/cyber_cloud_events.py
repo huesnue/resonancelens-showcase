@@ -60,6 +60,19 @@ EVENTS_HISTORICAL = [
         "source": "Eurostat ICT Survey 2020/21; ECB IT outsourcing report"
     },
     {
+        "month": "Sep 2020",
+        "type": "coupling_shift",
+        "cluster": "Security",
+        "factor": 0.95,
+        "duration": 4,
+        "plateau": 2,
+        "decay": 0.10,
+        "name": "[Precursor] APT29 SUNBURST pre-positioning — Supply-Chain-Reconnaissance, EU-Gov-Targets",
+        "attack_type": "reconnaissance",
+        "actor": "APT29 / Cozy Bear (Russland)",
+        "source": "Mandiant SolarWinds Retrospective (2021); Volexity Indicators (Dez 2020 backreferenced)"
+    },
+    {
         "month": "Dec 2020",
         "type": "coupling_shift",
         "cluster": "Security",
@@ -86,6 +99,31 @@ EVENTS_HISTORICAL = [
         "attack_type": "ransomware",
         "actor": "DarkSide",
         "source": "CISA AA21-131A; FBI Statement Mai 2021"
+    },
+    {
+        "month": "Oct 2021",
+        "type": "coupling_shift",
+        "cluster": "Platform",
+        "factor": 0.96,
+        "duration": 3,
+        "plateau": 2,
+        "decay": 0.12,
+        "name": "[Precursor] Log4j Vulnerability-Scanning-Kampagne — Reconnaissance vor Mass-Exploit",
+        "attack_type": "reconnaissance",
+        "source": "SANS ISC Honeypot Logs Q4 2021; Cloudflare Log4j Scanning Patterns Blog"
+    },
+    {
+        "month": "Nov 2021",
+        "type": "capacity_shock",
+        "cluster": "Cloud",
+        "factor": 0.95,
+        "duration": 3,
+        "plateau": 1,
+        "decay": 0.15,
+        "name": "[Precursor] GRU Pre-Positioning Viasat-Infrastruktur — AcidRain-Wiper-Staging",
+        "attack_type": "pre_positioning",
+        "actor": "GRU (Russland)",
+        "source": "SentinelLabs AcidRain Timeline; Viasat Post-Incident Report 2022"
     },
     {
         "month": "Dec 2021",
@@ -139,6 +177,19 @@ EVENTS_HISTORICAL = [
         "attack_type": "ddos",
         "actor": "NoName057(16)",
         "source": "Sekoia.io 2023 Report; CSIS Cyber Tracker"
+    },
+    {
+        "month": "Feb 2023",
+        "type": "coupling_shift",
+        "cluster": "Platform",
+        "factor": 0.94,
+        "duration": 3,
+        "plateau": 1,
+        "decay": 0.18,
+        "name": "[Precursor] CL0P MOVEit-Zero-Day-Weaponization — Staging vor Mass-Exfiltration",
+        "attack_type": "pre_positioning",
+        "actor": "CL0P (Cl0p / TA505)",
+        "source": "Mandiant CL0P TTP Analysis (Jul 2023); Microsoft Threat Intelligence MOVEit Advisory"
     },
     {
         "month": "May 2023",
@@ -232,6 +283,19 @@ EVENTS_HISTORICAL = [
         "attack_type": "ddos",
         "actor": "Pro-Russian hacktivists",
         "source": "Global Finance Magazine Dec 2024; Cloudflare DDoS Report"
+    },
+    {
+        "month": "Mar 2024",
+        "type": "capacity_shock",
+        "cluster": "Security",
+        "factor": 0.93,
+        "duration": 2,
+        "plateau": 1,
+        "decay": 0.20,
+        "name": "[Precursor] Stolen-Credential-Markets surge — Pre-Snowflake Akteur-Vorbereitung",
+        "attack_type": "credential_harvesting",
+        "actor": "Initial Access Brokers / UNC5537-Vorlauf",
+        "source": "Mandiant UNC5537 Report (Jun 2024); Microsoft Digital Defense Report 2024"
     },
     {
         "month": "May 2024",
@@ -359,6 +423,19 @@ EVENTS_HISTORICAL = [
         "name": "Operation Eastwood — Europol/Eurojust dismantling NoName057(16), >100 Server, 12 Laender",
         "attack_type": "law_enforcement",
         "source": "Europol Press Release 17.07.2025; Eurojust Statement"
+    },
+    {
+        "month": "Aug 2025",
+        "type": "capacity_shock",
+        "cluster": "Cloud",
+        "factor": 0.94,
+        "duration": 2,
+        "plateau": 1,
+        "decay": 0.22,
+        "name": "[Precursor] Cloud-Config-Drift-Akkumulation — Single-Region-Konzentration kumuliert",
+        "attack_type": "config_drift",
+        "actor": "Strukturelle Akkumulation (kein Akteur)",
+        "source": "AWS Post-Incident Review (Config-Drift als beitragender Faktor); Cherry Servers Cloud Outage Study 2025"
     },
     {
         "month": "Oct 2025",
@@ -742,14 +819,15 @@ STOCHASTIC_PARAMS = {
         "beta_a": 2, "beta_b": 8,
         "coupling_decay": 0.012,
         "seed": 42,
-        # t=0 Initialbedingungen
+        # t=0 Initialbedingungen (Phase H Kalibrierung)
         # Hohe DR-Reife, Multi-Cloud-Multi-Region, DORA frueh adoptiert
         # vor 2025, Zero-Trust ausgereift, Patch-SLA diszipliniert,
-        # zero-shadow-IT.
-        "initial_buffer":       0.78,
-        "initial_stress_acc":   0.20,
+        # zero-shadow-IT. Buffer von 0.78 -> 0.85 fuer staerkere
+        # Phase-1-Differenzierung gegen Hybrid/Fragile.
+        "initial_buffer":       0.85,
+        "initial_stress_acc":   0.10,
         "initial_econ_scale":   1.00,
-        "initial_supply_scale": 1.00,
+        "initial_supply_scale": 1.05,
         "initial_edge_scale":   1.00,
     },
     "hybrid": {
@@ -775,13 +853,14 @@ STOCHASTIC_PARAMS = {
         "beta_a": 3, "beta_b": 3,
         "coupling_decay": 0.045,
         "seed": 999,
-        # t=0 Initialbedingungen
+        # t=0 Initialbedingungen (Phase H Kalibrierung)
         # Schwache DR-Reife, technische Schulden hoch, ungepatchte
         # Systeme, zentralisierte Identity-Foederation als SPoF,
         # Backups nicht regelmaessig getestet, AI-Attack-Exposition
         # hoch durch Phishing-Anfaelligkeit der Belegschaft.
-        "initial_buffer":       0.48,
-        "initial_stress_acc":   0.60,
+        # Buffer von 0.48 -> 0.42 fuer staerkere Spreizung gegen Hybrid.
+        "initial_buffer":       0.42,
+        "initial_stress_acc":   0.65,
         "initial_econ_scale":   0.88,
         "initial_supply_scale": 0.85,
         "initial_edge_scale":   0.86,

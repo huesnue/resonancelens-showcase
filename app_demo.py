@@ -1965,7 +1965,14 @@ elif scenario["type"] == "cyber_cloud":
                 f"</div>", unsafe_allow_html=True)
 
         # ------------------------------------------
-        # FRÜHWARNARCHITEKTUR (identisch zu Financial — drei Layer)
+        # FRUEHWARNARCHITEKTUR — gradient + level Komponenten (Cyber-spezifisch)
+        # Im Cyber-Szenario soll die EW echtes "Vorlaufsignal" liefern:
+        # nicht erst bei Impact sondern schon bei der schleichenden Erosion,
+        # die jedem Cyber-Vorfall vorausgeht (Reconnaissance, Pre-Positioning,
+        # Staging, Credential-Harvesting etc.).
+        # Daher zwei Komponenten-Familien:
+        #   acute    — Differenzen (reagieren AT events) — 65% Gewicht
+        #   leading  — Pegel langsamer Variablen (akkumulieren ZWISCHEN events) — 35%
         # ------------------------------------------
         health_series = [h["system_health"] for h in history]
         n = len(health_series)
@@ -1974,21 +1981,36 @@ elif scenario["type"] == "cyber_cloud":
         cb_series   = [h.get("capacity_buffer",  0.60) for h in history]
         sp_series   = [h.get("shock_pressure",   0.0)  for h in history]
         sm_series   = [h.get("stability_margin", 0.0)  for h in history]
-        # Wirtschafts-Output für die Drift-Rechnung
+        sa_series   = [h.get("stress_accumulation", 0.0) for h in history]
         econ_series = [
             sum(h.get("economic_layer", {}).values()) / max(len(h.get("economic_layer", {})), 1)
             for h in history
         ]
 
+        # Buffer-Baseline: Initialwert dient als historische Referenz fuer Annotationen.
+        cb_baseline = max(0.05, cb_series[0]) if cb_series else 0.60
+
         structural_drift_raw = [0.0]
         for i in range(1, n):
+            # --- Acute (gradient) — Veraenderungen seit letztem Step ---
             d_cb     = max(0.0, cb_series[i-1]    - cb_series[i])
             d_sp     = max(0.0, sp_series[i]       - sp_series[i-1])
             d_health = max(0.0, health_series[i-1] - health_series[i])
             d_econ   = max(0.0, econ_series[i-1]   - econ_series[i])
-            structural_drift_raw.append(
-                0.40 * d_cb + 0.25 * d_sp + 0.20 * d_health + 0.15 * d_econ
-            )
+            acute = 0.25 * d_cb + 0.15 * d_sp + 0.15 * d_health + 0.10 * d_econ
+
+            # --- Leading (level) — kumulierte strukturelle Erosion ---
+            # Buffer-Vulnerability: wie weit ist der Buffer vom theoretischen
+            # Maximum (1.0) entfernt. Damit skaliert die Metrik korrekt mit
+            # Pfadfragilitaet — Resilient mit hohem Buffer hat fast keine
+            # Vulnerability, Fragile mit niedrigem Buffer ist chronisch
+            # vulnerabel auch zwischen Events.
+            buffer_vulnerability = max(0.0, 1.0 - cb_series[i])
+            # Stress-Akkumulation: latente Belastung normalisiert
+            sa_normalized = min(1.0, sa_series[i] / 4.0)
+            leading = 0.20 * buffer_vulnerability + 0.15 * sa_normalized
+
+            structural_drift_raw.append(acute + leading)
 
         n_smooth = 3
         structural_drift_smooth = []

@@ -55,32 +55,46 @@ def compute_system_health(nodes):
     Gewichtung: 30% digital, 40% financial, 30% economic.
     Begruendung: Finanzielle Wirkung ist die zentrale Metrik (DORA-Logik);
     digitale Erosion ist der Treiber; Wirtschaft ist die Konsequenz.
+
+    Phase H Fix: Failed-Knoten zaehlen mit health=0, NICHT ausgeschlossen.
+    Andernfalls ergibt ein System mit 10/20 Failures faelschlich hohe Werte
+    weil nur ueber die ueberlebenden 10 gemittelt wuerde -- inkonsistent mit
+    digital_layer/financial_layer/economic_layer dicts im Snapshot, die
+    failed-Knoten mit value=0 mitfuehren.
     """
     dig_score, dig_count = 0.0, 0
     fin_score, fin_count = 0.0, 0
     eco_score, eco_count = 0.0, 0
 
     for n in nodes.values():
-        if n["status"] == "failed":
-            continue
         space = n.get("space", "digital")
+        is_failed = (n["status"] == "failed")
 
         if space == "digital":
-            demand = n.get("demand", 1.0)
-            received = n.get("received", 0.0)
-            h = max(0.0, min(1.0, received / demand)) if demand > 0 else 1.0
+            if is_failed:
+                h = 0.0
+            else:
+                demand = n.get("demand", 1.0)
+                received = n.get("received", 0.0)
+                h = max(0.0, min(1.0, received / demand)) if demand > 0 else 1.0
             dig_score += h
             dig_count += 1
         elif space == "financial":
-            demand = n.get("demand", 1.0)
-            received = n.get("received", 0.0)
-            h = max(0.0, min(1.0, received / demand)) if demand > 0 else 1.0
+            if is_failed:
+                h = 0.0
+            else:
+                demand = n.get("demand", 1.0)
+                received = n.get("received", 0.0)
+                h = max(0.0, min(1.0, received / demand)) if demand > 0 else 1.0
             fin_score += h
             fin_count += 1
         else:  # economic (default for unknown)
-            econ_base = n.get("initial_econ_output", n.get("econ_output", 1.0))
-            econ_now = n.get("econ_output", econ_base)
-            e = max(0.0, min(1.0, econ_now / econ_base)) if econ_base > 0 else 1.0
+            if is_failed:
+                e = 0.0
+            else:
+                econ_base = n.get("initial_econ_output", n.get("econ_output", 1.0))
+                econ_now = n.get("econ_output", econ_base)
+                e = max(0.0, min(1.0, econ_now / econ_base)) if econ_base > 0 else 1.0
             eco_score += e
             eco_count += 1
 
@@ -364,6 +378,14 @@ def run_cyber_cloud_simulation(
     pos_prev = None
     affinity_state = {}
 
+    # Path-isolated RNG: jede Pfad-/Seed-Kombi hat eine reproduzierbare
+    # Stochastik fuer variability_shock-Noise und Failure-Recovery.
+    # Ohne diesen RNG nutzen die Calls den globalen random-Modul-State,
+    # der zwischen Pfaden zufaellig variiert -> Median-Run-Pick wuerde
+    # zu Pfad-Inversionen in Phase 1 fuehren.
+    sim_seed = (stochastic_params or {}).get("seed", 42)
+    sim_rng = random.Random(sim_seed)
+
     projection_start_step = month_to_step.get(projection_start_month, steps) \
         if month_to_step else steps
 
@@ -585,7 +607,7 @@ def run_cyber_cloud_simulation(
                     n["demand"] = n.get("base_demand", n["demand"]) * min(1.3, eff)
 
                 elif etype == "variability_shock":
-                    noise = random.gauss(0, 0.06 * intensity)
+                    noise = sim_rng.gauss(0, 0.06 * intensity)
                     n["supply"] = max(0.0, n["supply"] * (1.0 + noise))
 
             # Coupling shift (alle Kanten)
@@ -660,9 +682,10 @@ def run_cyber_cloud_simulation(
                     edge_cap = e["capacity"] * e["strength"]
                     transfer = min(available, unmet, edge_cap)
 
-                    # Brueckenkante: gedaempfter Transfer (aggregierter Raumstress)
+                    # Brueckenkante: gedaempfter Transfer (Phase H: 0.85 -> 0.70 fuer
+                    # bessere Daempfung von Cyber-Cascades zwischen den drei Raeumen)
                     if is_bridge:
-                        transfer *= 0.85
+                        transfer *= 0.70
 
                     if transfer > 0.5:
                         sender["supply"]     -= transfer
@@ -695,10 +718,13 @@ def run_cyber_cloud_simulation(
             sp = n["shock_pressure"]
 
             # Buffer recovery/erosion
+            # Buffer recovery/erosion — path-abhaengig (Phase H Kalibrierung).
+            # Resilient (init_cb=0.85): erholt sich ~3x schneller, erodiert ~2x langsamer
+            # Fragile  (init_cb=0.42): erholt sich kaum, erodiert schnell.
             cb_min = max(0.05, init_cb * (0.50 + 0.10 * init_cb))
             cb_max = min(1.0,  init_cb * 1.25)
-            recovery_rate = max(0.0, (1.0 - sp)) * (0.020 + init_cb * 0.015)
-            erosion_rate  = sp * (0.025 + (1.0 - init_cb) * 0.040)
+            recovery_rate = max(0.0, (1.0 - sp)) * (0.005 + init_cb * 0.075)
+            erosion_rate  = sp * (0.010 + (1.0 - init_cb) * 0.100)
             n["capacity_buffer"] = max(cb_min, min(cb_max, cb + recovery_rate - erosion_rate))
 
             # Stability margin
@@ -774,14 +800,17 @@ def run_cyber_cloud_simulation(
         # ------------------------------------------
         # FAILURE & RECOVERY
         # ------------------------------------------
+        # Phase H: Failure threshold 80 -> 95. Cyber-Schocks erzeugen kurze
+        # akute Spitzen (z.B. AWS Outage Faktor 0.65); 80 hat zu viele
+        # spontane Failures bei resilienten Knoten erzeugt.
         for n in nodes.values():
             if n["status"] == "failed":
                 continue
-            if n["stress"] > 80:
+            if n["stress"] > 95:
                 n["status"] = "failed"
-            elif n["stress"] > 50:
+            elif n["stress"] > 60:
                 n["supply"] *= 0.7
-            elif n["stress"] > 25:
+            elif n["stress"] > 30:
                 n["supply"] *= 0.9
 
         for node_id, n in nodes.items():
@@ -792,7 +821,7 @@ def run_cyber_cloud_simulation(
             sa = n.get("stress_accumulation", 0.0)
             recovery_threshold = 20.0 + 20.0 * cb
             recovery_prob = (0.10 + 0.25 * cb) * math.exp(-intrinsic / (25.0 + 15.0 * cb))
-            if intrinsic < recovery_threshold and random.random() < recovery_prob:
+            if intrinsic < recovery_threshold and sim_rng.random() < recovery_prob:
                 n["status"] = "active"
                 restore_frac = 0.55 + 0.30 * cb
                 base_d_rec = max(1.0, n.get("base_demand", 1.0))
@@ -853,6 +882,9 @@ def run_cyber_cloud_simulation(
         avg_cb = sum(n.get("capacity_buffer", 0.60) for n in active_nodes) / active_n if active_n > 0 else 0.60
         avg_sp = sum(n.get("shock_pressure",  0.0)  for n in active_nodes) / active_n if active_n > 0 else 0.0
         avg_sm = sum(n.get("stability_margin", 0.0) for n in active_nodes) / active_n if active_n > 0 else 0.0
+        # Phase H+: stress_accumulation als slow-moving Latent-Variable exponieren.
+        # Faengt schleichende Erosion zwischen Events ein -- Basis fuer Leading-EW.
+        avg_sa = sum(n.get("stress_accumulation", 0.0) for n in active_nodes) / active_n if active_n > 0 else 0.0
 
         # Raum-spezifische Metriken (drei Raeume)
         dig_nodes = [n for n in active_nodes if n.get("space") == "digital"]
@@ -909,6 +941,7 @@ def run_cyber_cloud_simulation(
             "capacity_buffer":  avg_cb,
             "shock_pressure":   avg_sp,
             "stability_margin": avg_sm,
+            "stress_accumulation": avg_sa,
             # Raum-spezifische Internals
             "spaces": {
                 "digital":   {"capacity_buffer": dig_cb, "shock_pressure": dig_sp, "stability_margin": dig_sm},
