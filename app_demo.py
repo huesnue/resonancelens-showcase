@@ -211,7 +211,7 @@ st.set_page_config(
 # SIDEBAR — Logo + Navigation
 # ------------------------------------------
 with st.sidebar:
-    st.image("assets/ResonanceLens.png", use_container_width=True)
+    st.image("assets/ResonanceLens.png", width="stretch")
     st.caption("Structural instability detection across complex systems.")
     st.markdown(
         "<div style='background:rgba(79,195,247,0.06);"
