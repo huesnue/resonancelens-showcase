@@ -336,17 +336,17 @@ EVENTS_HISTORICAL = [
         "source": "CrowdStrike Root Cause Analysis Aug 2024; CISA Statement"
     },
     {
-        "month": "Jul 2024",
+        "month": "Oct 2024",
         "type": "supply_shock",
         "cluster": "Cloud",
-        "factor": 0.72,
+        "factor": 0.78,
         "duration": 1,
         "plateau": 1,
-        "decay": 0.45,
-        "name": "Microsoft Azure Outage (30.07.2024) — DDoS auf Azure Front Door + CDN, fehlerhafte Defense-Implementation verstaerkte Wirkung, NatWest/Outlook/M365 ca. 8-10h (11 Tage nach CrowdStrike)",
+        "decay": 0.40,
+        "name": "Microsoft Azure Outage Oct 2024 — DDoS+Config-Drift, NatWest, Outlook, M365 ca. 10h",
         "attack_type": "cloud_outage",
-        "actor": "Microsoft Azure (DDoS + fehlerhafte DDoS-Defense-Implementation)",
-        "source": "Microsoft Azure Status History 30.07.2024; Cybersecurity Dive; BBC; bleepingcomputer.com"
+        "actor": "Microsoft Azure (DDoS + interner Config-Fehler)",
+        "source": "Microsoft Azure Status History; Computing UK Oct 2024"
     },
 
     # ---- 2025: DORA + NoName-Welle + Cloudflare + AWS DNS ----
@@ -817,18 +817,19 @@ STOCHASTIC_PARAMS = {
         # Projektionsphase
         "poisson_rate":   0.08,
         "beta_a": 2, "beta_b": 8,
-        "coupling_decay": 0.012,
+        "coupling_decay": 0.004,
         "seed": 42,
         # t=0 Initialbedingungen (Phase H Kalibrierung)
         # Hohe DR-Reife, Multi-Cloud-Multi-Region, DORA frueh adoptiert
         # vor 2025, Zero-Trust ausgereift, Patch-SLA diszipliniert,
-        # zero-shadow-IT. Buffer von 0.78 -> 0.85 fuer staerkere
-        # Phase-1-Differenzierung gegen Hybrid/Fragile.
-        "initial_buffer":       0.85,
-        "initial_stress_acc":   0.10,
-        "initial_econ_scale":   1.00,
-        "initial_supply_scale": 1.05,
-        "initial_edge_scale":   1.00,
+        # zero-shadow-IT, IR-Teams reagieren in Minuten/Stunden,
+        # Backups funktional. Reflektiert reale Cyber-Resilienz wie
+        # bei grossen Tech-Konzernen + DORA-konformen EU-Banken.
+        "initial_buffer":       0.95,
+        "initial_stress_acc":   0.03,
+        "initial_econ_scale":   1.10,
+        "initial_supply_scale": 1.15,
+        "initial_edge_scale":   1.08,
     },
     "hybrid": {
         # Projektionsphase

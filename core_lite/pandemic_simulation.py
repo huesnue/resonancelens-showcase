@@ -275,6 +275,7 @@ def run_pandemic_simulation(
     steps=120,
     month_to_step=None,
     stochastic_params=None,
+    background_load=None,
     projection_start_month="Jan 2025",
     month_labels=None
 ):
@@ -372,6 +373,35 @@ def run_pandemic_simulation(
                 # Ausgangsstärke der Verbindungen
                 e["strength"]         = e["strength"] * init_edge_scale
                 e["initial_strength"] = e["strength"]
+
+            # ------------------------------------------
+            # BACKGROUND LOAD (pfad-unabhängige Vor-Belastung)
+            # Wird NACH den Pfad-Initial-Conditions angewendet.
+            # Bildet die reale historische Vorgeschichte ab, die
+            # alle drei Pfade gleichermaßen trifft.
+            # ------------------------------------------
+            if background_load:
+                bg_buffer_drag = background_load.get("structural_buffer_drag", 0.0)
+                bg_stress_base = background_load.get("latent_stress_baseline", 0.0)
+                bg_supply_conc = background_load.get("supply_chain_concentration", 1.0)
+                bg_coord_fric  = background_load.get("coordination_friction",    1.0)
+
+                for n in nodes.values():
+                    # capacity_buffer: dauerhaft reduziert durch strukturelle Vor-Belastung
+                    n["capacity_buffer"]         = max(0.05, n["capacity_buffer"] - bg_buffer_drag)
+                    n["initial_capacity_buffer"] = n["capacity_buffer"]
+
+                    # stress_accumulation: latenter Stress addiert
+                    n["stress_accumulation"] = n.get("stress_accumulation", 0.0) + bg_stress_base
+
+                    # Supply: Lieferketten-Konzentration reduziert verfügbare Kapazität
+                    n["supply"]         = n["supply"] * bg_supply_conc
+                    n["initial_supply"] = n["initial_supply"] * bg_supply_conc
+
+                for e in edges:
+                    # Kanten: Koordinations-Reibung
+                    e["strength"]         = e["strength"] * bg_coord_fric
+                    e["initial_strength"] = e["initial_strength"] * bg_coord_fric
 
         # ------------------------------------------
         # Restore: Supply (partiell, buffer-abhängig)
@@ -854,7 +884,10 @@ def run_pandemic_simulation(
             acc_decay  = cb * 0.06
             sa_cap = 6.0 + (1.0 - cb) * 6.0
             sa = n.get("stress_accumulation", 0.0)
-            n["stress_accumulation"] = max(0.0, min(sa_cap, sa + acc_growth - acc_decay))
+            # NEU: Background-Load Floor — strukturelle Vor-Belastung
+            # erodiert nicht, sondern bleibt als latenter Stress.
+            bg_floor = background_load.get("latent_stress_baseline", 0.0) if background_load else 0.0
+            n["stress_accumulation"] = max(bg_floor, min(sa_cap, sa + acc_growth - acc_decay))
             # Fix A: sa wirkt NUR als Hintergrundrauschen, NICHT auf Recovery-Check
             # Separate Variable für Recovery-Check
             n["intrinsic_stress"] = n["stress"]   # vor sa-Beitrag

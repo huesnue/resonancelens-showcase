@@ -196,7 +196,7 @@ def compute_dynamic_layout(G, nodes, affinity, cluster_anchors, pos_prev):
     return pos
 
 
-def run_energy_simulation(nodes, edges, steps=10, month_to_step=None):
+def run_energy_simulation(nodes, edges, steps=10, month_to_step=None, background_load=None):
 
     history = []
     pos_prev = None
@@ -224,6 +224,24 @@ def run_energy_simulation(nodes, edges, steps=10, month_to_step=None):
             for e in edges:
                 e["initial_capacity"] = e["capacity"]
                 e["initial_strength"] = e["strength"]
+
+            # ------------------------------------------
+            # BACKGROUND LOAD (pfad-unabhängige Vor-Belastung)
+            # Energy-Modell hat kein capacity_buffer/stress_acc;
+            # wirksam sind nur supply_chain_concentration
+            # und coordination_friction.
+            # ------------------------------------------
+            if background_load:
+                bg_supply_conc = background_load.get("supply_chain_concentration", 1.0)
+                bg_coord_fric  = background_load.get("coordination_friction",    1.0)
+
+                for n in nodes.values():
+                    n["supply"]         = n["supply"] * bg_supply_conc
+                    n["initial_supply"] = n["initial_supply"] * bg_supply_conc
+
+                for e in edges:
+                    e["strength"]         = e["strength"] * bg_coord_fric
+                    e["initial_strength"] = e["initial_strength"] * bg_coord_fric
 
         # Restore supply, demand and edge capacity each step
         # All events modify only the current step's values

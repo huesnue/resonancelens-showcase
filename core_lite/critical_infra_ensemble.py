@@ -55,6 +55,9 @@ def run_ensemble(
     """
     base_seed = stochastic_params.get("seed", 42)
 
+    # Pfad-unabhängige Vor-Belastung (optional)
+    background_load = kwargs.get("background_load", None)
+
     all_health    = []
     all_digital   = []
     all_rail      = []
@@ -84,10 +87,15 @@ def run_ensemble(
                 steps=steps,
                 month_to_step=month_to_step,
                 stochastic_params=run_params,
+                background_load=background_load,
                 projection_start_month=projection_start_month,
                 month_labels=month_labels,
             )
-        except Exception:
+        except Exception as _e:
+            # DIAGNOSE-MODUS: Exception sichtbar machen
+            import traceback
+            print(f"[CI-Ensemble] Run {run_idx} failed: {type(_e).__name__}: {_e}")
+            traceback.print_exc()
             if progress_callback:
                 progress_callback((run_idx + 1) / n_runs, run_idx + 1, n_runs)
             continue
@@ -144,6 +152,7 @@ def run_ensemble(
         steps=steps,
         month_to_step=month_to_step,
         stochastic_params=run_params_median,
+        background_load=background_load,
         projection_start_month=projection_start_month,
         month_labels=month_labels,
     )

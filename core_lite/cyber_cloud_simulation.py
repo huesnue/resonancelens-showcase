@@ -354,6 +354,7 @@ def run_cyber_cloud_simulation(
     steps=126,
     month_to_step=None,
     stochastic_params=None,
+    background_load=None,
     projection_start_month="Jun 2026",
     month_labels=None
 ):
@@ -440,6 +441,26 @@ def run_cyber_cloud_simulation(
                 e["initial_capacity"] = e["capacity"]
                 e["strength"]         = e["strength"] * init_edge_scale
                 e["initial_strength"] = e["strength"]
+
+            # ------------------------------------------
+            # BACKGROUND LOAD (pfad-unabhängige Vor-Belastung)
+            # ------------------------------------------
+            if background_load:
+                bg_buffer_drag = background_load.get("structural_buffer_drag", 0.0)
+                bg_stress_base = background_load.get("latent_stress_baseline", 0.0)
+                bg_supply_conc = background_load.get("supply_chain_concentration", 1.0)
+                bg_coord_fric  = background_load.get("coordination_friction",    1.0)
+
+                for n in nodes.values():
+                    n["capacity_buffer"]         = max(0.05, n["capacity_buffer"] - bg_buffer_drag)
+                    n["initial_capacity_buffer"] = n["capacity_buffer"]
+                    n["stress_accumulation"] = n.get("stress_accumulation", 0.0) + bg_stress_base
+                    n["supply"]         = n["supply"] * bg_supply_conc
+                    n["initial_supply"] = n["initial_supply"] * bg_supply_conc
+
+                for e in edges:
+                    e["strength"]         = e["strength"] * bg_coord_fric
+                    e["initial_strength"] = e["initial_strength"] * bg_coord_fric
 
         # ------------------------------------------
         # RESTORE Supply + Demand
@@ -753,7 +774,8 @@ def run_cyber_cloud_simulation(
             acc_decay  = cb * 0.06
             sa_cap = 6.0 + (1.0 - cb) * 6.0
             sa = n.get("stress_accumulation", 0.0)
-            n["stress_accumulation"] = max(0.0, min(sa_cap, sa + acc_growth - acc_decay))
+            bg_floor = background_load.get("latent_stress_baseline", 0.0) if background_load else 0.0
+            n["stress_accumulation"] = max(bg_floor, min(sa_cap, sa + acc_growth - acc_decay))
             n["intrinsic_stress"] = n["stress"]
             n["stress"] += n["stress_accumulation"] * 0.20
 

@@ -68,7 +68,7 @@ MONTH_TO_STEP = {m: i for i, m in enumerate(MONTHS)}
 PANDEMIC_MONTHS        = generate_months_pandemic(start="2020-01", steps=126)
 PANDEMIC_MONTH_TO_STEP = {m: i for i, m in enumerate(PANDEMIC_MONTHS)}
 PANDEMIC_STEPS         = len(PANDEMIC_MONTHS)
-PROJECTION_START       = "Jan 2025"
+PROJECTION_START       = "Jun 2026"
 
 # Financial timeline: Jan 2020 → Jun 2030 (126 months, konsistent mit Pandemic)
 FINANCIAL_MONTHS        = generate_months_pandemic(start="2020-01", steps=126)
@@ -198,6 +198,109 @@ def plot_series(data, title):
     fig.update_layout(title=title, height=250, margin=dict(l=20, r=20, t=40, b=20))
     return fig
 
+# ============================================================
+# SYSTEM-STATE-CLASSIFIER (zentraler Banner-Helper)
+# ============================================================
+# Mehrdimensionale Banner-Logik: differenziert zwischen "stable",
+# "elevated", "structural stress", "EW active", "EW preceded" und
+# "instability". Wird in allen 5 Szenarien wiederverwendet.
+#
+# Achsen:
+#   AKUT       — offener EW-Spike, aktive Events, EW-Signal-Level
+#   STRUKTUR   — relativer Drop ggü. Baseline (Step 0 mit Background Load)
+# ============================================================
+
+def compute_system_state(
+    current_idx,
+    stability_norm,
+    econ_norm=None,
+    ew_norm=None,
+    active_events=None,
+    open_ew_pair=None,
+    all_ew_pairs=None,
+    # Schwellen (kalibrierbar pro Szenario)
+    instability_drop=0.25,
+    structural_drop=0.10,
+    elevated_drop=0.03,
+    econ_structural_drop=0.20,
+    ew_elevated_threshold=0.20,
+    ew_pair_memory_steps=12,
+):
+    """
+    Mehrdimensionale Zustandsklassifizierung.
+
+    Rückgabe: (label, css_inline_style)
+
+    Reihenfolge der Prüfungen (höchste Priorität zuerst):
+      1. Instability      — stab_rel_drop > instability_drop
+      2. EW Active        — offener EW-Spike
+      3. Structural Stress — stab_rel_drop > structural_drop ODER
+                             econ_rel_drop > econ_structural_drop
+      4. EW Preceded      — EW-Pair innerhalb der letzten N Steps
+      5. Elevated         — stab_rel_drop > elevated_drop ODER
+                             aktive Events ODER EW > ew_elevated_threshold
+      6. Stable           — sonst
+    """
+    # Defensive: Index begrenzen
+    if not stability_norm:
+        return ("🟢 System stable — no structural warning",
+                "background:rgba(107,217,107,0.10);border-left:3px solid #6bd96b;")
+    idx = min(current_idx, len(stability_norm) - 1)
+
+    # Relativer Drop ggü. Step-0-Baseline
+    stab_base = max(stability_norm[0], 0.01)
+    stab_now  = stability_norm[idx]
+    stab_rel_drop = max(0.0, (stab_base - stab_now) / stab_base)
+
+    if econ_norm and len(econ_norm) > 0:
+        econ_base = max(econ_norm[0], 0.01)
+        econ_now  = econ_norm[min(idx, len(econ_norm) - 1)]
+        econ_rel_drop = max(0.0, (econ_base - econ_now) / econ_base)
+    else:
+        econ_rel_drop = 0.0
+
+    ew_now = ew_norm[idx] if ew_norm and idx < len(ew_norm) else 0.0
+    has_active_events = bool(active_events)
+
+    is_ew_active = bool(open_ew_pair and open_ew_pair[0] <= idx)
+    is_ew_done = bool(
+        all_ew_pairs
+        and all_ew_pairs[-1][1] is not None
+        and all_ew_pairs[-1][1] <= idx
+        and idx - all_ew_pairs[-1][1] <= ew_pair_memory_steps
+    )
+
+    # 1. Instability (höchste Priorität)
+    if stab_rel_drop > instability_drop:
+        return ("🔴 Instability confirmed",
+                "background:rgba(255,59,59,0.12);border-left:3px solid #ff3b3b;")
+
+    # 2. EW Active
+    if is_ew_active:
+        return ("🟡 Early Warning active — structural weakening detected",
+                "background:rgba(244,162,97,0.12);border-left:3px solid #f4a261;")
+
+    # 3. Structural Stress — strukturelle Beschädigung, akut oder Recovery-Phase
+    if stab_rel_drop > structural_drop or econ_rel_drop > econ_structural_drop:
+        return ("🟠 Structural stress — recovery incomplete",
+                "background:rgba(232,138,53,0.12);border-left:3px solid #e88a35;")
+
+    # 4. EW Preceded — recently completed pair
+    if is_ew_done:
+        return ("💡 Early Warning preceded instability",
+                "background:rgba(244,162,97,0.08);border-left:3px solid #f4a261;")
+
+    # 5. Elevated activity — leichte Erhöhung, Events laufen, oder EW erhöht
+    if (stab_rel_drop > elevated_drop
+        or has_active_events
+        or ew_now > ew_elevated_threshold):
+        return ("🟢 Elevated activity — system absorbing",
+                "background:rgba(107,217,107,0.06);border-left:3px solid #88c98c;")
+
+    # 6. Stable
+    return ("🟢 System stable — no structural warning",
+            "background:rgba(107,217,107,0.10);border-left:3px solid #6bd96b;")
+    
 # ------------------------------------------
 # UI CONFIG
 # ------------------------------------------
@@ -498,7 +601,8 @@ elif scenario["type"] == "energy":
 
     if run_clicked:
         st.session_state["energy_history"] = run_energy_simulation(
-            nodes, edges, steps=64, month_to_step=MONTH_TO_STEP
+            nodes, edges, steps=64, month_to_step=MONTH_TO_STEP,
+            background_load=scenario.get("background_load"),
         )
         st.session_state["step"] = 0
         st.session_state["mode"] = "manual"
@@ -774,24 +878,23 @@ elif scenario["type"] == "energy":
                                 if data.get("cluster") == c:
                                     highlight_nodes.add(node)
 
-            # D: Netzwerk-State Banner
-            _en_ew_active = bool(open_pair_chart and open_pair_chart[0] <= current_step)
-            _en_ew_done   = bool(all_pairs_chart and all_pairs_chart[-1][1] is not None
-                                 and all_pairs_chart[-1][1] <= current_step
-                                 and current_step - all_pairs_chart[-1][1] <= 6)
-            _en_stab_drop = stab_pre[current_step] < STAB_THRESHOLD if current_step < len(stab_pre) else False
-            if _en_stab_drop:
-                _en_state = ("🔴 Instability confirmed",
-                             "background:rgba(255,59,59,0.12);border-left:3px solid #ff3b3b;")
-            elif _en_ew_active:
-                _en_state = ("🟡 Early Warning active — structural weakening detected",
-                             "background:rgba(244,162,97,0.12);border-left:3px solid #f4a261;")
-            elif _en_ew_done:
-                _en_state = ("💡 Early Warning preceded instability",
-                             "background:rgba(244,162,97,0.08);border-left:3px solid #f4a261;")
-            else:
-                _en_state = ("🟢 System stable — no structural warning",
-                             "background:rgba(107,217,107,0.10);border-left:3px solid #6bd96b;")
+            # D: Netzwerk-State Banner (mehrdimensional)
+            _en_state = compute_system_state(
+                current_idx=current_step,
+                stability_norm=stab_pre,
+                econ_norm=None,
+                ew_norm=ew_norm_pre,
+                active_events=active_events,
+                open_ew_pair=open_pair_chart,
+                all_ew_pairs=all_pairs_chart,
+                instability_drop=0.25,
+                structural_drop=0.10,
+                elevated_drop=0.03,
+                econ_structural_drop=0.20,
+                ew_elevated_threshold=0.20,
+                ew_pair_memory_steps=12,
+            )
+
             st.markdown(
                 f"<div style='{_en_state[1]}border-radius:0 6px 6px 0;"
                 f"padding:6px 12px;font-size:12px;font-weight:600;margin-bottom:6px;'>"
@@ -888,6 +991,7 @@ elif scenario["type"] == "pandemic":
             month_to_step=PANDEMIC_MONTH_TO_STEP,
             projection_start_month=PROJECTION_START,
             month_labels=PANDEMIC_MONTHS,
+            background_load=sc.get("background_load"),
             n_runs=50,
             progress_callback=_update_progress,
         )
@@ -1360,25 +1464,22 @@ elif scenario["type"] == "pandemic":
                                 if data.get("cluster") == c:
                                     highlight_nodes.add(node)
 
-            # D: Netzwerk-State Banner (open_pair_chart oben definiert)
-            _is_ew_active = bool(open_pair_chart and open_pair_chart[0] <= current_idx)
-            _is_ew_done   = bool(all_pairs_chart and all_pairs_chart[-1][1] is not None
-                                 and all_pairs_chart[-1][1] <= current_idx
-                                 and current_idx - all_pairs_chart[-1][1] <= 8)
-            _stab_dropped = stability_norm[current_idx] < STAB_THR if current_idx < len(stability_norm) else False
-
-            if _stab_dropped:
-                _net_state = ("🔴 Instability confirmed",
-                              "background:rgba(255,59,59,0.12);border-left:3px solid #ff3b3b;")
-            elif _is_ew_active:
-                _net_state = ("🟡 Early Warning active — structural weakening detected",
-                              "background:rgba(244,162,97,0.12);border-left:3px solid #f4a261;")
-            elif _is_ew_done:
-                _net_state = ("💡 Early Warning preceded instability",
-                              "background:rgba(244,162,97,0.08);border-left:3px solid #f4a261;")
-            else:
-                _net_state = ("🟢 System stable — no structural warning",
-                              "background:rgba(107,217,107,0.10);border-left:3px solid #6bd96b;")
+            # D: Netzwerk-State Banner (mehrdimensional)
+            _net_state = compute_system_state(
+                current_idx=current_idx,
+                stability_norm=stability_norm,
+                econ_norm=econ_layer_avg,
+                ew_norm=ew_norm,
+                active_events=active_events,
+                open_ew_pair=open_pair_chart,
+                all_ew_pairs=all_pairs_chart,
+                instability_drop=0.25,
+                structural_drop=0.10,
+                elevated_drop=0.03,
+                econ_structural_drop=0.20,
+                ew_elevated_threshold=0.20,
+                ew_pair_memory_steps=12,
+            )
 
             st.markdown(
                 f"<div style='{_net_state[1]}border-radius:0 6px 6px 0;"
@@ -1456,6 +1557,9 @@ elif scenario["type"] == "financial":
         def _load_fin_edges():
             return load_financial(path=selected_path)["edges"]
 
+        # Pfad-unabhängige Vor-Belastung (einmalig laden)
+        _fin_bg_load = load_financial(path=selected_path).get("background_load")
+
         path_label = selected_label
         progress_bar = st.progress(0, text=f"Running ensemble — {path_label} — 0 / 50")
 
@@ -1473,6 +1577,7 @@ elif scenario["type"] == "financial":
             month_to_step=FINANCIAL_MONTH_TO_STEP,
             projection_start_month=FINANCIAL_PROJECTION_START,
             month_labels=FINANCIAL_MONTHS,
+            background_load=_fin_bg_load,
             n_runs=50,
             progress_callback=_update_fin_progress,
         )
@@ -1929,6 +2034,29 @@ elif scenario["type"] == "financial":
                                 if data.get("cluster") == c:
                                     highlight_nodes.add(node)
 
+            # D: Netzwerk-State Banner (mehrdimensional)
+            _net_state = compute_system_state(
+                current_idx=current_idx,
+                stability_norm=stability_norm,
+                econ_norm=sec_layer_avg,
+                ew_norm=ew_norm,
+                active_events=active_events,
+                open_ew_pair=open_pair_chart,
+                all_ew_pairs=all_pairs_chart,
+                instability_drop=0.25,
+                structural_drop=0.10,
+                elevated_drop=0.03,
+                econ_structural_drop=0.20,
+                ew_elevated_threshold=0.20,
+                ew_pair_memory_steps=12,
+            )
+
+            st.markdown(
+                f"<div style='{_net_state[1]}border-radius:0 6px 6px 0;"
+                f"padding:6px 12px;font-size:12px;font-weight:600;margin-bottom:6px;'>"
+                f"{_net_state[0]}</div>",
+                unsafe_allow_html=True)
+
             st.plotly_chart(
                 plot_network(current["graph"], current["load"], current["edges"],
                              highlight_nodes=highlight_nodes, highlight_edges=highlight_edges,
@@ -2013,6 +2141,9 @@ elif scenario["type"] == "cyber_cloud":
         def _load_cy_edges():
             return load_cyber_cloud(path=selected_path)["edges"]
 
+        # Pfad-unabhängige Vor-Belastung (einmalig laden)
+        _cy_bg_load = load_cyber_cloud(path=selected_path).get("background_load")
+
         path_label = selected_label
         progress_bar = st.progress(0, text=f"Running ensemble — {path_label} — 0 / 50")
 
@@ -2030,6 +2161,7 @@ elif scenario["type"] == "cyber_cloud":
             month_to_step=CYBER_MONTH_TO_STEP,
             projection_start_month=CYBER_PROJECTION_START,
             month_labels=CYBER_MONTHS,
+            background_load=_cy_bg_load,
             n_runs=50,
             progress_callback=_update_cy_progress,
         )
@@ -2557,6 +2689,32 @@ elif scenario["type"] == "cyber_cloud":
                         if data.get("cluster") == event["cluster"]:
                             highlight_nodes.add(node)
 
+            # D: Netzwerk-State Banner (mehrdimensional)
+            # Cyber-Cloud-Schwellen leicht erhöht — System läuft durch
+            # Background-Load (Cyber-Bedrohung als Dauerlast) etwas tiefer
+            # als bei Pandemic/Energy, aber milder als Critical-Infra
+            _net_state = compute_system_state(
+                current_idx=current_idx,
+                stability_norm=stability_norm,
+                econ_norm=eco_layer_avg,
+                ew_norm=ew_norm,
+                active_events=active_events,
+                open_ew_pair=open_pair_chart,
+                all_ew_pairs=all_pairs_chart,
+                instability_drop=0.30,
+                structural_drop=0.15,
+                elevated_drop=0.06,
+                econ_structural_drop=0.22,
+                ew_elevated_threshold=0.20,
+                ew_pair_memory_steps=12,
+            )
+
+            st.markdown(
+                f"<div style='{_net_state[1]}border-radius:0 6px 6px 0;"
+                f"padding:6px 12px;font-size:12px;font-weight:600;margin-bottom:6px;'>"
+                f"{_net_state[0]}</div>",
+                unsafe_allow_html=True)
+
             st.plotly_chart(
                 plot_network(current["graph"], current["load"], current["edges"],
                              highlight_nodes=highlight_nodes, highlight_edges=highlight_edges,
@@ -2644,6 +2802,9 @@ elif scenario["type"] == "critical_infra":
         def _load_ci_edges():
             return load_critical_infra(path=selected_path)["edges"]
 
+        # Pfad-unabhängige Vor-Belastung (einmalig laden)
+        _ci_bg_load = load_critical_infra(path=selected_path).get("background_load")
+
         path_label = selected_label
         progress_bar = st.progress(0, text=f"Running ensemble — {path_label} — 0 / 50")
 
@@ -2661,10 +2822,20 @@ elif scenario["type"] == "critical_infra":
             month_to_step=CRITICAL_INFRA_MONTH_TO_STEP,
             projection_start_month=CRITICAL_INFRA_PROJECTION_START,
             month_labels=CRITICAL_INFRA_MONTHS,
+            background_load=_ci_bg_load,
             n_runs=50,
             progress_callback=_update_ci_progress,
         )
         progress_bar.empty()
+
+        if ensemble is None:
+            st.error(
+                "❌ Critical-Infra Ensemble fehlgeschlagen — alle 50 Runs sind gecrashed. "
+                "Siehe Terminal-Output für Stack-Traces. "
+                "Mögliche Ursachen: (1) Background-Load nicht kompatibel mit Sim, "
+                "(2) Daten-Inkompatibilität, (3) anderer Bug in der Sim."
+            )
+            st.stop()
 
         st.session_state[ensemble_key] = ensemble
         st.session_state[history_key]  = ensemble["median_history"]
@@ -3008,6 +3179,38 @@ elif scenario["type"] == "critical_infra":
                     for node, data in current["nodes"].items():
                         if data.get("cluster") == event["cluster"]:
                             highlight_nodes.add(node)
+
+            # D: Netzwerk-State Banner (mehrdimensional)
+            # Wichtig: Banner nutzt system_health (Gesamt-System), nicht
+            # stability_series (rail_share-Proxy für EW). Damit bildet der
+            # Banner die System-Resilienz adaptiv ab — Migration in neues
+            # Mobilitäts-Gleichgewicht zählt nicht als Instability.
+            sys_health_series = [h.get("system_health", 1.0) for h in history]
+
+            _net_state = compute_system_state(
+                current_idx=current_idx,
+                stability_norm=sys_health_series,
+                econ_norm=eco_series,
+                ew_norm=ew_norm,
+                active_events=active_events,
+                open_ew_pair=open_pair_chart,
+                all_ew_pairs=all_pairs_chart,
+                # Critical-Infra-spezifische Schwellen — System startet
+                # strukturell tief (Background-Load 0.18), daher höhere
+                # absolute Schwellen für aussagekräftige Klassifikation
+                instability_drop=0.35,
+                structural_drop=0.18,
+                elevated_drop=0.08,
+                econ_structural_drop=0.25,
+                ew_elevated_threshold=0.20,
+                ew_pair_memory_steps=12,
+            )
+
+            st.markdown(
+                f"<div style='{_net_state[1]}border-radius:0 6px 6px 0;"
+                f"padding:6px 12px;font-size:12px;font-weight:600;margin-bottom:6px;'>"
+                f"{_net_state[0]}</div>",
+                unsafe_allow_html=True)
 
             st.plotly_chart(
                 plot_network(current["graph"], current["load"], current["edges"],

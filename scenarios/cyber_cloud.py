@@ -20,6 +20,50 @@ import copy
 import csv
 
 
+# ============================================================
+# STRUKTURELLE VOR-BELASTUNG (Background Load)
+# ============================================================
+# Pfad-unabhängig — bildet die reale Vorgeschichte des EU-Cloud-
+# und Cyber-Resilience-Systems vor 2020 ab.
+#
+# Quellen:
+#   - Cloud-Konzentration: AWS/Azure/GCP ~65% globaler IaaS-Markt
+#     (Gartner 2019), wenige Hyperscaler dominieren
+#   - Vendor-Lock-in durch proprietäre Cloud-Services (Lambda,
+#     DynamoDB, Bigtable etc.)
+#   - Legacy-OT-Systeme in Industrie (Siemens S7, Schneider Modicon
+#     etc.) — Patches schwierig wegen Verfügbarkeitsanforderungen
+#   - KMU-Cyberhygiene-Defizite (BSI Lagebericht 2019:
+#     Ransomware-Welle gegen Mittelstand)
+#   - US Cloud Act (2018) — extraterritorialer Zugriff auf
+#     US-Cloud-Anbieter, ohne EU-Souveränitäts-Alternativen
+#     (GAIA-X erst 2020 angekündigt, real operativ erst nach 2022)
+# ============================================================
+
+BACKGROUND_LOAD = {
+    "structural_buffer_drag":      0.08,
+    "latent_stress_baseline":      0.20,
+    "supply_chain_concentration":  0.94,
+    "coordination_friction":       0.94,
+
+    "description": (
+        "Cyber-Cloud-Vorbelastung: Cloud-Konzentration AWS/Azure/GCP "
+        "~65%, Vendor-Lock-in, Legacy-OT, KMU-Cyberhygiene-Defizite, "
+        "US Cloud Act ohne EU-Souveränitäts-Alternativen vor GAIA-X. "
+        "Hinweis: Cyber-Bedrohungen sind episodisch-akut, nicht "
+        "chronisch-strukturell — milde Kalibrierung lässt resilient-Pfad "
+        "reale stabile Cyber-Systeme abbilden (Tech-Konzerne mit DR-Reife, "
+        "DORA-konforme Banken), während Hybrid den IST-Zustand und "
+        "Fragile fragmentierten Verlauf zeigen."
+    ),
+    "sources": [
+        "ENISA Threat Landscape Reports 2019",
+        "BSI Lagebericht 2019",
+        "Gartner Cloud Market Share 2019",
+    ],
+}
+
+
 def _load_nodes_csv(path):
     nodes = {}
     with open(path, newline="") as f:
@@ -95,4 +139,5 @@ def load_scenario(path="resilient"):
         "path":  path,
         "nodes": nodes,
         "edges": edges,
+        "background_load": BACKGROUND_LOAD,
     }

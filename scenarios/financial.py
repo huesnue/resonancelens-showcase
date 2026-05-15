@@ -19,6 +19,43 @@ import copy
 import csv
 
 
+# ============================================================
+# STRUKTURELLE VOR-BELASTUNG (Background Load)
+# ============================================================
+# Pfad-unabhängig — bildet die reale Vorgeschichte des Eurozone-
+# Finanzsystems vor 2020 ab.
+#
+# Quellen:
+#   - Unvollendete Bankenunion: EDIS (Europäische Einlagensicherung)
+#     nicht etabliert; gemeinsame Bankenabwicklung (SRM) operativ,
+#     aber politisch limitiert
+#   - Sovereign-Bank-Loop: insbesondere IT/ES/GR-Banken halten
+#     hohe Bestände heimischer Staatsanleihen (RWA-Behandlung
+#     bevorzugt heimische)
+#   - TLTRO-Abhängigkeit der Süd-Banken (massive Liquiditätshilfen)
+#   - Niedrigzinspolitik 2014-2022 hat strukturelle Verzerrungen
+#     geschaffen (NPL-Restbestände, CRE-Konzentration)
+# ============================================================
+
+BACKGROUND_LOAD = {
+    "structural_buffer_drag":      0.10,
+    "latent_stress_baseline":      0.40,
+    "supply_chain_concentration":  0.95,
+    "coordination_friction":       0.92,
+
+    "description": (
+        "Eurozone-Finanzsystem-Vorbelastung: Sovereign-Bank-Loop, "
+        "EDIS nicht etabliert, TLTRO-Abhängigkeit Süd-Banken, "
+        "NPL-Restbestände, CRE-Konzentration."
+    ),
+    "sources": [
+        "ECB Financial Stability Review 2019",
+        "ESRB Risk Dashboard",
+        "EBA Transparency Exercise 2019",
+    ],
+}
+
+
 def _load_nodes_csv(path):
     nodes = {}
     with open(path, newline="") as f:
@@ -94,4 +131,5 @@ def load_scenario(path="contained"):
         "path":  path,
         "nodes": nodes,
         "edges": edges,
+        "background_load": BACKGROUND_LOAD,
     }

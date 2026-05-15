@@ -44,6 +44,9 @@ def run_ensemble(
     """
     base_seed = stochastic_params.get("seed", 42)
 
+    # Pfad-unabhängige Vor-Belastung (optional)
+    background_load = kwargs.get("background_load", None)
+
     all_health   = []   # [run][step]
     all_sector   = []   # sector_layer avg
     all_regional = []   # regional_layer avg
@@ -71,6 +74,7 @@ def run_ensemble(
                 steps=steps,
                 month_to_step=month_to_step,
                 stochastic_params=run_params,
+                background_load=background_load,
                 projection_start_month=projection_start_month,
                 month_labels=month_labels,
             )
@@ -126,6 +130,7 @@ def run_ensemble(
         steps=steps,
         month_to_step=month_to_step,
         stochastic_params=run_params_median,
+        background_load=background_load,
         projection_start_month=projection_start_month,
         month_labels=month_labels,
     )
