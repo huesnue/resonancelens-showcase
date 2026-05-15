@@ -60,6 +60,7 @@ def run_energy_ensemble(
                 path=path_name,
                 stochastic_params=run_params,
                 background_load=background_load,
+                skip_layout_during_steps=True,
             )
         except Exception:
             continue

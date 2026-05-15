@@ -198,7 +198,8 @@ def compute_dynamic_layout(G, nodes, affinity, cluster_anchors, pos_prev):
 
 def run_energy_simulation(nodes, edges, steps=10, month_to_step=None,
                           path="hybrid", stochastic_params=None,
-                          background_load=None):
+                          background_load=None,
+                          skip_layout_during_steps=False):
     """
     Energy simulation with path-aware initial scaling and background load.
 
@@ -206,6 +207,8 @@ def run_energy_simulation(nodes, edges, steps=10, month_to_step=None,
     stochastic_params: dict mit initial_supply_scale, initial_demand_scale,
                        initial_capacity_scale, seed
     background_load: dict mit supply_chain_concentration, coordination_friction
+    skip_layout_during_steps: bei True nur initial Layout berechnen (für
+        Statistik-Runs im Ensemble); Median-Run zur Anzeige nutzt False.
     """
     # Pfad-spezifische Events laden (mit angepasster Severity)
     path_events = get_events(path)
@@ -591,11 +594,17 @@ def run_energy_simulation(nodes, edges, steps=10, month_to_step=None,
 
         # ------------------------------------------
         # DYNAMIC LAYOUT (affinity-driven, cluster-anchored)
+        # Im Ensemble-Mode (skip_layout_during_steps=True) nur initial
+        # berechnen — Statistik-Runs brauchen keine Animation.
+        # Im Median-Run (Default False) wird Layout jeden Step neu berechnet.
         # ------------------------------------------
-        cluster_anchors = get_cluster_strengths(nodes, edges)
-        affinity = build_affinity_matrix(nodes, edges, affinity_state)
-        pos = compute_dynamic_layout(G, nodes, affinity, cluster_anchors, pos_prev)
-        pos_prev = pos
+        if step == 0 or not skip_layout_during_steps:
+            cluster_anchors = get_cluster_strengths(nodes, edges)
+            affinity = build_affinity_matrix(nodes, edges, affinity_state)
+            pos = compute_dynamic_layout(G, nodes, affinity, cluster_anchors, pos_prev)
+            pos_prev = pos
+        else:
+            pos = pos_prev  # reuse from initial
 
         # ------------------------------------------
         # SYSTEM HEALTH

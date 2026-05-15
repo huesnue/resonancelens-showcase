@@ -503,7 +503,8 @@ def run_critical_infra_simulation(
     stochastic_params=None,
     background_load=None,
     projection_start_month="Jun 2026",
-    month_labels=None
+    month_labels=None,
+    skip_layout_during_steps=False,
 ):
     """
     Critical Infrastructure Resilience Simulation mit Vier-Raum-Dynamik
@@ -1025,11 +1026,15 @@ def run_critical_infra_simulation(
 
         # ------------------------------------------
         # DYNAMISCHES LAYOUT
+        # Im Ensemble-Mode (skip_layout_during_steps=True) nur initial.
         # ------------------------------------------
-        cluster_anchors = get_cluster_strengths(nodes, edges)
-        affinity = build_affinity_matrix(nodes, edges, affinity_state)
-        pos = compute_dynamic_layout(G, nodes, affinity, cluster_anchors, pos_prev)
-        pos_prev = pos
+        if step == 0 or not skip_layout_during_steps:
+            cluster_anchors = get_cluster_strengths(nodes, edges)
+            affinity = build_affinity_matrix(nodes, edges, affinity_state)
+            pos = compute_dynamic_layout(G, nodes, affinity, cluster_anchors, pos_prev)
+            pos_prev = pos
+        else:
+            pos = pos_prev
 
         # ------------------------------------------
         # SYSTEM HEALTH (quad-layer)

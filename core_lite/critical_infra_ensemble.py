@@ -90,6 +90,7 @@ def run_ensemble(
                 background_load=background_load,
                 projection_start_month=projection_start_month,
                 month_labels=month_labels,
+                skip_layout_during_steps=True,
             )
         except Exception as _e:
             # DIAGNOSE-MODUS: Exception sichtbar machen

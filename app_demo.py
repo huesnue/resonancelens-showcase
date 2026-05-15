@@ -632,7 +632,7 @@ elif scenario["type"] == "energy":
 
     if run_clicked:
         path_label = {"resilient":"🟢 Resilient","hybrid":"🟡 Hybrid","fragile":"🔴 Fragile"}.get(selected_path, selected_path)
-        progress_bar = st.progress(0, text=f"Running ensemble — {path_label} — 0 / 50")
+        progress_bar = st.progress(0, text=f"Running ensemble — {path_label} — 0 / 30")
 
         def _update_progress(pct, done, total):
             progress_bar.progress(pct, text=f"Running ensemble — {path_label} — {done} / {total}")
@@ -651,7 +651,7 @@ elif scenario["type"] == "energy":
             steps=126,
             month_to_step=MONTH_TO_STEP,
             background_load=scenario.get("background_load"),
-            n_runs=50,
+            n_runs=30,
             progress_callback=_update_progress,
         )
         progress_bar.empty()
@@ -1032,7 +1032,7 @@ elif scenario["type"] == "pandemic":
             return load_pandemic(path=selected_path)["edges"]
 
         path_label = {"resilient":"🟢 Resilient","hybrid":"🟡 Hybrid","fragile":"🔴 Fragile"}.get(selected_path, selected_path)
-        progress_bar = st.progress(0, text=f"Running ensemble — {path_label} — 0 / 50")
+        progress_bar = st.progress(0, text=f"Running ensemble — {path_label} — 0 / 30")
 
         def _update_progress(pct, done, total):
             # pct ist bereits float [0.0, 1.0], von ensemble_runner berechnet
@@ -1050,7 +1050,7 @@ elif scenario["type"] == "pandemic":
             projection_start_month=PROJECTION_START,
             month_labels=PANDEMIC_MONTHS,
             background_load=sc.get("background_load"),
-            n_runs=50,
+            n_runs=30,
             progress_callback=_update_progress,
         )
         progress_bar.empty()
@@ -1625,7 +1625,7 @@ elif scenario["type"] == "financial":
         _fin_bg_load = load_financial(path=selected_path).get("background_load")
 
         path_label = selected_label
-        progress_bar = st.progress(0, text=f"Running ensemble — {path_label} — 0 / 50")
+        progress_bar = st.progress(0, text=f"Running ensemble — {path_label} — 0 / 30")
 
         def _update_fin_progress(pct, done, total):
             progress_bar.progress(pct, text=f"Running ensemble — {path_label} — {done} / {total}")
@@ -1642,7 +1642,7 @@ elif scenario["type"] == "financial":
             projection_start_month=FINANCIAL_PROJECTION_START,
             month_labels=FINANCIAL_MONTHS,
             background_load=_fin_bg_load,
-            n_runs=50,
+            n_runs=30,
             progress_callback=_update_fin_progress,
         )
         progress_bar.empty()
@@ -2215,7 +2215,7 @@ elif scenario["type"] == "cyber_cloud":
         _cy_bg_load = load_cyber_cloud(path=selected_path).get("background_load")
 
         path_label = selected_label
-        progress_bar = st.progress(0, text=f"Running ensemble — {path_label} — 0 / 50")
+        progress_bar = st.progress(0, text=f"Running ensemble — {path_label} — 0 / 30")
 
         def _update_cy_progress(pct, done, total):
             progress_bar.progress(pct, text=f"Running ensemble — {path_label} — {done} / {total}")
@@ -2232,7 +2232,7 @@ elif scenario["type"] == "cyber_cloud":
             projection_start_month=CYBER_PROJECTION_START,
             month_labels=CYBER_MONTHS,
             background_load=_cy_bg_load,
-            n_runs=50,
+            n_runs=30,
             progress_callback=_update_cy_progress,
         )
         progress_bar.empty()
@@ -2882,7 +2882,7 @@ elif scenario["type"] == "critical_infra":
         _ci_bg_load = load_critical_infra(path=selected_path).get("background_load")
 
         path_label = selected_label
-        progress_bar = st.progress(0, text=f"Running ensemble — {path_label} — 0 / 50")
+        progress_bar = st.progress(0, text=f"Running ensemble — {path_label} — 0 / 30")
 
         def _update_ci_progress(pct, done, total):
             progress_bar.progress(pct, text=f"Running ensemble — {path_label} — {done} / {total}")
@@ -2899,7 +2899,7 @@ elif scenario["type"] == "critical_infra":
             projection_start_month=CRITICAL_INFRA_PROJECTION_START,
             month_labels=CRITICAL_INFRA_MONTHS,
             background_load=_ci_bg_load,
-            n_runs=50,
+            n_runs=30,
             progress_callback=_update_ci_progress,
         )
         progress_bar.empty()

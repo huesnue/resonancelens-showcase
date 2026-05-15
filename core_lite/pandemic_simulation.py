@@ -277,7 +277,8 @@ def run_pandemic_simulation(
     stochastic_params=None,
     background_load=None,
     projection_start_month="Jan 2025",
-    month_labels=None
+    month_labels=None,
+    skip_layout_during_steps=False,
 ):
     """
     Pandemic-Simulation mit dual-layer Dynamik.
@@ -970,11 +971,18 @@ def run_pandemic_simulation(
 
         # ------------------------------------------
         # DYNAMISCHES LAYOUT
+        # Im Ensemble-Mode (skip_layout_during_steps=True) wird Layout nur
+        # initial berechnet — Statistik-Runs brauchen keine Animation.
+        # Im Median-Run (Default False) wird Layout jeden Step neu berechnet
+        # für smoothe Animation.
         # ------------------------------------------
-        cluster_anchors = get_cluster_strengths(nodes, edges)
-        affinity = build_affinity_matrix(nodes, edges, affinity_state)
-        pos = compute_dynamic_layout(G, nodes, affinity, cluster_anchors, pos_prev)
-        pos_prev = pos
+        if step == 0 or not skip_layout_during_steps:
+            cluster_anchors = get_cluster_strengths(nodes, edges)
+            affinity = build_affinity_matrix(nodes, edges, affinity_state)
+            pos = compute_dynamic_layout(G, nodes, affinity, cluster_anchors, pos_prev)
+            pos_prev = pos
+        else:
+            pos = pos_prev
 
         # ------------------------------------------
         # SYSTEM HEALTH (dual-layer)
