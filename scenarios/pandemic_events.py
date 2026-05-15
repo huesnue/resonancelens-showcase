@@ -33,57 +33,7 @@ Alle Parameter sind epidemiologisch motiviert und öffentlich referenzierbar.
 
 EVENTS_HISTORICAL = [
 
-    # ---- Jan/Feb 2020: ECHTE FRÜHPHASE-EVENTS ----
-    #
-    # Hinweis: Die strukturelle Vor-Belastung (BBK-Risikoanalyse 2013
-    # nicht umgesetzt, PSA-Konzentration China, Pflegekräftemangel)
-    # wird in pandemic.py als BACKGROUND_LOAD modelliert — wirkt
-    # pfad-unabhängig auf alle drei Szenarien.
-    #
-    # Echte Ereignisse Jan 2020:
-    #   - 31.12.2019: China informiert WHO über Pneumonie-Cluster Wuhan
-    #   - 13.01.2020: Erster Fall ausserhalb China (Thailand)
-    #   - 24.01.2020: Erster europäischer Fall (Frankreich)
-    #   - 27.01.2020: Erster DE-Fall (Webasto-Cluster München)
-    #   - 30.01.2020: WHO erklärt PHEIC
-    {
-        "month": "Jan 2020",
-        "type": "uncertainty_shock",
-        "factor": 1.10,
-        "duration": 4,
-        "plateau": 2,
-        "decay": 0.25,
-        "name": "Wuhan-Pneumonie + WHO PHEIC (30.01.2020) + "
-                "Webasto-Cluster München (27.01.2020)",
-        "source": "WHO PHEIC declaration, RKI Webasto-Bericht Jan 2020"
-    },
-
-    # ---- Feb 2020: ERSTE EUROPÄISCHE CLUSTER + LIEFERENGPÄSSE ----
-    {
-        "month": "Feb 2020",
-        "type": "uncertainty_shock",
-        "factor": 1.20,
-        "duration": 3,
-        "plateau": 1,
-        "decay": 0.30,
-        "name": "Erste europäische Cluster: Codogno IT (19.02.) + "
-                "Heinsberg NRW (26.02.) — Eskalations-Signal",
-        "source": "Istituto Superiore di Sanità, RKI Heinsberg-Studie Feb 2020"
-    },
-    {
-        "month": "Feb 2020",
-        "type": "supply_shock",
-        "cluster": "EU_CORE",
-        "factor": 0.88,
-        "duration": 5,
-        "plateau": 2,
-        "decay": 0.20,
-        "name": "FFP2/PSA-Engpässe + Desinfektionsmittel-Verknappung + "
-                "DACH-Hamsterkäufe (China-Exportstop PSA)",
-        "source": "BfArM, ECDC; BBK 2012 — strategische PSA-Reserven nicht aufgebaut"
-    },
-
-    # ---- Mar 2020: ERSTER SCHOCK ----
+    # ---- 2020: ERSTER SCHOCK ----
     {
         "month": "Mar 2020",
         "type": "uncertainty_shock",
@@ -397,130 +347,12 @@ EVENTS_HISTORICAL = [
     {
         "month": "Nov 2024",
         "type": "uncertainty_shock",
-        "factor": 1.20,
+        "factor": 1.25,
         "duration": 4,
         "plateau": 2,
         "decay": 0.3,
-        "name": "H5N1 schwerer Verlauf BC-Teenager (Kanada) — Exposition ungeklärt",
-        "source": "PHAC / CDC, Nov 2024 (keine bestätigte H2H-Übertragung)"
-    },
-
-    # ---- 2025: WHO-Austritt USA, Pandemic Agreement, USAID-Auflösung ----
-    {
-        "month": "Jan 2025",
-        "type": "alliance_shift",
-        "source_cluster": "EU_CORE",
-        "target_cluster": "NON_EU",
-        "affinity_delta": -0.20,
-        "duration": 14,
-        "plateau": 6,
-        "decay": 0.10,
-        "name": "USA verkünden WHO-Austritt + 90-Tage-Foreign-Aid-Pause",
-        "source": "US Executive Order 14155, 20.01.2025"
-    },
-    {
-        "month": "Jan 2025",
-        "type": "uncertainty_shock",
-        "factor": 1.15,
-        "duration": 4,
-        "plateau": 2,
-        "decay": 0.25,
-        "name": "H5N1 erster US-Todesfall (Louisiana, D11-Genotyp)",
-        "source": "CDC, 06.01.2025"
-    },
-    {
-        "month": "Mar 2025",
-        "type": "capacity_shock",
-        "factor": 0.92,
-        "duration": 10,
-        "plateau": 4,
-        "decay": 0.15,
-        "name": "USAID-Auflösung — 86% Auslandshilfen terminiert",
-        "source": "KFF / CGD Analysis, Aug 2025"
-    },
-    {
-        "month": "May 2025",
-        "type": "capacity_increase",
-        "factor": 1.10,
-        "duration": 14,
-        "plateau": 6,
-        "decay": 0.05,
-        "name": "WHO Pandemic Agreement von 78. WHA verabschiedet (Konsens 124-0-11)",
-        "source": "WHO Resolution WHA78.1, 20.05.2025"
-    },
-    {
-        "month": "Sep 2025",
-        "type": "capacity_increase",
-        "factor": 1.07,
-        "duration": 8,
-        "plateau": 3,
-        "decay": 0.10,
-        "name": "WHO hebt Mpox Clade Ib PHEIC auf",
-        "source": "WHO, 05.09.2025"
-    },
-    {
-        "month": "Sep 2025",
-        "type": "coupling_shift",
-        "factor": 1.05,
-        "duration": 10,
-        "plateau": 4,
-        "decay": 0.08,
-        "name": "IHR-Amendments 2024 treten in Kraft",
-        "source": "WHO, 19.09.2025"
-    },
-    {
-        "month": "Oct 2025",
-        "type": "uncertainty_shock",
-        "factor": 1.10,
-        "duration": 3,
-        "plateau": 1,
-        "decay": 0.30,
-        "name": "H5N1 CDC-Review: asymptomatische Fälle + P2P 'likely in some settings'",
-        "source": "JAMA Network Open, 29.10.2025"
-    },
-    {
-        "month": "Dec 2025",
-        "type": "uncertainty_shock",
-        "factor": 1.12,
-        "duration": 4,
-        "plateau": 2,
-        "decay": 0.25,
-        "name": "Mpox Clade Ib/IIb Rekombinante erstmals in UK detektiert",
-        "source": "UKHSA, Dez 2025"
-    },
-
-    # ---- 2026 (Jan-Mai): WHO-Austritt vollzogen, PABS-Verlängerung ----
-    {
-        "month": "Jan 2026",
-        "type": "alliance_shift",
-        "source_cluster": "EU_CORE",
-        "target_cluster": "NON_EU",
-        "affinity_delta": -0.15,
-        "duration": 10,
-        "plateau": 4,
-        "decay": 0.10,
-        "name": "USA-Austritt aus WHO formal vollzogen",
-        "source": "HHS Fact Sheet, 22.01.2026"
-    },
-    {
-        "month": "Feb 2026",
-        "type": "variability_shock",
-        "factor": 1.05,
-        "duration": 3,
-        "plateau": 1,
-        "decay": 0.35,
-        "name": "H5N1 Q1: 4 Fälle global, 1 Todesfall (Bangladesh-Kind)",
-        "source": "WHO/CIDRAP, Q1 2026"
-    },
-    {
-        "month": "May 2026",
-        "type": "uncertainty_shock",
-        "factor": 1.05,
-        "duration": 3,
-        "plateau": 1,
-        "decay": 0.35,
-        "name": "PABS-Annex unvollständig — WHA 79 verlängert Mandat bis 2027",
-        "source": "WHO IGWG, 01.05.2026"
+        "name": "H5N1 Human-to-Human Verdachtsfälle",
+        "source": "WHO Risk Assessment Nov 2024"
     },
 ]
 
@@ -533,6 +365,60 @@ EVENTS_HISTORICAL = [
 
 EVENTS_PATH_A = [
 
+    {
+        "month": "Jan 2025",
+        "type": "capacity_increase",
+        "cluster": "EU_CORE",
+        "factor": 1.2,
+        "duration": 6,
+        "plateau": 3,
+        "decay": 0.2,
+        "name": "[A] EU Pandemic Treaty ratifiziert",
+        "path": "resilient"
+    },
+    {
+        "month": "Mar 2025",
+        "type": "uncertainty_shock",
+        "factor": 1.2,
+        "duration": 3,
+        "plateau": 1,
+        "decay": 0.45,
+        "name": "[A] H5N1 Frühwarnsignal — koordinierte Antwort",
+        "path": "resilient"
+    },
+    {
+        "month": "Jun 2025",
+        "type": "capacity_increase",
+        "factor": 1.15,
+        "duration": 5,
+        "plateau": 2,
+        "decay": 0.25,
+        "name": "[A] Gemeinsame EU-Impfstoffproduktion skaliert",
+        "path": "resilient"
+    },
+    {
+        "month": "Sep 2025",
+        "type": "demand_shock",
+        "cluster": "EU_SOUTH",
+        "factor": 1.2,
+        "duration": 3,
+        "plateau": 1,
+        "decay": 0.4,
+        "name": "[A] Herbstwelle — kontrolliert durch Früherkennung",
+        "path": "resilient"
+    },
+    {
+        "month": "Jan 2026",
+        "type": "alliance_shift",
+        "source_cluster": "EU_CORE",
+        "target_cluster": "NON_EU",
+        "affinity_delta": 0.15,
+        "duration": 6,
+        "plateau": 2,
+        "decay": 0.2,
+        "name": "[A] UK re-joins EU Health Coordination",
+        "path": "resilient"
+    },
     {
         "month": "Jun 2026",
         "type": "variability_shock",
@@ -596,7 +482,71 @@ EVENTS_PATH_A = [
 EVENTS_PATH_B = [
 
     {
-        "month": "Jul 2026",
+        "month": "Jan 2025",
+        "type": "uncertainty_shock",
+        "factor": 1.25,
+        "duration": 5,
+        "plateau": 2,
+        "decay": 0.3,
+        "name": "[B] H5N1 Unsicherheit — politische Reaktion verzögert",
+        "path": "hybrid"
+    },
+    {
+        "month": "Apr 2025",
+        "type": "supply_shock",
+        "cluster": "EU_SOUTH",
+        "factor": 0.75,
+        "duration": 5,
+        "plateau": 2,
+        "decay": 0.25,
+        "name": "[B] H5N1 Ausbruch Südeuropa — ICU-Druck",
+        "path": "hybrid"
+    },
+    {
+        "month": "Jun 2025",
+        "type": "coupling_shift",
+        "factor": 0.75,
+        "duration": 5,
+        "plateau": 2,
+        "decay": 0.2,
+        "name": "[B] Grenzkontrollen als Reaktion — Kopplung schwächt",
+        "path": "hybrid"
+    },
+    {
+        "month": "Sep 2025",
+        "type": "alliance_shift",
+        "source_cluster": "EU_EAST",
+        "target_cluster": "EU_CORE",
+        "affinity_delta": -0.15,
+        "duration": 5,
+        "plateau": 2,
+        "decay": 0.25,
+        "name": "[B] EU-Ost blockiert gemeinsame Beschaffung",
+        "path": "hybrid"
+    },
+    {
+        "month": "Nov 2025",
+        "type": "demand_shock",
+        "cluster": "EU_CORE",
+        "factor": 1.35,
+        "duration": 4,
+        "plateau": 2,
+        "decay": 0.3,
+        "name": "[B] Herbstwelle 2025 — überlastete Systeme",
+        "path": "hybrid"
+    },
+    {
+        "month": "Mar 2026",
+        "type": "uncertainty_shock",
+        "factor": 1.3,
+        "duration": 5,
+        "plateau": 2,
+        "decay": 0.25,
+        "name": "[B] Neue Variante + AMR-Komplikationen",
+        "path": "hybrid"
+    },
+    {
+        "month": "Aug 2026",
         "type": "supply_shock",
         "cluster": "EU_EAST",
         "factor": 0.65,
@@ -604,7 +554,7 @@ EVENTS_PATH_B = [
         "plateau": 3,
         "decay": 0.2,
         "name": "[B] Gesundheitssystem EU-Ost strukturell geschwächt",
-        "path": "drifting"
+        "path": "hybrid"
     },
     {
         "month": "Jan 2027",
@@ -614,7 +564,7 @@ EVENTS_PATH_B = [
         "plateau": 2,
         "decay": 0.25,
         "name": "[B] Wirtschaftliche Erosion — Gesundheitsbudgets gekürzt",
-        "path": "drifting"
+        "path": "hybrid"
     },
     {
         "month": "Jun 2027",
@@ -624,7 +574,7 @@ EVENTS_PATH_B = [
         "plateau": 1,
         "decay": 0.35,
         "name": "[B] Unvorhersehbare Ausbruchsmuster",
-        "path": "drifting"
+        "path": "hybrid"
     },
     {
         "month": "Jan 2028",
@@ -636,7 +586,7 @@ EVENTS_PATH_B = [
         "plateau": 1,
         "decay": 0.3,
         "name": "[B] Nordics ziehen sich aus EU-Koordination zurück",
-        "path": "drifting"
+        "path": "hybrid"
     },
     {
         "month": "Jun 2028",
@@ -646,7 +596,7 @@ EVENTS_PATH_B = [
         "plateau": 2,
         "decay": 0.3,
         "name": "[B] Chronische Systeminstabilität — kein Erholungspfad",
-        "path": "drifting"
+        "path": "hybrid"
     },
 ]
 
@@ -661,6 +611,103 @@ EVENTS_PATH_B = [
 EVENTS_PATH_C = [
 
     {
+        "month": "Jan 2025",
+        "type": "uncertainty_shock",
+        "factor": 1.4,
+        "duration": 4,
+        "plateau": 2,
+        "decay": 0.2,
+        "name": "[C] H5N1 bestätigte Mensch-zu-Mensch Übertragung",
+        "path": "fragile"
+    },
+    {
+        "month": "Feb 2025",
+        "type": "coupling_shift",
+        "factor": 0.4,
+        "duration": 8,
+        "plateau": 4,
+        "decay": 0.1,
+        "name": "[C] Sofortige Grenzschließungen — Schengen suspendiert",
+        "path": "fragile"
+    },
+    {
+        "month": "Feb 2025",
+        "type": "supply_shock",
+        "cluster": "EU_SOUTH",
+        "factor": 0.4,
+        "duration": 8,
+        "plateau": 4,
+        "decay": 0.15,
+        "name": "[C] ICU-Kollaps Südeuropa (IT, ES, GR)",
+        "path": "fragile"
+    },
+    {
+        "month": "Mar 2025",
+        "type": "alliance_shift",
+        "source_cluster": "EU_CORE",
+        "target_cluster": "EU_EAST",
+        "affinity_delta": -0.3,
+        "duration": 8,
+        "plateau": 3,
+        "decay": 0.15,
+        "name": "[C] Beschaffungskonflikt — EU-Ost vs Core",
+        "path": "fragile"
+    },
+    {
+        "month": "Apr 2025",
+        "type": "demand_shock",
+        "cluster": "EU_CORE",
+        "factor": 1.6,
+        "duration": 6,
+        "plateau": 3,
+        "decay": 0.2,
+        "name": "[C] Erste Pandemiewelle — Rekordfallzahlen",
+        "path": "fragile"
+    },
+    {
+        "month": "May 2025",
+        "type": "capacity_shock",
+        "factor": 0.5,
+        "duration": 8,
+        "plateau": 4,
+        "decay": 0.15,
+        "name": "[C] Lieferkettenkollaps — Medizingüter, Lebensmittel",
+        "path": "fragile"
+    },
+    {
+        "month": "Aug 2025",
+        "type": "alliance_shift",
+        "source_cluster": "EU_CORE",
+        "target_cluster": "NON_EU",
+        "affinity_delta": -0.35,
+        "duration": 6,
+        "plateau": 3,
+        "decay": 0.15,
+        "name": "[C] UK / CH Isolation — keine EU-Koordination",
+        "path": "fragile"
+    },
+    {
+        "month": "Oct 2025",
+        "type": "uncertainty_shock",
+        "factor": 1.5,
+        "duration": 5,
+        "plateau": 2,
+        "decay": 0.2,
+        "name": "[C] Zweite Variante während erste Welle läuft",
+        "path": "fragile"
+    },
+    {
+        "month": "Jan 2026",
+        "type": "supply_shock",
+        "cluster": "EU_EAST",
+        "factor": 0.35,
+        "duration": 8,
+        "plateau": 4,
+        "decay": 0.1,
+        "name": "[C] EU-Ost Systemkollaps — externe Hilfe nötig",
+        "path": "fragile"
+    },
+    {
         "month": "Jun 2026",
         "type": "capacity_increase",
         "factor": 1.1,
@@ -668,7 +715,7 @@ EVENTS_PATH_C = [
         "plateau": 1,
         "decay": 0.3,
         "name": "[C] Notfall-Vakzin — zu spät für Erste Welle",
-        "path": "cascade"
+        "path": "fragile"
     },
     {
         "month": "Jan 2027",
@@ -678,7 +725,7 @@ EVENTS_PATH_C = [
         "plateau": 2,
         "decay": 0.2,
         "name": "[C] Endemische Instabilität — kein stabiler Boden",
-        "path": "cascade"
+        "path": "fragile"
     },
     {
         "month": "Jun 2027",
@@ -690,7 +737,7 @@ EVENTS_PATH_C = [
         "plateau": 2,
         "decay": 0.2,
         "name": "[C] Nordics + UK bilden Gegenblock",
-        "path": "cascade"
+        "path": "fragile"
     },
     {
         "month": "Jan 2028",
@@ -700,7 +747,7 @@ EVENTS_PATH_C = [
         "plateau": 4,
         "decay": 0.15,
         "name": "[C] Langsame Erholung beginnt — strukturelle Narben",
-        "path": "cascade"
+        "path": "fragile"
     },
 ]
 
@@ -712,13 +759,13 @@ EVENTS_PATH_C = [
 def get_events(path="base"):
     """
     Gibt die vollständige Event-Liste für den gewählten Pfad zurück.
-    path: 'resilient' | 'drifting' | 'cascade' | 'base' (nur historisch)
+    path: 'resilient' | 'hybrid' | 'fragile' | 'base' (nur historisch)
     """
     if path == "resilient":
         return EVENTS_HISTORICAL + EVENTS_PATH_A
-    elif path == "drifting":
+    elif path == "hybrid":
         return EVENTS_HISTORICAL + EVENTS_PATH_B
-    elif path == "cascade":
+    elif path == "fragile":
         return EVENTS_HISTORICAL + EVENTS_PATH_C
     else:
         return EVENTS_HISTORICAL
@@ -751,46 +798,46 @@ STOCHASTIC_PARAMS = {
         # Projektionsphase
         "poisson_rate": 0.12,
         "beta_a": 2, "beta_b": 6,
-        "coupling_decay": 0.02,
+        "coupling_decay": 0.008,
         "seed": 42,
-        # t=0 Initialbedingungen
-        # Gut vorbereitet: klare Governance, Vorräte vorhanden,
-        # frühe Warnfähigkeit, Lernen aus SARS-Simulationen
-        "initial_buffer":       0.80,
-        "initial_stress_acc":   0.5,    # kaum latenter Stress
-        "initial_econ_scale":   1.00,   # volle Wirtschaftskapazität
-        "initial_supply_scale": 1.00,   # volle operative Kapazität
-        "initial_edge_scale":   1.00,   # starke Koordination
+        # t=0 Initialbedingungen — reale stabile Systeme
+        # (Süd-Korea, Singapur, Taiwan während COVID: klare Governance,
+        # ausreichende Vorräte, frühe Warnfähigkeit, Lernen aus SARS)
+        "initial_buffer":       0.92,
+        "initial_stress_acc":   0.10,
+        "initial_econ_scale":   1.05,
+        "initial_supply_scale": 1.10,
+        "initial_edge_scale":   1.05,
     },
-    "drifting": {
+    "hybrid": {
         # Projektionsphase
         "poisson_rate": 0.20,
         "beta_a": 2, "beta_b": 4,
-        "coupling_decay": 0.06,
+        "coupling_decay": 0.05,
         "seed": 137,
-        # t=0 Initialbedingungen
-        # Mittlere Vorbereitung: Governance unklar, teilweise Vorräte,
-        # verzögerte Reaktionsfähigkeit, Tracing-Lücken
-        "initial_buffer":       0.50,
-        "initial_stress_acc":   1.2,    # moderate strukturelle Lücken
-        "initial_econ_scale":   0.90,   # Gesundheitssystem unterfinanziert
-        "initial_supply_scale": 0.88,   # Lücken bei Vorräten/Personal
-        "initial_edge_scale":   0.92,   # Koordinationsdefizite
+        # t=0 Initialbedingungen — möglicher IST-Zustand (reale EU 2020-2025)
+        # Mittlere Vorbereitung: Governance unklar, Vorräte teilweise,
+        # verzögerte Reaktion, Tracing-Lücken, Pflegekräfte-Mangel akut
+        "initial_buffer":       0.45,
+        "initial_stress_acc":   1.5,
+        "initial_econ_scale":   0.85,
+        "initial_supply_scale": 0.82,
+        "initial_edge_scale":   0.90,
     },
-    "cascade": {
+    "fragile": {
         # Projektionsphase
         "poisson_rate": 0.30,
         "beta_a": 3, "beta_b": 3,
-        "coupling_decay": 0.10,
+        "coupling_decay": 0.12,
         "seed": 999,
-        # t=0 Initialbedingungen
+        # t=0 Initialbedingungen — stark fragmentierter Verlauf
         # Schlecht vorbereitet: keine strategischen Reserven,
         # Compliance niedrig, Governance fragmentiert,
         # kein institutionelles Lernen aus Vorpandemien
-        "initial_buffer":       0.28,
-        "initial_stress_acc":   3.5,    # erheblicher latenter Stress
-        "initial_econ_scale":   0.78,   # chronische Unterfinanzierung
-        "initial_supply_scale": 0.72,   # keine Reserven
-        "initial_edge_scale":   0.82,   # fragmentierte Koordination
+        "initial_buffer":       0.22,
+        "initial_stress_acc":   4.0,
+        "initial_econ_scale":   0.74,
+        "initial_supply_scale": 0.68,
+        "initial_edge_scale":   0.78,
     }
 }

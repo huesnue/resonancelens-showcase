@@ -126,15 +126,15 @@ EVENTS_HISTORICAL = [
         "source": "EU-Kommission, Juli 2021"
     },
     {
-        "month": "Mar 2021",
+        "month": "Jun 2021",
         "type": "variability_shock",
         "cluster": "NBFI",
-        "factor": 1.22,
+        "factor": 1.20,
         "duration": 4,
         "plateau": 2,
         "decay": 0.25,
-        "name": "Archegos Capital Default (26.03.2021) — ~10 Mrd USD Prime-Brokerage-Verluste (CS ~5.5 Mrd, Nomura ~2.85 Mrd), NBFI-Konzentrationsrisiken sichtbar",
-        "source": "SEC/Credit Suisse Special Committee Report 07/2021; FINMA Press Release 24.07.2023; FSB NBFI Report 2021"
+        "name": "Archegos-Schock — NBFI-Konzentrationsrisiken sichtbar",
+        "source": "FSB NBFI Report, 2021"
     },
     {
         "month": "Oct 2021",
@@ -356,7 +356,7 @@ EVENTS_PATH_A = [
         "plateau": 4,
         "decay": 0.12,
         "name": "[A] EZB koordinierte Intervention — Backstop aktiviert",
-        "path": "contained"
+        "path": "resilient"
     },
     {
         "month": "Sep 2026",
@@ -367,7 +367,7 @@ EVENTS_PATH_A = [
         "plateau": 3,
         "decay": 0.15,
         "name": "[A] Fiskalkoordination EU — Schuldenregel reformiert",
-        "path": "contained"
+        "path": "resilient"
     },
     {
         "month": "Jan 2027",
@@ -377,7 +377,7 @@ EVENTS_PATH_A = [
         "plateau": 3,
         "decay": 0.15,
         "name": "[A] Marktintegration gestärkt — Spread-Konvergenz",
-        "path": "contained"
+        "path": "resilient"
     },
     {
         "month": "Jun 2027",
@@ -388,7 +388,7 @@ EVENTS_PATH_A = [
         "plateau": 4,
         "decay": 0.12,
         "name": "[A] Banken rekapitalisiert — NPL-Abbau erfolgreich",
-        "path": "contained"
+        "path": "resilient"
     },
     {
         "month": "Jan 2028",
@@ -398,7 +398,7 @@ EVENTS_PATH_A = [
         "plateau": 5,
         "decay": 0.10,
         "name": "[A] Strukturelle Erholung — Systemresilienz wiederhergestellt",
-        "path": "contained"
+        "path": "resilient"
     },
     {
         "month": "Jun 2029",
@@ -409,7 +409,7 @@ EVENTS_PATH_A = [
         "plateau": 2,
         "decay": 0.25,
         "name": "[A] Externer Schock absorbiert — Buffer ausreichend",
-        "path": "contained"
+        "path": "resilient"
     },
 ]
 
@@ -428,7 +428,7 @@ EVENTS_PATH_B = [
         "plateau": 2,
         "decay": 0.22,
         "name": "[B] Policy-Unsicherheit — unkoordinierte Reaktion",
-        "path": "prolonged"
+        "path": "hybrid"
     },
     {
         "month": "Oct 2026",
@@ -439,7 +439,7 @@ EVENTS_PATH_B = [
         "plateau": 3,
         "decay": 0.18,
         "name": "[B] Fund-Redemption-Welle Phase 2 — Liquiditätsdruck",
-        "path": "prolonged"
+        "path": "hybrid"
     },
     {
         "month": "Feb 2027",
@@ -450,7 +450,7 @@ EVENTS_PATH_B = [
         "plateau": 2,
         "decay": 0.20,
         "name": "[B] Verzögerte EZB-Reaktion — Backstop teilweise",
-        "path": "prolonged"
+        "path": "hybrid"
     },
     {
         "month": "Jul 2027",
@@ -461,7 +461,7 @@ EVENTS_PATH_B = [
         "plateau": 3,
         "decay": 0.15,
         "name": "[B] NPL-Anstieg — Banken-Buffer erodieren graduell",
-        "path": "prolonged"
+        "path": "hybrid"
     },
     {
         "month": "Jan 2028",
@@ -472,7 +472,7 @@ EVENTS_PATH_B = [
         "plateau": 3,
         "decay": 0.15,
         "name": "[B] Sovereign Spread-Druck — IT/ES Finanzierungskosten steigen",
-        "path": "prolonged"
+        "path": "hybrid"
     },
     {
         "month": "Jul 2028",
@@ -482,7 +482,7 @@ EVENTS_PATH_B = [
         "plateau": 2,
         "decay": 0.20,
         "name": "[B] Volatile Marktphase — kein stabiler Boden",
-        "path": "prolonged"
+        "path": "hybrid"
     },
     {
         "month": "Jan 2029",
@@ -492,7 +492,7 @@ EVENTS_PATH_B = [
         "plateau": 4,
         "decay": 0.15,
         "name": "[B] Graduelle Erholung — strukturelle Narben sichtbar",
-        "path": "prolonged"
+        "path": "hybrid"
     },
     {
         "month": "Jun 2030",
@@ -502,7 +502,7 @@ EVENTS_PATH_B = [
         "plateau": 3,
         "decay": 0.15,
         "name": "[B] Marktfragmentierung bleibt erhöht — Strukturproblem ungelöst",
-        "path": "prolonged"
+        "path": "hybrid"
     },
 ]
 
@@ -522,7 +522,7 @@ EVENTS_PATH_C = [
         "plateau": 3,
         "decay": 0.15,
         "name": "[C] Banken-Funding-Stress — Interbankenmarkt friert ein",
-        "path": "systemic"
+        "path": "fragile"
     },
     {
         "month": "Jun 2026",
@@ -532,7 +532,7 @@ EVENTS_PATH_C = [
         "plateau": 3,
         "decay": 0.18,
         "name": "[C] Systemische Vertrauenskrise — Kapitalabflüsse",
-        "path": "systemic"
+        "path": "fragile"
     },
     {
         "month": "Sep 2026",
@@ -543,7 +543,7 @@ EVENTS_PATH_C = [
         "plateau": 4,
         "decay": 0.12,
         "name": "[C] IT/ES Sovereign-Krise — Spreads über kritische Schwelle",
-        "path": "systemic"
+        "path": "fragile"
     },
     {
         "month": "Dec 2026",
@@ -555,7 +555,7 @@ EVENTS_PATH_C = [
         "plateau": 4,
         "decay": 0.10,
         "name": "[C] Sovereign-Bank-Nexus — gegenseitige Schwächung",
-        "path": "systemic"
+        "path": "fragile"
     },
     {
         "month": "Mar 2027",
@@ -566,7 +566,7 @@ EVENTS_PATH_C = [
         "plateau": 4,
         "decay": 0.10,
         "name": "[C] NBFI-Liquiditätskrise — Fonds schließen",
-        "path": "systemic"
+        "path": "fragile"
     },
     {
         "month": "Jun 2027",
@@ -576,7 +576,7 @@ EVENTS_PATH_C = [
         "plateau": 5,
         "decay": 0.08,
         "name": "[C] Systemischer Kaskaden-Effekt — alle Cluster betroffen",
-        "path": "systemic"
+        "path": "fragile"
     },
     {
         "month": "Jan 2028",
@@ -587,7 +587,7 @@ EVENTS_PATH_C = [
         "plateau": 3,
         "decay": 0.15,
         "name": "[C] Notfall-Backstop — zu spät für erste Kaskade",
-        "path": "systemic"
+        "path": "fragile"
     },
     {
         "month": "Jul 2028",
@@ -597,7 +597,7 @@ EVENTS_PATH_C = [
         "plateau": 4,
         "decay": 0.12,
         "name": "[C] Endemische Instabilität — kein stabiler Boden",
-        "path": "systemic"
+        "path": "fragile"
     },
     {
         "month": "Jan 2029",
@@ -609,7 +609,7 @@ EVENTS_PATH_C = [
         "plateau": 3,
         "decay": 0.18,
         "name": "[C] Fragmentierung — Kernländer suchen externe Partner",
-        "path": "systemic"
+        "path": "fragile"
     },
     {
         "month": "Jul 2029",
@@ -619,7 +619,7 @@ EVENTS_PATH_C = [
         "plateau": 3,
         "decay": 0.12,
         "name": "[C] Langsame Erholung — strukturelle Narben dauerhaft",
-        "path": "systemic"
+        "path": "fragile"
     },
 ]
 
@@ -633,11 +633,11 @@ def get_events(path="base"):
     Gibt die vollständige Event-Liste für den gewählten Pfad zurück.
     path: 'contained' | 'prolonged' | 'systemic' | 'base' (nur historisch)
     """
-    if path == "contained":
+    if path == "resilient":
         return EVENTS_HISTORICAL + EVENTS_PATH_A
-    elif path == "prolonged":
+    elif path == "hybrid":
         return EVENTS_HISTORICAL + EVENTS_PATH_B
-    elif path == "systemic":
+    elif path == "fragile":
         return EVENTS_HISTORICAL + EVENTS_PATH_C
     else:
         return EVENTS_HISTORICAL
@@ -663,55 +663,53 @@ def get_events(path="base"):
 # --------------------------------------------------
 
 STOCHASTIC_PARAMS = {
-    "contained": {
+    "resilient": {
         # Projektionsphase
         "poisson_rate":   0.10,
         "beta_a": 2, "beta_b": 7,
-        "coupling_decay": 0.015,
+        "coupling_decay": 0.005,
         "seed": 42,
-        # t=0 Initialbedingungen
-        # Gut kapitalisiert: hohe Eigenkapitalpuffer, stabiler
-        # Interbankenmarkt, ECB-Backstop voll funktionsfähig,
-        # NBFI-Liquiditätsmismatch moderat
-        "initial_buffer":       0.78,
-        "initial_stress_acc":   0.4,
-        "initial_econ_scale":   1.00,
-        "initial_supply_scale": 1.00,
-        "initial_edge_scale":   1.00,
+        # t=0 Initialbedingungen — reale stabile Bankensysteme
+        # (DE Sparkassen, Skandinavische Banken: hohe Eigenkapitalpuffer,
+        # robuster Interbankenmarkt, ECB-Backstop voll funktionsfähig,
+        # NBFI-Liquidität gut bilanziert)
+        "initial_buffer":       0.92,
+        "initial_stress_acc":   0.05,
+        "initial_econ_scale":   1.05,
+        "initial_supply_scale": 1.10,
+        "initial_edge_scale":   1.05,
     },
-    "prolonged": {
+    "hybrid": {
         # Projektionsphase
         "poisson_rate":   0.18,
         "beta_a": 2, "beta_b": 4,
-        "coupling_decay": 0.025,
+        "coupling_decay": 0.028,
         "seed": 137,
-        # t=0 Initialbedingungen
+        # t=0 Initialbedingungen — möglicher IST-Zustand (reale Eurozone)
         # Mittlere Kapitalisierung: NBFI-Risiken unterschätzt,
-        # Sovereign-Bank-Nexus erhöht, verzögerte Policy-Readiness,
-        # partielle Zinsrisikoabsicherung.
-        # Kalibriert für graduelle Erosion mit partieller Stabilisierung
-        # ab 2024 (NextGenEU-Effekt + EZB-Zinssenkungszyklus) —
-        # kein permanenter Kollaps, aber keine vollständige Erholung.
-        "initial_buffer":       0.62,
-        "initial_stress_acc":   0.5,
-        "initial_econ_scale":   0.92,
-        "initial_supply_scale": 0.92,
-        "initial_edge_scale":   0.94,
+        # Sovereign-Bank-Nexus erhöht, EDIS fehlt, südliche Banken mit
+        # höheren NPLs, EZB-Zinszyklus belastet Immobilien-Bilanzen.
+        # Kein permanenter Kollaps, aber keine vollständige Erholung.
+        "initial_buffer":       0.55,
+        "initial_stress_acc":   0.8,
+        "initial_econ_scale":   0.88,
+        "initial_supply_scale": 0.88,
+        "initial_edge_scale":   0.90,
     },
-    "systemic": {
+    "fragile": {
         # Projektionsphase
         "poisson_rate":   0.28,
         "beta_a": 3, "beta_b": 3,
-        "coupling_decay": 0.055,
+        "coupling_decay": 0.065,
         "seed": 999,
-        # t=0 Initialbedingungen
+        # t=0 Initialbedingungen — stark fragmentierter Verlauf
         # Schwach kapitalisiert: hohe NPL-Quoten in EU_SOUTH,
         # NBFI-Liquiditätsmismatch systemisch, Policy-Backstop
         # kapazitätsbeschränkt, Sovereign-Bank-Nexus hochgradig exponiert
-        "initial_buffer":       0.30,
-        "initial_stress_acc":   3.2,
-        "initial_econ_scale":   0.78,
-        "initial_supply_scale": 0.70,
-        "initial_edge_scale":   0.82,
+        "initial_buffer":       0.22,
+        "initial_stress_acc":   4.0,
+        "initial_econ_scale":   0.74,
+        "initial_supply_scale": 0.66,
+        "initial_edge_scale":   0.78,
     },
 }

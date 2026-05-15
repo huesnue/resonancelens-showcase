@@ -1,5 +1,5 @@
 import networkx as nx
-from scenarios.energy_events import EVENTS
+from scenarios.energy_events import EVENTS, get_events, STOCHASTIC_PARAMS
 import random
 import math
 import copy
@@ -196,7 +196,23 @@ def compute_dynamic_layout(G, nodes, affinity, cluster_anchors, pos_prev):
     return pos
 
 
-def run_energy_simulation(nodes, edges, steps=10, month_to_step=None, background_load=None):
+def run_energy_simulation(nodes, edges, steps=10, month_to_step=None,
+                          path="hybrid", stochastic_params=None,
+                          background_load=None):
+    """
+    Energy simulation with path-aware initial scaling and background load.
+
+    path: 'resilient' | 'hybrid' | 'fragile'
+    stochastic_params: dict mit initial_supply_scale, initial_demand_scale,
+                       initial_capacity_scale, seed
+    background_load: dict mit supply_chain_concentration, coordination_friction
+    """
+    # Pfad-spezifische Events laden (mit angepasster Severity)
+    path_events = get_events(path)
+
+    # Default-Parameter falls nicht übergeben
+    if stochastic_params is None:
+        stochastic_params = STOCHASTIC_PARAMS.get(path, STOCHASTIC_PARAMS["hybrid"])
 
     history = []
     pos_prev = None
@@ -217,31 +233,32 @@ def run_energy_simulation(nodes, edges, steps=10, month_to_step=None, background
 
         # ------------------------------------------
         # Store initial supply and capacity on first step
+        # + Apply path-specific initial scaling
         # ------------------------------------------
         if step == 0:
+            sup_scale = stochastic_params.get("initial_supply_scale", 1.0)
+            dem_scale = stochastic_params.get("initial_demand_scale", 1.0)
+            cap_scale = stochastic_params.get("initial_capacity_scale", 1.0)
+
+            # Background-Load greift hier: supply_chain_concentration
+            # reduziert effektive Supply (engere Lieferketten)
+            bg_sup = 1.0
+            if background_load:
+                bg_sup_conc = background_load.get("supply_chain_concentration", 1.0)
+                # 0.90 → 8% supply reduction (mild), 0.85 → 12.75% reduction
+                bg_sup = 0.5 + 0.5 * bg_sup_conc
+
             for n in nodes.values():
+                # Initial-Skalierung pfad-abhängig anwenden
+                n["supply"] = n["supply"] * sup_scale * bg_sup
+                n["demand"] = n["demand"] * dem_scale
+                if "capacity" in n:
+                    n["capacity"] = n["capacity"] * cap_scale
                 n["initial_supply"] = n["supply"]
             for e in edges:
+                e["capacity"] = e["capacity"] * cap_scale
                 e["initial_capacity"] = e["capacity"]
                 e["initial_strength"] = e["strength"]
-
-            # ------------------------------------------
-            # BACKGROUND LOAD (pfad-unabhängige Vor-Belastung)
-            # Energy-Modell hat kein capacity_buffer/stress_acc;
-            # wirksam sind nur supply_chain_concentration
-            # und coordination_friction.
-            # ------------------------------------------
-            if background_load:
-                bg_supply_conc = background_load.get("supply_chain_concentration", 1.0)
-                bg_coord_fric  = background_load.get("coordination_friction",    1.0)
-
-                for n in nodes.values():
-                    n["supply"]         = n["supply"] * bg_supply_conc
-                    n["initial_supply"] = n["initial_supply"] * bg_supply_conc
-
-                for e in edges:
-                    e["strength"]         = e["strength"] * bg_coord_fric
-                    e["initial_strength"] = e["initial_strength"] * bg_coord_fric
 
         # Restore supply, demand and edge capacity each step
         # All events modify only the current step's values
@@ -269,7 +286,7 @@ def run_energy_simulation(nodes, edges, steps=10, month_to_step=None, background
         # ------------------------------------------
         # APPLY EVENTS
         # ------------------------------------------
-        for event in EVENTS:
+        for event in path_events:
             event_step = event.get("step")
 
             if "month" in event and month_to_step:
@@ -342,7 +359,7 @@ def run_energy_simulation(nodes, edges, steps=10, month_to_step=None, background
         # ------------------------------------------
         active_intensity = 0.0
 
-        for event in EVENTS:
+        for event in path_events:
             event_step = event.get("step")
             if "month" in event and month_to_step:
                 if event["month"] not in month_to_step:

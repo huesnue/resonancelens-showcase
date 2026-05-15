@@ -21,13 +21,14 @@ from visualization.network_plot import plot_network, network_legend_html
 from core_lite.pandemic_ensemble import run_ensemble
 from core_lite.financial_ensemble import run_ensemble as run_financial_ensemble
 from core_lite.cyber_cloud_ensemble import run_ensemble as run_cyber_cloud_ensemble
+from core_lite.energy_ensemble import run_energy_ensemble
 
 from scenarios.basic import load_scenario as load_basic
 from scenarios.energy import load_scenario as load_energy
 from scenarios.pandemic import load_scenario as load_pandemic
 from scenarios.financial import load_scenario as load_financial
 from scenarios.cyber_cloud import load_scenario as load_cyber_cloud
-from scenarios.energy_events import EVENTS as ENERGY_EVENTS
+from scenarios.energy_events import EVENTS as ENERGY_EVENTS, get_events as get_energy_events, STOCHASTIC_PARAMS as ENERGY_STOCHASTIC_PARAMS
 from scenarios.pandemic_events import get_events as get_pandemic_events, STOCHASTIC_PARAMS as PANDEMIC_STOCHASTIC_PARAMS
 from scenarios.financial_events import get_events as get_financial_events, STOCHASTIC_PARAMS as FINANCIAL_STOCHASTIC_PARAMS
 from scenarios.cyber_cloud_events import get_events as get_cyber_cloud_events, STOCHASTIC_PARAMS as CYBER_STOCHASTIC_PARAMS
@@ -60,9 +61,11 @@ def generate_months_pandemic(start="2020-01", steps=126):
         cur += relativedelta(months=1)
     return months
 
-# Energy timeline
-MONTHS       = generate_months(start="2021-01", steps=64)
+# Energy timeline: Jan 2020 → Jun 2030 (126 months)
+MONTHS       = generate_months(start="2020-01", steps=126)
 MONTH_TO_STEP = {m: i for i, m in enumerate(MONTHS)}
+ENERGY_STEPS = len(MONTHS)
+ENERGY_PROJECTION_START = "Jun 2026"
 
 # Pandemic timeline: Jan 2020 → Jun 2030 (126 months)
 PANDEMIC_MONTHS        = generate_months_pandemic(start="2020-01", steps=126)
@@ -393,16 +396,25 @@ if "last_scenario" not in st.session_state:
     st.session_state["last_scenario"] = scenario_name
 
 if st.session_state["last_scenario"] != scenario_name:
-    for key in ["energy_history", "basic_data",
+    for key in ["basic_data",
+                "energy_history_resilient",
+                "energy_history_hybrid",
+                "energy_history_fragile",
+                "energy_ensemble_resilient",
+                "energy_ensemble_hybrid",
+                "energy_ensemble_fragile",
                 "pandemic_history_resilient",
-                "pandemic_history_drifting",
-                "pandemic_history_cascade",
-                "financial_history_contained",
-                "financial_history_prolonged",
-                "financial_history_systemic",
-                "financial_ensemble_contained",
-                "financial_ensemble_prolonged",
-                "financial_ensemble_systemic",
+                "pandemic_history_hybrid",
+                "pandemic_history_fragile",
+                "pandemic_ensemble_resilient",
+                "pandemic_ensemble_hybrid",
+                "pandemic_ensemble_fragile",
+                "financial_history_resilient",
+                "financial_history_hybrid",
+                "financial_history_fragile",
+                "financial_ensemble_resilient",
+                "financial_ensemble_hybrid",
+                "financial_ensemble_fragile",
                 "cyber_cloud_history_resilient",
                 "cyber_cloud_history_hybrid",
                 "cyber_cloud_history_fragile",
@@ -599,24 +611,63 @@ elif scenario["type"] == "energy":
     nodes = scenario["nodes"]
     edges = scenario["edges"]
 
+    st.divider()
+    st.subheader("Energy Network Simulation 2020–2025")
+
+    # Pfad-Auswahl
+    selected_path = st.radio(
+        "Structural pathway",
+        options=["resilient", "hybrid", "fragile"],
+        format_func=lambda x: {
+            "resilient": "🟢 Resilient",
+            "hybrid":    "🟡 Hybrid (IST)",
+            "fragile":   "🔴 Fragile",
+        }[x],
+        horizontal=True,
+        key="energy_path"
+    )
+
+    history_key  = f"energy_history_{selected_path}"
+    ensemble_key = f"energy_ensemble_{selected_path}"
+
     if run_clicked:
-        st.session_state["energy_history"] = run_energy_simulation(
-            nodes, edges, steps=64, month_to_step=MONTH_TO_STEP,
+        path_label = {"resilient":"🟢 Resilient","hybrid":"🟡 Hybrid","fragile":"🔴 Fragile"}.get(selected_path, selected_path)
+        progress_bar = st.progress(0, text=f"Running ensemble — {path_label} — 0 / 50")
+
+        def _update_progress(pct, done, total):
+            progress_bar.progress(pct, text=f"Running ensemble — {path_label} — {done} / {total}")
+
+        def _load_nodes():
+            return load_energy(path=selected_path)["nodes"]
+        def _load_edges():
+            return load_energy(path=selected_path)["edges"]
+
+        ensemble = run_energy_ensemble(
+            load_nodes_fn=_load_nodes,
+            load_edges_fn=_load_edges,
+            run_simulation_fn=run_energy_simulation,
+            stochastic_params=ENERGY_STOCHASTIC_PARAMS[selected_path],
+            path_name=selected_path,
+            steps=126,
+            month_to_step=MONTH_TO_STEP,
             background_load=scenario.get("background_load"),
+            n_runs=50,
+            progress_callback=_update_progress,
         )
+        progress_bar.empty()
+
+        st.session_state[ensemble_key] = ensemble
+        st.session_state[history_key]  = ensemble["median_history"]
         st.session_state["step"] = 0
         st.session_state["mode"] = "manual"
 
-    if "energy_history" not in st.session_state:
-        # st.info("Press 'Run Simulation' to start.")
+    if history_key not in st.session_state:
         render_primer_card("Energy Crisis")
         st.stop()
 
-    history = st.session_state["energy_history"]
+    history = st.session_state[history_key]
     max_step = len(history) - 1
 
-    st.divider()
-    st.subheader("Energy Network Simulation")
     render_intro_expander("Energy Crisis") 
 
     run_every = 1.0 if st.session_state["mode"] == "playback" else None
@@ -780,7 +831,7 @@ elif scenario["type"] == "energy":
                     f"💡 <strong>Early Warning</strong> ({r_month_spike}) signaled structural weakening "
                     f"<strong>{display_pair[2]} months</strong> before Stability visibly dropped.</div>", unsafe_allow_html=True)
 
-        col_left, col_right = st.columns([1, 1])
+        col_left, col_mid, col_right = st.columns([4, 4, 2])
 
         with col_left:
             health_series = [h["system_health"] for h in history]
@@ -854,7 +905,7 @@ elif scenario["type"] == "energy":
                               legend=dict(orientation="h", yanchor="bottom", y=-0.45, xanchor="center", x=0.5, font=dict(size=11)))
             st.plotly_chart(fig, width='stretch')
 
-        with col_right:
+        with col_mid:
             highlight_nodes, highlight_edges = set(), set()
             current_step = st.session_state["step"]
             active_events = []
@@ -911,20 +962,27 @@ elif scenario["type"] == "energy":
                 metrics=None,
             ), unsafe_allow_html=True)
 
-        if active_events:
-            type_colors = {
-                "supply_shock":("#7C1D1D","#FCA5A5"), "capacity_shock":("#7C1D1D","#FCA5A5"),
-                "demand_shock":("#78350F","#FCD34D"), "uncertainty_shock":("#78350F","#FCD34D"),
-                "variability_shock":("#78350F","#FCD34D"), "capacity_increase":("#14532D","#86EFAC"),
-                "coupling_shift":("#1E3A5F","#93C5FD"), "alliance_shift":("#1E3A5F","#93C5FD"),
-            }
-            pills_html = "<div style='display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;'>"
-            for ev in active_events:
-                bg, fg = type_colors.get(ev.get("type",""), ("#374151","#D1D5DB"))
-                pills_html += (f"<span style='background:{bg};color:{fg};font-size:11px;font-weight:500;"
-                               f"padding:3px 10px;border-radius:12px;white-space:nowrap;'>⚡ {ev['name']}</span>")
-            pills_html += "</div>"
-            st.markdown(pills_html, unsafe_allow_html=True)
+        with col_right:
+            st.markdown("<div style='font-size:11px;font-weight:600;color:var(--color-text-secondary);"
+                        "margin-top:32px;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;'>"
+                        "Active Events</div>", unsafe_allow_html=True)
+            if active_events:
+                type_colors = {
+                    "supply_shock":("#7C1D1D","#FCA5A5"), "capacity_shock":("#7C1D1D","#FCA5A5"),
+                    "demand_shock":("#78350F","#FCD34D"), "uncertainty_shock":("#78350F","#FCD34D"),
+                    "variability_shock":("#78350F","#FCD34D"), "capacity_increase":("#14532D","#86EFAC"),
+                    "coupling_shift":("#1E3A5F","#93C5FD"), "alliance_shift":("#1E3A5F","#93C5FD"),
+                }
+                pills_html = "<div style='display:flex;flex-direction:column;gap:6px;'>"
+                for ev in active_events:
+                    bg, fg = type_colors.get(ev.get("type",""), ("#374151","#D1D5DB"))
+                    pills_html += (f"<span style='background:{bg};color:{fg};font-size:11px;font-weight:500;"
+                                   f"padding:5px 10px;border-radius:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>⚡ {ev['name']}</span>")
+                pills_html += "</div>"
+                st.markdown(pills_html, unsafe_allow_html=True)
+            else:
+                st.markdown("<div style='color:var(--color-text-secondary);font-size:11px;font-style:italic;'>"
+                            "No active events at this step.</div>", unsafe_allow_html=True)
 
     playback_panel(history, max_step)
 
@@ -947,11 +1005,11 @@ elif scenario["type"] == "pandemic":
     with path_col:
         selected_path = st.radio(
             "Projection pathway (2025–2030)",
-            options=["resilient", "drifting", "cascade"],
+            options=["resilient", "hybrid", "fragile"],
             format_func=lambda x: {
-                "resilient": "🟢 Resilient — early coordination",
-                "drifting":  "🟡 Drifting — delayed response",
-                "cascade":   "🔴 Cascade — coupling failure",
+                "resilient": "🟢 Resilient — coordinated response (stable systems)",
+                "hybrid":    "🟡 Hybrid — current state (IST)",
+                "fragile":   "🔴 Fragile — fragmented coupling failure",
             }[x],
             horizontal=True,
             key="pandemic_path"
@@ -973,7 +1031,7 @@ elif scenario["type"] == "pandemic":
         def _load_edges():
             return load_pandemic(path=selected_path)["edges"]
 
-        path_label = {"resilient":"🟢 Resilient","drifting":"🟡 Drifting","cascade":"🔴 Cascade"}.get(selected_path, selected_path)
+        path_label = {"resilient":"🟢 Resilient","hybrid":"🟡 Hybrid","fragile":"🔴 Fragile"}.get(selected_path, selected_path)
         progress_bar = st.progress(0, text=f"Running ensemble — {path_label} — 0 / 50")
 
         def _update_progress(pct, done, total):
@@ -1218,9 +1276,9 @@ elif scenario["type"] == "pandemic":
                     unsafe_allow_html=True)
 
         # ------------------------------------------
-        # Chart | Network
+        # Chart | Network | Events
         # ------------------------------------------
-        col_left, col_right = st.columns([1, 1])
+        col_left, col_mid, col_right = st.columns([4, 4, 2])
 
         with col_left:
             # Health + Econ layer series
@@ -1439,7 +1497,7 @@ elif scenario["type"] == "pandemic":
             )
             st.plotly_chart(fig, width='stretch')
 
-        with col_right:
+        with col_mid:
             # Network with cluster highlights for active events
             highlight_nodes, highlight_edges = set(), set()
             active_events = []
@@ -1493,7 +1551,17 @@ elif scenario["type"] == "pandemic":
                              pos=current.get("pos"), cluster_anchors=current.get("cluster_anchors")),
                 width='stretch')
 
-            # Event pills direkt unter dem Netzwerk-Plot (vor Legende)
+            # Legende ganz unten in der mittleren Spalte
+            st.markdown(network_legend_html(
+                spaces=None,
+                has_bridge=False,
+                metrics=None,
+            ), unsafe_allow_html=True)
+
+        with col_right:
+            st.markdown("<div style='font-size:11px;font-weight:600;color:var(--color-text-secondary);"
+                        "margin-top:32px;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;'>"
+                        "Active Events</div>", unsafe_allow_html=True)
             if active_events:
                 type_colors = {
                     "supply_shock":("#7C1D1D","#FCA5A5"), "capacity_shock":("#7C1D1D","#FCA5A5"),
@@ -1501,23 +1569,19 @@ elif scenario["type"] == "pandemic":
                     "variability_shock":("#78350F","#FCD34D"), "capacity_increase":("#14532D","#86EFAC"),
                     "coupling_shift":("#1E3A5F","#93C5FD"), "alliance_shift":("#312E81","#C4B5FD"),
                 }
-                pills_html = "<div style='display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;margin-bottom:8px;'>"
+                pills_html = "<div style='display:flex;flex-direction:column;gap:6px;'>"
                 for ev in active_events:
                     bg, fg = type_colors.get(ev.get("type",""),("#374151","#D1D5DB"))
                     icon = "🎲" if ev.get("stochastic") else "⚡"
                     name = ev.get("name", ev.get("type","event"))
                     pills_html += (f"<span style='background:{bg};color:{fg};font-size:11px;font-weight:500;"
-                                   f"padding:3px 10px;border-radius:12px;white-space:nowrap;'>"
+                                   f"padding:5px 10px;border-radius:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>"
                                    f"{icon} {name}</span>")
                 pills_html += "</div>"
                 st.markdown(pills_html, unsafe_allow_html=True)
-
-            # Legende ganz unten in der rechten Spalte
-            st.markdown(network_legend_html(
-                spaces=None,
-                has_bridge=False,
-                metrics=None,
-            ), unsafe_allow_html=True)
+            else:
+                st.markdown("<div style='color:var(--color-text-secondary);font-size:11px;font-style:italic;'>"
+                            "No active events at this step.</div>", unsafe_allow_html=True)
 
     pandemic_panel(history, max_step, proj_step, selected_path)
 
@@ -1534,9 +1598,9 @@ elif scenario["type"] == "financial":
     )
 
     path_options = {
-        "🟢 Contained":  "contained",
-        "🟡 Prolonged":  "prolonged",
-        "🔴 Systemic":   "systemic",
+        "🟢 Resilient":  "resilient",
+        "🟡 Hybrid":     "hybrid",
+        "🔴 Fragile":    "fragile",
     }
     selected_label = st.radio(
         "Structural path",
@@ -1785,9 +1849,9 @@ elif scenario["type"] == "financial":
                     unsafe_allow_html=True)
 
         # ------------------------------------------
-        # Chart | Network
+        # Chart | Network | Events
         # ------------------------------------------
-        col_left, col_right = st.columns([1, 1])
+        col_left, col_mid, col_right = st.columns([4, 4, 2])
 
         with col_left:
             sec_layer_avg = [
@@ -2007,7 +2071,7 @@ elif scenario["type"] == "financial":
             )
             st.plotly_chart(fig, width='stretch')
 
-        with col_right:
+        with col_mid:
             # Event-Highlights
             highlight_nodes, highlight_edges = set(), set()
             active_events = []
@@ -2063,31 +2127,6 @@ elif scenario["type"] == "financial":
                              pos=current.get("pos"), cluster_anchors=current.get("cluster_anchors")),
                 width='stretch')
 
-            # Event Pills
-            if active_events:
-                type_colors = {
-                    "supply_shock":       ("#7C1D1D", "#FCA5A5"),
-                    "capacity_shock":     ("#7C1D1D", "#FCA5A5"),
-                    "demand_shock":       ("#78350F", "#FCD34D"),
-                    "uncertainty_shock":  ("#78350F", "#FCD34D"),
-                    "variability_shock":  ("#78350F", "#FCD34D"),
-                    "capacity_increase":  ("#14532D", "#86EFAC"),
-                    "coupling_shift":     ("#1E3A5F", "#93C5FD"),
-                    "alliance_shift":     ("#312E81", "#C4B5FD"),
-                }
-                pills_html = "<div style='display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;margin-bottom:8px;'>"
-                for ev in active_events:
-                    bg, fg = type_colors.get(ev.get("type", ""), ("#374151", "#D1D5DB"))
-                    icon = "🎲" if ev.get("stochastic") else "⚡"
-                    name = ev.get("name", ev.get("type", "event"))
-                    pills_html += (
-                        f"<span style='background:{bg};color:{fg};font-size:11px;font-weight:500;"
-                        f"padding:3px 10px;border-radius:12px;white-space:nowrap;'>"
-                        f"{icon} {name}</span>"
-                    )
-                pills_html += "</div>"
-                st.markdown(pills_html, unsafe_allow_html=True)
-
             # Legende: dynamisch aus Snapshot
             _fin_spaces = list({n.get('space')
                                 for n in current['nodes'].values()
@@ -2104,6 +2143,37 @@ elif scenario["type"] == "financial":
                 has_bridge=_fin_has_bridge,
                 metrics=_fin_metrics,
             ), unsafe_allow_html=True)
+
+        with col_right:
+            st.markdown("<div style='font-size:11px;font-weight:600;color:var(--color-text-secondary);"
+                        "margin-top:32px;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;'>"
+                        "Active Events</div>", unsafe_allow_html=True)
+            if active_events:
+                type_colors = {
+                    "supply_shock":       ("#7C1D1D", "#FCA5A5"),
+                    "capacity_shock":     ("#7C1D1D", "#FCA5A5"),
+                    "demand_shock":       ("#78350F", "#FCD34D"),
+                    "uncertainty_shock":  ("#78350F", "#FCD34D"),
+                    "variability_shock":  ("#78350F", "#FCD34D"),
+                    "capacity_increase":  ("#14532D", "#86EFAC"),
+                    "coupling_shift":     ("#1E3A5F", "#93C5FD"),
+                    "alliance_shift":     ("#312E81", "#C4B5FD"),
+                }
+                pills_html = "<div style='display:flex;flex-direction:column;gap:6px;'>"
+                for ev in active_events:
+                    bg, fg = type_colors.get(ev.get("type", ""), ("#374151", "#D1D5DB"))
+                    icon = "🎲" if ev.get("stochastic") else "⚡"
+                    name = ev.get("name", ev.get("type", "event"))
+                    pills_html += (
+                        f"<span style='background:{bg};color:{fg};font-size:11px;font-weight:500;"
+                        f"padding:5px 10px;border-radius:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>"
+                        f"{icon} {name}</span>"
+                    )
+                pills_html += "</div>"
+                st.markdown(pills_html, unsafe_allow_html=True)
+            else:
+                st.markdown("<div style='color:var(--color-text-secondary);font-size:11px;font-style:italic;'>"
+                            "No active events at this step.</div>", unsafe_allow_html=True)
 
     financial_panel(history, max_step, proj_step, selected_path, ensemble=ensemble)
     
@@ -2436,9 +2506,9 @@ elif scenario["type"] == "cyber_cloud":
                     unsafe_allow_html=True)
 
         # ------------------------------------------
-        # Chart | Network
+        # Chart | Network | Events
         # ------------------------------------------
-        col_left, col_right = st.columns([1, 1])
+        col_left, col_mid, col_right = st.columns([4, 4, 2])
 
         with col_left:
             dig_layer_avg = [
@@ -2670,7 +2740,7 @@ elif scenario["type"] == "cyber_cloud":
             )
             st.plotly_chart(fig, width='stretch')
 
-        with col_right:
+        with col_mid:
             # Event-Highlights (cyber-Events haben optionale Cluster)
             highlight_nodes, highlight_edges = set(), set()
             active_events = []
@@ -2721,31 +2791,6 @@ elif scenario["type"] == "cyber_cloud":
                              pos=current.get("pos"), cluster_anchors=current.get("cluster_anchors")),
                 width='stretch')
 
-            # Event Pills (cyber: actor zusätzlich anzeigen wenn vorhanden)
-            if active_events:
-                type_colors = {
-                    "supply_shock":       ("#7C1D1D", "#FCA5A5"),
-                    "capacity_shock":     ("#7C1D1D", "#FCA5A5"),
-                    "demand_shock":       ("#78350F", "#FCD34D"),
-                    "uncertainty_shock":  ("#78350F", "#FCD34D"),
-                    "variability_shock":  ("#78350F", "#FCD34D"),
-                    "capacity_increase":  ("#14532D", "#86EFAC"),
-                    "coupling_shift":     ("#1E3A5F", "#93C5FD"),
-                    "alliance_shift":     ("#312E81", "#C4B5FD"),
-                }
-                pills_html = "<div style='display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;margin-bottom:8px;'>"
-                for ev in active_events:
-                    bg, fg = type_colors.get(ev.get("type", ""), ("#374151", "#D1D5DB"))
-                    icon = "🎲" if ev.get("stochastic") else "⚡"
-                    name = ev.get("name", ev.get("type", "event"))
-                    pills_html += (
-                        f"<span style='background:{bg};color:{fg};font-size:11px;font-weight:500;"
-                        f"padding:3px 10px;border-radius:12px;white-space:nowrap;'>"
-                        f"{icon} {name}</span>"
-                    )
-                pills_html += "</div>"
-                st.markdown(pills_html, unsafe_allow_html=True)
-
             # Legende: drei Räume + Bridge + drei Metriken
             _cy_spaces = list({n.get('space')
                                for n in current['nodes'].values()
@@ -2764,6 +2809,37 @@ elif scenario["type"] == "cyber_cloud":
                 has_bridge=_cy_has_bridge,
                 metrics=_cy_metrics,
             ), unsafe_allow_html=True)
+
+        with col_right:
+            st.markdown("<div style='font-size:11px;font-weight:600;color:var(--color-text-secondary);"
+                        "margin-top:32px;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;'>"
+                        "Active Events</div>", unsafe_allow_html=True)
+            if active_events:
+                type_colors = {
+                    "supply_shock":       ("#7C1D1D", "#FCA5A5"),
+                    "capacity_shock":     ("#7C1D1D", "#FCA5A5"),
+                    "demand_shock":       ("#78350F", "#FCD34D"),
+                    "uncertainty_shock":  ("#78350F", "#FCD34D"),
+                    "variability_shock":  ("#78350F", "#FCD34D"),
+                    "capacity_increase":  ("#14532D", "#86EFAC"),
+                    "coupling_shift":     ("#1E3A5F", "#93C5FD"),
+                    "alliance_shift":     ("#312E81", "#C4B5FD"),
+                }
+                pills_html = "<div style='display:flex;flex-direction:column;gap:6px;'>"
+                for ev in active_events:
+                    bg, fg = type_colors.get(ev.get("type", ""), ("#374151", "#D1D5DB"))
+                    icon = "🎲" if ev.get("stochastic") else "⚡"
+                    name = ev.get("name", ev.get("type", "event"))
+                    pills_html += (
+                        f"<span style='background:{bg};color:{fg};font-size:11px;font-weight:500;"
+                        f"padding:5px 10px;border-radius:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>"
+                        f"{icon} {name}</span>"
+                    )
+                pills_html += "</div>"
+                st.markdown(pills_html, unsafe_allow_html=True)
+            else:
+                st.markdown("<div style='color:var(--color-text-secondary);font-size:11px;font-style:italic;'>"
+                            "No active events at this step.</div>", unsafe_allow_html=True)
 
     cyber_cloud_panel(history, max_step, proj_step, selected_path, ensemble=ensemble)
 
@@ -3018,8 +3094,8 @@ elif scenario["type"] == "critical_infra":
                     f"before commuter migration visibly accelerated.</div>",
                     unsafe_allow_html=True)
                 
-        # --- Chart: vier Layer + Health-Median-Bandbreite ---
-        col_left, col_right = st.columns([6, 5])
+        # --- Chart | Network | Events ---
+        col_left, col_mid, col_right = st.columns([4, 4, 2])
 
         with col_left:
             fig = go.Figure()
@@ -3161,7 +3237,7 @@ elif scenario["type"] == "critical_infra":
             )
             st.plotly_chart(fig, width="stretch")
 
-        with col_right:
+        with col_mid:
             # Highlight-Knoten aus aktiven Events
             highlight_nodes, highlight_edges = set(), set()
             all_evts = get_critical_infra_events(selected_path)
@@ -3181,10 +3257,6 @@ elif scenario["type"] == "critical_infra":
                             highlight_nodes.add(node)
 
             # D: Netzwerk-State Banner (mehrdimensional)
-            # Wichtig: Banner nutzt system_health (Gesamt-System), nicht
-            # stability_series (rail_share-Proxy für EW). Damit bildet der
-            # Banner die System-Resilienz adaptiv ab — Migration in neues
-            # Mobilitäts-Gleichgewicht zählt nicht als Instability.
             sys_health_series = [h.get("system_health", 1.0) for h in history]
 
             _net_state = compute_system_state(
@@ -3195,9 +3267,6 @@ elif scenario["type"] == "critical_infra":
                 active_events=active_events,
                 open_ew_pair=open_pair_chart,
                 all_ew_pairs=all_pairs_chart,
-                # Critical-Infra-spezifische Schwellen — System startet
-                # strukturell tief (Background-Load 0.18), daher höhere
-                # absolute Schwellen für aussagekräftige Klassifikation
                 instability_drop=0.35,
                 structural_drop=0.18,
                 elevated_drop=0.08,
@@ -3217,32 +3286,6 @@ elif scenario["type"] == "critical_infra":
                              highlight_nodes=highlight_nodes, highlight_edges=highlight_edges,
                              pos=current.get("pos"), cluster_anchors=current.get("cluster_anchors")),
                 width="stretch")
-
-            # Event-Pills
-            if active_events:
-                type_colors = {
-                    "supply_shock":       ("#7C1D1D", "#FCA5A5"),
-                    "capacity_shock":     ("#7C1D1D", "#FCA5A5"),
-                    "demand_shock":       ("#78350F", "#FCD34D"),
-                    "uncertainty_shock":  ("#78350F", "#FCD34D"),
-                    "variability_shock":  ("#78350F", "#FCD34D"),
-                    "capacity_increase":  ("#14532D", "#86EFAC"),
-                    "coupling_shift":     ("#1E3A5F", "#93C5FD"),
-                    "alliance_shift":     ("#312E81", "#C4B5FD"),
-                    "migration_shift":    ("#7C4A2D", "#FFB87F"),
-                }
-                pills_html = "<div style='display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;margin-bottom:8px;'>"
-                for ev in active_events:
-                    bg, fg = type_colors.get(ev.get("type", ""), ("#374151", "#D1D5DB"))
-                    icon = "🎲" if ev.get("stochastic") else "⚡"
-                    name = ev.get("name", ev.get("type", "event"))
-                    pills_html += (
-                        f"<span style='background:{bg};color:{fg};font-size:11px;font-weight:500;"
-                        f"padding:3px 10px;border-radius:12px;white-space:nowrap;'>"
-                        f"{icon} {name}</span>"
-                    )
-                pills_html += "</div>"
-                st.markdown(pills_html, unsafe_allow_html=True)
 
             # Legende: vier Raeume + Bridge + Substitution + vier Metriken
             _ci_spaces = list({n.get("space")
@@ -3264,5 +3307,37 @@ elif scenario["type"] == "critical_infra":
                 has_bridge=_ci_has_bridge,
                 metrics=_ci_metrics,
             ), unsafe_allow_html=True)
+
+        with col_right:
+            st.markdown("<div style='font-size:11px;font-weight:600;color:var(--color-text-secondary);"
+                        "margin-top:32px;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;'>"
+                        "Active Events</div>", unsafe_allow_html=True)
+            if active_events:
+                type_colors = {
+                    "supply_shock":       ("#7C1D1D", "#FCA5A5"),
+                    "capacity_shock":     ("#7C1D1D", "#FCA5A5"),
+                    "demand_shock":       ("#78350F", "#FCD34D"),
+                    "uncertainty_shock":  ("#78350F", "#FCD34D"),
+                    "variability_shock":  ("#78350F", "#FCD34D"),
+                    "capacity_increase":  ("#14532D", "#86EFAC"),
+                    "coupling_shift":     ("#1E3A5F", "#93C5FD"),
+                    "alliance_shift":     ("#312E81", "#C4B5FD"),
+                    "migration_shift":    ("#7C4A2D", "#FFB87F"),
+                }
+                pills_html = "<div style='display:flex;flex-direction:column;gap:6px;'>"
+                for ev in active_events:
+                    bg, fg = type_colors.get(ev.get("type", ""), ("#374151", "#D1D5DB"))
+                    icon = "🎲" if ev.get("stochastic") else "⚡"
+                    name = ev.get("name", ev.get("type", "event"))
+                    pills_html += (
+                        f"<span style='background:{bg};color:{fg};font-size:11px;font-weight:500;"
+                        f"padding:5px 10px;border-radius:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>"
+                        f"{icon} {name}</span>"
+                    )
+                pills_html += "</div>"
+                st.markdown(pills_html, unsafe_allow_html=True)
+            else:
+                st.markdown("<div style='color:var(--color-text-secondary);font-size:11px;font-style:italic;'>"
+                            "No active events at this step.</div>", unsafe_allow_html=True)
 
     critical_infra_panel(history, max_step, proj_step, selected_path, ensemble=ensemble)

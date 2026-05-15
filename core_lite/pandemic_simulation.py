@@ -999,8 +999,8 @@ def run_pandemic_simulation(
                 edge_state[key] = "weak"
             elif flow > 0:
                 edge_state[key] = "strong"
-            elif strength >= 0.4:
-                # Aktive Kante ohne Fluss aber guter Stärke:
+            elif strength >= 0.25:
+                # Aktive Kante ohne Fluss aber okayer Stärke:
                 # bereit/verfügbar — als schwache aktive Verbindung zeigen
                 edge_state[key] = "ready"
             else:

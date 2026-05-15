@@ -9,9 +9,8 @@ import math
 # ------------------------------------------------------------------
 # Symbol-/Farb-Identitäten je space-Wert:
 #   sector   / digital    -> Kreis,    Blau   (#4fc3f7)
-#   regional / financial / rail -> Quadrat, Grün (#6bd96b)
+#   regional / financial  -> Quadrat,  Grün   (#6bd96b)
 #   economic              -> Raute,    Lila   (#c084fc)
-#   social                -> Hexagon,  Orange (#ffaa66)
 #   None / default / unbekannt -> Kreis, Grün (legacy default)
 #
 # Wichtig: Pandemic, Energy und Basic-Szenarien setzen kein space-
@@ -24,18 +23,14 @@ def _node_low_stress_color(space):
         return "#4fc3f7"
     if space == "economic":
         return "#c084fc"
-    if space == "social":
-        return "#ffaa66"
-    return "#6bd96b"  # regional, financial, rail, None, default
+    return "#6bd96b"  # regional, financial, None, default
 
 
 def _node_symbol(space):
-    if space in ("regional", "financial", "rail"):
+    if space in ("regional", "financial"):
         return "square"
     if space == "economic":
         return "diamond"
-    if space == "social":
-        return "hexagon"
     return "circle"  # sector, digital, None, default
 
 
@@ -87,20 +82,18 @@ def plot_network(G, node_load, edge_state, highlight_nodes=None, highlight_edges
     #   weak   = überlastet oder ausgefallen      → rot, dünn
     #   new    = inaktiv / sehr schwach           → kaum sichtbar
     color_map = {
-        "strong":               "#aaaaaa",
-        "ready":                "rgba(160,160,160,0.45)",
-        "weak":                 "#ff3b3b",
-        "new":                  "rgba(120,120,120,0.12)",
-        "bridge_active":        "#b388ff",
-        "substitution_active":  "#ffaa66",
+        "strong":        "#888888",
+        "ready":         "rgba(140,140,140,0.65)",
+        "weak":          "#ff3b3b",
+        "new":           "rgba(120,120,120,0.30)",
+        "bridge_active": "#b388ff",
     }
     width_map = {
-        "strong":               1.5,
-        "ready":                0.9,
-        "weak":                 0.8,
-        "new":                  0.4,
-        "bridge_active":        2.5,
-        "substitution_active":  2.2,
+        "strong":        1.5,
+        "ready":         1.1,
+        "weak":          0.8,
+        "new":           0.6,
+        "bridge_active": 2.5,
     }
 
     for (u, v) in G.edges():
@@ -115,7 +108,7 @@ def plot_network(G, node_load, edge_state, highlight_nodes=None, highlight_edges
 
         color = color_map.get(state, "#aaaaaa")
         width = width_map.get(state, 1.5)
-        dash  = "dash" if state in ("bridge_active", "substitution_active") else None
+        dash  = "dash" if state == "bridge_active" else None
 
         edge_traces.append(go.Scatter(
             x=[x0, x1, None],
@@ -264,8 +257,6 @@ def network_legend_html(spaces=None, has_bridge=False, metrics=None):
     has_digital   = "digital"   in spaces_set
     has_financial = "financial" in spaces_set
     has_economic  = "economic"  in spaces_set
-    has_rail      = "rail"      in spaces_set
-    has_social    = "social"    in spaces_set
     any_explicit  = bool(spaces_set)
 
     node_items = []
@@ -279,13 +270,8 @@ def network_legend_html(spaces=None, has_bridge=False, metrics=None):
         node_items.append(("#4fc3f7", "● Digital infrastructure node — low stress"))
     if has_financial:
         node_items.append(("#6bd96b", "■ Financial system node — low stress"))
-    # Critical-Infra-Konvention: rail (Quadrat, gleich wie financial) + social (Hexagon)
-    if has_rail:
-        node_items.append(("#6bd96b", "■ Rail infrastructure node — low stress"))
     if has_economic:
         node_items.append(("#c084fc", "◆ Economic resilience node — low stress"))
-    if has_social:
-        node_items.append(("#ffaa66", "⬡ Social / mobility cluster — low stress"))
     # Generischer Fallback (Energy/Pandemic/Basic, kein space-Attribut)
     if not any_explicit:
         node_items.append(("#4fc3f7", "Hub / Anchor — low stress"))
@@ -310,9 +296,6 @@ def network_legend_html(spaces=None, has_bridge=False, metrics=None):
             edge_items.append(("#b388ff", "Cross-space bridge (sector ↔ regional)"))
         else:
             edge_items.append(("#b388ff", "Cross-space bridge"))
-    # Substitution-Kante nur fuer Critical-Infra (wenn social space praesent)
-    if has_social:
-        edge_items.append(("#ffaa66", "Substitution flow (cluster migration)"))
 
     def dot(color):
         return (f"<span style='display:inline-block;width:10px;height:10px;"

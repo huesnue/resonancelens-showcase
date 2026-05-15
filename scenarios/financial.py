@@ -4,7 +4,7 @@ Financial Scenario Loader
 Analog zu pandemic.py — lädt Nodes/Edges für das
 Eurozone Financial Stability Stress Scenario.
 
-Pfad-Auswahl: 'contained' | 'prolonged' | 'systemic'
+Pfad-Auswahl: 'resilient' | 'hybrid' | 'fragile'
 
 Zwei Cluster auf Makroebene (Option C — gemeinsamer Canvas):
   sector   : Finanzsektoren (ECB, Banken, Fonds, Sovereign)
@@ -19,24 +19,16 @@ import copy
 import csv
 
 
-# ============================================================
-# STRUKTURELLE VOR-BELASTUNG (Background Load)
-# ============================================================
-# Pfad-unabhängig — bildet die reale Vorgeschichte des Eurozone-
-# Finanzsystems vor 2020 ab.
-#
-# Quellen:
-#   - Unvollendete Bankenunion: EDIS (Europäische Einlagensicherung)
-#     nicht etabliert; gemeinsame Bankenabwicklung (SRM) operativ,
-#     aber politisch limitiert
-#   - Sovereign-Bank-Loop: insbesondere IT/ES/GR-Banken halten
-#     hohe Bestände heimischer Staatsanleihen (RWA-Behandlung
-#     bevorzugt heimische)
-#   - TLTRO-Abhängigkeit der Süd-Banken (massive Liquiditätshilfen)
-#   - Niedrigzinspolitik 2014-2022 hat strukturelle Verzerrungen
-#     geschaffen (NPL-Restbestände, CRE-Konzentration)
-# ============================================================
-
+# --------------------------------------------------------------------
+# BACKGROUND_LOAD: Pfad-unabhängige strukturelle Vorbelastung
+# Reflektiert reale Eurozone-Bedingungen vor 2020:
+#   - Sovereign-Bank-Loop hoch (Staaten halten Bankschulden, Banken halten
+#     Staatsanleihen — Risk-Loop seit Eurokrise 2010-2012)
+#   - EDIS (European Deposit Insurance Scheme) bis heute nicht umgesetzt
+#   - NBFI-Sektor (Schattenbanken) seit 2008 verdoppelt, gering reguliert
+#   - Kapitalmarktunion (CMU) fragmentiert geblieben
+#   - EU-South mit höheren NPLs als EU-Core
+# --------------------------------------------------------------------
 BACKGROUND_LOAD = {
     "structural_buffer_drag":      0.10,
     "latent_stress_baseline":      0.40,
@@ -44,14 +36,15 @@ BACKGROUND_LOAD = {
     "coordination_friction":       0.92,
 
     "description": (
-        "Eurozone-Finanzsystem-Vorbelastung: Sovereign-Bank-Loop, "
-        "EDIS nicht etabliert, TLTRO-Abhängigkeit Süd-Banken, "
-        "NPL-Restbestände, CRE-Konzentration."
+        "Eurozone-Finanzvorbelastung: Sovereign-Bank-Loop seit "
+        "Eurokrise nicht entkoppelt, EDIS fehlt, NBFI-Sektor verdoppelt "
+        "ohne adäquate Regulierung, Kapitalmarktunion fragmentiert, "
+        "EU-South mit erhöhten NPLs."
     ),
     "sources": [
         "ECB Financial Stability Review 2019",
-        "ESRB Risk Dashboard",
-        "EBA Transparency Exercise 2019",
+        "ESRB NBFI Monitor 2019",
+        "EBA Risk Assessment Report 2019",
     ],
 }
 
@@ -108,11 +101,11 @@ def _load_edges_csv(path):
     return edges
 
 
-def load_scenario(path="contained"):
+def load_scenario(path="resilient"):
     """
     Lädt das Financial Stability Szenario.
 
-    path: 'contained' | 'prolonged' | 'systemic'
+    path: 'resilient' | 'hybrid' | 'fragile'
     Gibt dict zurück: {type, nodes, edges, path}
     """
     base_dir = os.path.dirname(os.path.abspath(__file__))

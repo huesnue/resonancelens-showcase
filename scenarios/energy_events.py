@@ -306,29 +306,7 @@ EVENTS = [
         "decay": 0.3,
         "name": "Demand Stabilization"
     },
-    # -----------------------------
-    # 2025 MID – FIRST IRAN ESCALATION
-    # -----------------------------
-    {
-        "month": "Jun 2025",
-        "type": "supply_shock",
-        "cluster": "MIDDLE_EAST",
-        "factor": 0.78,
-        "duration": 4,
-        "plateau": 2,
-        "decay": 0.25,
-        "name": "Israel Op. Rising Lion (12./13.06.) + US Op. Midnight Hammer (21./22.06.) — Iran nuclear sites struck",
-        "note": "7 B-2 bombers, 14 GBU-57 MOPs on Fordow/Natanz/Isfahan; first kinetic strike on Iran nuclear program"
-    },
-    {
-        "month": "Jun 2025",
-        "type": "uncertainty_shock",
-        "factor": 1.20,
-        "duration": 4,
-        "plateau": 2,
-        "decay": 0.20,
-        "name": "Strait of Hormuz closure threats — Iranian Parliament vote 23.06., shipping risk premium spikes"
-    },
+
     # -----------------------------
     # 2025 LATE – ESCALATION
     # -----------------------------
@@ -488,3 +466,173 @@ EVENTS = [
         "name": "LNG Diversion to Asia"
     },
 ]
+
+
+# --------------------------------------------------------------------
+# get_events(path): pfad-spezifische Event-Severity
+#
+# Mechanik: Da Energy keine R2M-Internals hat, wird die Pfad-Differenzierung
+# über (a) Initial-Skalierung (STOCHASTIC_PARAMS) und (b) Event-Severity-
+# Anpassung erreicht. resilient mildert Schocks (factor näher 1.0),
+# fragile verschärft sie (factor weiter von 1.0).
+# --------------------------------------------------------------------
+# --------------------------------------------------------------------
+# Phase 2 Events (Projection 2026-2030) — pfad-abhängig
+#
+# resilient: Erneuerbare durchsetzen, Wasserstoff-Hochlauf, Effizienz-Gewinne
+# hybrid:    Mix aus geopolitischen Spannungen + Renewables-Ausbau (real IST)
+# fragile:   Reihe von Krisen, kein Backup, keine strategische Reserve
+# --------------------------------------------------------------------
+
+EVENTS_PROJECTION_RESILIENT = [
+    {"month": "Sep 2026", "type": "capacity_increase", "cluster": "EU_NORTH",
+     "factor": 1.15, "duration": 8, "plateau": 4, "decay": 0.15,
+     "name": "Offshore-Wind Hochlauf Nordsee"},
+    {"month": "Mar 2027", "type": "capacity_increase", "cluster": "EU_CENTRAL",
+     "factor": 1.12, "duration": 6, "plateau": 3, "decay": 0.2,
+     "name": "Wasserstoff-Backbone aktiviert"},
+    {"month": "Jan 2028", "type": "demand_shock", "cluster": "EU_CENTRAL",
+     "factor": 0.92, "duration": 6, "plateau": 3, "decay": 0.3,
+     "name": "Wärmepumpen-Effizienz wirkt"},
+    {"month": "Aug 2028", "type": "supply_shock", "cluster": "RU",
+     "factor": 0.85, "duration": 4, "plateau": 2, "decay": 0.4,
+     "name": "Restkapazität RU weiter zurück (kein Impact dank Alternativen)"},
+    {"month": "Jun 2029", "type": "capacity_increase", "cluster": "EU_SOUTH",
+     "factor": 1.18, "duration": 8, "plateau": 4, "decay": 0.15,
+     "name": "Solar-Mittelmeer Großprojekte ans Netz"},
+    {"month": "Feb 2030", "type": "coupling_shift", "cluster": "EU_NORTH",
+     "factor": 1.10, "duration": 6, "plateau": 3, "decay": 0.2,
+     "name": "Vollständige EU-Strommarktkopplung"},
+]
+
+EVENTS_PROJECTION_HYBRID = [
+    {"month": "Aug 2026", "type": "supply_shock", "cluster": "ME",
+     "factor": 0.75, "duration": 5, "plateau": 2, "decay": 0.3,
+     "name": "Mittlerer Osten — neue Spannungen"},
+    {"month": "Nov 2026", "type": "demand_shock", "cluster": "EU_CENTRAL",
+     "factor": 1.18, "duration": 4, "plateau": 1, "decay": 0.4,
+     "name": "Kältewelle — Heizungsspitze"},
+    {"month": "Mar 2027", "type": "capacity_increase", "cluster": "EU_NORTH",
+     "factor": 1.08, "duration": 8, "plateau": 4, "decay": 0.2,
+     "name": "LNG-Terminals Endausbau"},
+    {"month": "Oct 2027", "type": "uncertainty_shock", "cluster": "EU_CENTRAL",
+     "factor": 0.80, "duration": 5, "plateau": 2, "decay": 0.35,
+     "name": "Cyber-Attacke auf Energieversorger"},
+    {"month": "Jun 2028", "type": "supply_shock", "cluster": "RU",
+     "factor": 0.60, "duration": 6, "plateau": 3, "decay": 0.3,
+     "name": "RU-Reststopps eskalieren"},
+    {"month": "Feb 2029", "type": "capacity_increase", "cluster": "EU_SOUTH",
+     "factor": 1.12, "duration": 6, "plateau": 3, "decay": 0.25,
+     "name": "Renewables-Ausbau setzt durch"},
+    {"month": "Sep 2029", "type": "demand_shock", "cluster": "ASIA",
+     "factor": 1.20, "duration": 4, "plateau": 2, "decay": 0.4,
+     "name": "Asien-Nachfrage zieht LNG ab"},
+    {"month": "Apr 2030", "type": "coupling_shift", "cluster": "EU_NORTH",
+     "factor": 0.92, "duration": 6, "plateau": 2, "decay": 0.3,
+     "name": "EU-Markt-Friktionen — partial decoupling"},
+]
+
+EVENTS_PROJECTION_FRAGILE = [
+    {"month": "Jul 2026", "type": "supply_shock", "cluster": "ME",
+     "factor": 0.45, "duration": 6, "plateau": 3, "decay": 0.3,
+     "name": "ME-Konflikt eskaliert — Öl-Stopp"},
+    {"month": "Nov 2026", "type": "demand_shock", "cluster": "EU_CENTRAL",
+     "factor": 1.35, "duration": 5, "plateau": 2, "decay": 0.3,
+     "name": "Härteste Kältewelle seit 50 Jahren"},
+    {"month": "Mar 2027", "type": "capacity_shock", "target": "pipeline",
+     "factor": 0.55, "duration": 8, "plateau": 3, "decay": 0.25,
+     "name": "Pipeline-Sabotage — keine Reserve"},
+    {"month": "Sep 2027", "type": "uncertainty_shock", "cluster": "EU_CENTRAL",
+     "factor": 0.60, "duration": 6, "plateau": 3, "decay": 0.3,
+     "name": "Grid-Blackout — Wiederherstellung schleppend"},
+    {"month": "Feb 2028", "type": "supply_shock", "cluster": "RU",
+     "factor": 0.30, "duration": 8, "plateau": 4, "decay": 0.25,
+     "name": "RU komplett — kein Restfluss"},
+    {"month": "Aug 2028", "type": "supply_shock", "cluster": "US",
+     "factor": 0.65, "duration": 5, "plateau": 2, "decay": 0.3,
+     "name": "US-LNG-Exporte zurückgefahren (politisch)"},
+    {"month": "Mar 2029", "type": "demand_shock", "cluster": "EU_SOUTH",
+     "factor": 1.40, "duration": 6, "plateau": 3, "decay": 0.3,
+     "name": "Hitzewelle + Kühlung-Spike"},
+    {"month": "Oct 2029", "type": "capacity_shock", "target": "pipeline",
+     "factor": 0.50, "duration": 8, "plateau": 4, "decay": 0.25,
+     "name": "Zweite Pipeline-Krise"},
+    {"month": "May 2030", "type": "uncertainty_shock", "cluster": "EU_CENTRAL",
+     "factor": 0.55, "duration": 6, "plateau": 3, "decay": 0.3,
+     "name": "Kombinierte Krise — Versorgung instabil"},
+]
+
+
+def get_events(path="hybrid"):
+    """
+    Gibt pfad-spezifisch angepasste Event-Liste zurück.
+    Inkludiert historische Events (Phase 1: 2020-2026) + Projection-Events
+    (Phase 2: 2026-2030) je nach Pfad.
+
+    path: 'resilient' | 'hybrid' | 'fragile'
+    """
+    # Phase 1: historische Events (mit pfad-abhängiger Severity-Skalierung)
+    if path == "hybrid":
+        phase1 = [dict(e) for e in EVENTS]
+    else:
+        severity_map = {
+            "resilient": 0.35,   # stark milder
+            "fragile":   1.55,   # stark schärfer
+        }
+        factor_scale = severity_map.get(path, 1.0)
+        phase1 = []
+        for ev in EVENTS:
+            ev = dict(ev)
+            if "factor" in ev:
+                ev["factor"] = 1.0 + (ev["factor"] - 1.0) * factor_scale
+            phase1.append(ev)
+
+    # Phase 2: Projection-Events pfad-spezifisch
+    projection_map = {
+        "resilient": EVENTS_PROJECTION_RESILIENT,
+        "hybrid":    EVENTS_PROJECTION_HYBRID,
+        "fragile":   EVENTS_PROJECTION_FRAGILE,
+    }
+    phase2 = [dict(e) for e in projection_map.get(path, [])]
+
+    return phase1 + phase2
+
+
+# --------------------------------------------------------------------
+# STOCHASTIC_PARAMS: Pfad-spezifische Initialbedingungen
+#
+# Energy modelliert nicht R2M-Internals direkt, daher werden Pfade über
+# initial_supply_scale, initial_demand_scale und initial_capacity_scale
+# differenziert. Werte greifen bei step==0 in run_energy_simulation.
+# --------------------------------------------------------------------
+STOCHASTIC_PARAMS = {
+    "resilient": {
+        # Reale stabile Energie-Systeme (Norwegen=Wasser+Gas-Exporteur,
+        # Schweden=Wasserkraft, Schweiz=Wasser+Importdiversifikation):
+        # diversifizierter Mix, strategische Reserven, robuste Netzkopplung,
+        # LNG-Terminals + Erneuerbare voll ausgebaut.
+        "initial_supply_scale":   1.30,
+        "initial_demand_scale":   0.88,
+        "initial_capacity_scale": 1.15,
+        "seed": 42,
+    },
+    "hybrid": {
+        # Möglicher IST-Zustand (reale EU 2020-2025):
+        # Russland-Gas-Abhängigkeit, langsamer Renewables-Ausbau,
+        # LNG-Aufbau parallel zur Krise (2022), partielle Diversifikation
+        "initial_supply_scale":   0.95,
+        "initial_demand_scale":   1.00,
+        "initial_capacity_scale": 0.95,
+        "seed": 137,
+    },
+    "fragile": {
+        # Stark fragmentierter Verlauf:
+        # einseitige Abhängigkeit, keine strategischen Reserven,
+        # kein LNG-Backup, fragmentierte Netzkopplung, kein EU-Backup
+        "initial_supply_scale":   0.72,
+        "initial_demand_scale":   1.12,
+        "initial_capacity_scale": 0.78,
+        "seed": 999,
+    },
+}
+

@@ -1,25 +1,27 @@
+"""
+Energy Scenario Loader
+======================
+Lädt Nodes/Edges für das Energy-Crisis-Szenario 2020-2025.
+
+Pfad-Auswahl: 'resilient' | 'hybrid' | 'fragile'
+
+Cluster-Logik: globale Energie-Cluster (EU_NORTH/SOUTH/CENTRAL, US, RU, ME, ASIA).
+Pfad-spezifische Initial-Skalierung über STOCHASTIC_PARAMS, Event-Severity
+pfad-abhängig via get_events(path).
+"""
+
 from data_loader import load_nodes_csv, load_edges_csv
 import copy
 
 
-# ============================================================
-# STRUKTURELLE VOR-BELASTUNG (Background Load)
-# ============================================================
-# Pfad-unabhängig — bildet die reale Vorgeschichte ab, die alle
-# Pfade gleichermaßen trifft. Pre-2020 strukturelle Defizite im
-# deutsch-europäischen Energiesystem.
-#
-# Quellen:
-#   - Russland-Gas-Abhängigkeit ~55% (DE) / ~40% (EU) 2019,
-#     vor NordStream-2-Inbetriebnahme bzw. erst nach 2022 Stopp
-#   - Beschleunigter Atomausstieg 2011 nach Fukushima ohne
-#     synchronen Aufbau von LNG-Terminals / Pipeline-Diversität
-#   - Netzausbau-Stau (NordLink Süd-Nord-Trassen seit Jahren verzögert)
-#   - Keine strategische Gasreserven-Politik vor 2022
-#   - EU-Energiepolitik fragmentiert (DE-FR-PL Differenzen zu
-#     Kernkraft, Kohleausstieg, Wasserstoff)
-# ============================================================
-
+# --------------------------------------------------------------------
+# BACKGROUND_LOAD: Pfad-unabhängige strukturelle Vorbelastung
+# Reflektiert reale Energie-Vorbedingungen vor 2020:
+#   - EU-Abhängigkeit von russischem Gas (~40% Importanteil)
+#   - DE-Atomausstieg 2011-2022 ohne voll ausgebaute Renewables-Alternative
+#   - LNG-Infrastruktur fehlend (DE: 0 LNG-Terminals bis 2022)
+#   - ENTSO-E Reservebevorratung knapp
+# --------------------------------------------------------------------
 BACKGROUND_LOAD = {
     "structural_buffer_drag":      0.13,
     "latent_stress_baseline":      0.45,
@@ -27,30 +29,33 @@ BACKGROUND_LOAD = {
     "coordination_friction":       0.94,
 
     "description": (
-        "Energy-Vorbelastung: Russland-Gas-Abhängigkeit ~55% (DE), "
-        "beschleunigter Atomausstieg ohne LNG-Kompensation, "
-        "Netzausbau-Stau, fragmentierte EU-Energiepolitik."
+        "Europa-Energievorbelastung: Russland-Gas-Abhängigkeit ~40%, "
+        "DE-Atomausstieg ohne voll ausgebaute Renewables-Alternative, "
+        "LNG-Infrastruktur fehlend, ENTSO-E-Reserven knapp."
     ),
     "sources": [
-        "BMWi Energiebericht 2019",
-        "IEA Germany Energy Policy Review 2020",
-        "ENTSO-E TYNDP 2018",
+        "Eurostat Energy Imports 2019",
+        "ENTSO-E Winter Outlook 2019/2020",
+        "IEA World Energy Outlook 2019",
     ],
 }
 
 
-def load_scenario():
-    # Load original data
+def load_scenario(path="hybrid"):
+    """
+    Lädt Energy-Szenario für den gewählten Pfad.
+    path: 'resilient' | 'hybrid' | 'fragile'
+    """
     nodes = load_nodes_csv("data/nodes.csv")
     edges = load_edges_csv("data/edges.csv")
 
-    # 🔥 FIX: Deep Copy für saubere Simulation
     nodes = copy.deepcopy(nodes)
     edges = copy.deepcopy(edges)
 
     return {
+        "type":  "energy",
+        "path":  path,
         "nodes": nodes,
         "edges": edges,
-        "type": "energy",
         "background_load": BACKGROUND_LOAD,
     }
