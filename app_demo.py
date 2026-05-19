@@ -11,6 +11,10 @@ from visualization.critical_infra_intro import (
     render_critical_infra_primer,
     render_critical_infra_intro,
 )
+from visualization.banking_pipeline_intro import (
+    render_banking_pipeline_primer,
+    render_banking_pipeline_intro,
+)
 
 from core_lite.simulation import run_simulation
 from core_lite.energy_simulation import run_energy_simulation
@@ -38,6 +42,14 @@ from scenarios.critical_infra import load_scenario as load_critical_infra
 from scenarios.critical_infra_events import (
     get_events as get_critical_infra_events,
     STOCHASTIC_PARAMS as CRITICAL_INFRA_STOCHASTIC_PARAMS,
+)
+
+from core_lite.banking_pipeline_simulation import run_banking_pipeline_simulation
+from core_lite.banking_pipeline_ensemble import run_ensemble as run_banking_pipeline_ensemble
+from scenarios.banking_pipeline import load_scenario as load_banking_pipeline
+from scenarios.banking_pipeline_events import (
+    get_events as get_banking_pipeline_events,
+    STOCHASTIC_PARAMS as BANKING_STOCHASTIC_PARAMS,
 )
 
 from datetime import datetime
@@ -91,6 +103,12 @@ CRITICAL_INFRA_MONTHS         = generate_months_pandemic(start="2020-01", steps=
 CRITICAL_INFRA_MONTH_TO_STEP  = {m: i for i, m in enumerate(CRITICAL_INFRA_MONTHS)}
 CRITICAL_INFRA_STEPS          = len(CRITICAL_INFRA_MONTHS)
 CRITICAL_INFRA_PROJECTION_START = "Jun 2026"
+
+# Banking-Pipeline timeline: Jan 2020 -> Jun 2030 (126 months)
+BANKING_MONTHS         = generate_months_pandemic(start="2020-01", steps=126)
+BANKING_MONTH_TO_STEP  = {m: i for i, m in enumerate(BANKING_MONTHS)}
+BANKING_STEPS          = len(BANKING_MONTHS)
+BANKING_PROJECTION_START = "Jun 2026"
 
 # ------------------------------------------
 # Critical Infrastructure: Early Warning Logic
@@ -370,6 +388,7 @@ with st.sidebar:
             "Eurozone Financial Stability",
             "Cloud & Cyber Resilience",
             "Rail & Critical Infrastructure",
+            "Banking Build-Pipeline",
         ],
         label_visibility="collapsed"
     )
@@ -386,6 +405,8 @@ elif scenario_name == "Cloud & Cyber Resilience":
     scenario = {"type": "cyber_cloud"}   # path selected inside panel
 elif scenario_name == "Rail & Critical Infrastructure":
     scenario = {"type": "critical_infra"}   # path selected inside panel
+elif scenario_name == "Banking Build-Pipeline":
+    scenario = {"type": "banking_pipeline"}   # path selected inside panel
 else:
     scenario = {"type": "pandemic"}   # path selected inside panel
 
@@ -426,7 +447,13 @@ if st.session_state["last_scenario"] != scenario_name:
                 "critical_infra_history_fragile",
                 "critical_infra_ensemble_resilient",
                 "critical_infra_ensemble_hybrid",
-                "critical_infra_ensemble_fragile"]:
+                "critical_infra_ensemble_fragile",
+                "banking_history_resilient",
+                "banking_history_hybrid",
+                "banking_history_fragile",
+                "banking_ensemble_resilient",
+                "banking_ensemble_hybrid",
+                "banking_ensemble_fragile"]:
         st.session_state.pop(key, None)
     st.session_state["last_scenario"] = scenario_name
     st.session_state["step"] = 0
@@ -3341,3 +3368,601 @@ elif scenario["type"] == "critical_infra":
                             "No active events at this step.</div>", unsafe_allow_html=True)
 
     critical_infra_panel(history, max_step, proj_step, selected_path, ensemble=ensemble)
+
+
+# ============================================================
+# BANKING BUILD-PIPELINE
+# DACH Tier-1 Bank — Build-Pipeline-Resilience unter DORA-Stress
+# ============================================================
+elif scenario["type"] == "banking_pipeline":
+    st.divider()
+    st.subheader("Banking Build-Pipeline Resilience 2020–2030")
+    st.caption(
+        "Structural stress-test of a DACH Tier-1 bank's CI/CD pipeline under "
+        "real regulatory and supply-chain shocks: Log4j, MOVEit, XZ-Backdoor, "
+        "CrowdStrike Outage, **DORA in force (17.01.2025)**. The three paths "
+        "show how identical shocks produce drastically different outcomes "
+        "depending on Kubernetes platform maturity, SBOM/Cosign discipline, "
+        "and audit-trail integration. KPIs: **DORA Four Keys** "
+        "(Deployment Frequency, MTTR) + Audit Status + Aggregate Health."
+    )
+
+    path_options = {
+        "🟢 Resilient": "resilient",
+        "🟡 Hybrid":    "hybrid",
+        "🔴 Fragile":   "fragile",
+    }
+    selected_label = st.radio(
+        "Structural path",
+        options=list(path_options.keys()),
+        horizontal=True,
+        key="banking_path_radio",
+        help="Resilient = DORA-mature Tier-1 (Active-Active GitOps, Cosign, Policy-as-Code). "
+             "Hybrid = realistic DACH IST (Cloud-First, legacy islands, partial automation). "
+             "Fragile = legacy mid-tier (On-Prem Jenkins, manual audit, no Falco).",
+    )
+    selected_path = path_options[selected_label]
+    history_key   = f"banking_history_{selected_path}"
+    ensemble_key  = f"banking_ensemble_{selected_path}"
+
+    if run_clicked:
+        params = BANKING_STOCHASTIC_PARAMS[selected_path]
+
+        def _load_bk_nodes():
+            return load_banking_pipeline(path=selected_path)["nodes"]
+        def _load_bk_edges():
+            return load_banking_pipeline(path=selected_path)["edges"]
+
+        _bk_bg_load = load_banking_pipeline(path=selected_path).get("background_load")
+
+        path_label = selected_label
+        progress_bar = st.progress(0, text=f"Running ensemble — {path_label} — 0 / 30")
+
+        def _update_bk_progress(pct, done, total):
+            progress_bar.progress(pct, text=f"Running ensemble — {path_label} — {done} / {total}")
+
+        ensemble = run_banking_pipeline_ensemble(
+            load_nodes_fn=_load_bk_nodes,
+            load_edges_fn=_load_bk_edges,
+            run_simulation_fn=run_banking_pipeline_simulation,
+            get_events_fn=get_banking_pipeline_events,
+            stochastic_params=params,
+            path_name=selected_path,
+            steps=BANKING_STEPS,
+            month_to_step=BANKING_MONTH_TO_STEP,
+            projection_start_month=BANKING_PROJECTION_START,
+            month_labels=BANKING_MONTHS,
+            background_load=_bk_bg_load,
+            n_runs=30,
+            progress_callback=_update_bk_progress,
+        )
+        progress_bar.empty()
+
+        st.session_state[ensemble_key] = ensemble
+        st.session_state[history_key]  = ensemble["median_history"]
+        st.session_state["step"] = 0
+        st.session_state["mode"] = "manual"
+
+    # Pre-Run-Guard
+    if history_key not in st.session_state:
+        render_banking_pipeline_primer()
+        st.info("Select a path above and click **Run Simulation** to start.")
+        st.stop()
+
+    render_banking_pipeline_intro()
+
+    ensemble  = st.session_state.get(ensemble_key)
+    history   = st.session_state[history_key]
+    max_step  = len(history) - 1
+    proj_step = BANKING_MONTH_TO_STEP.get(BANKING_PROJECTION_START, max_step)
+
+    run_every_b = 1.0 if st.session_state["mode"] == "playback" else None
+
+    # Banking-spezifische KPI-Berechnung (DORA Four Keys + Audit Status)
+    #
+    # Pfad-spezifische Skalierung — entspricht realer Banking-IT-Performance:
+    # MAX_VELOCITY: DORA Elite/High/Low Performer Deploy-Frequenz pro Tag
+    # FINDINGS_MAX: Audit-Findings-Ceiling (Resilient = wenige Findings möglich,
+    #               Fragile = viele Findings möglich)
+    # BASE_MTTR:    Basis-MTTR in Minuten bei perfekter Pipeline
+    MAX_VELOCITY = {"resilient": 50, "hybrid": 10, "fragile": 2}
+    FINDINGS_MAX = {"resilient": 10, "hybrid": 30, "fragile": 60}
+    BASE_MTTR    = {"resilient": 15, "hybrid": 60, "fragile": 240}
+
+    def compute_banking_kpis(snap, path):
+        """4 Banking-KPIs aus Snapshot ableiten."""
+        # Layer-Durchschnitte
+        tech_avg = (sum(snap.get("technical_layer", {}).values())
+                    / max(len(snap.get("technical_layer", {})), 1))
+        pipe_avg = (sum(snap.get("pipeline_layer", {}).values())
+                    / max(len(snap.get("pipeline_layer", {})), 1))
+        reg_avg  = (sum(snap.get("regulatory_layer", {}).values())
+                    / max(len(snap.get("regulatory_layer", {})), 1))
+        biz_avg  = (sum(snap.get("business_layer", {}).values())
+                    / max(len(snap.get("business_layer", {})), 1))
+
+        # System Health (aus snap, schon berechnet)
+        sys_health = snap.get("system_health", 0.0)
+
+        # ----- Pipeline Velocity = Pipeline-Layer × MAX_VELOCITY[path] -----
+        # DORA Four Keys "Deployment Frequency"
+        velocity = pipe_avg * MAX_VELOCITY[path]
+
+        # ----- Audit Status = Open Findings -----
+        # findings = FINDINGS_MAX[path] × (1 - regulatory_health)
+        open_findings = round(FINDINGS_MAX[path] * (1.0 - reg_avg))
+
+        # Severity: aus Falco/OPA-Status + Findings-Count
+        falco = snap["nodes"].get("Falco", {})
+        opa = snap["nodes"].get("OPA_Gatekeeper", {})
+        falco_ok = falco.get("status", "active") == "active"
+        opa_ok = opa.get("status", "active") == "active"
+        if not falco_ok or not opa_ok or open_findings > 25:
+            severity = ("🔴", "incl. major")
+        elif open_findings > 10:
+            severity = ("🟡", "mixed")
+        else:
+            severity = ("🟢", "minor")
+
+        # ----- MTTR = BASE × (1 / Pipeline+Business-Health) -----
+        # DORA Four Keys "Time to Restore Service"
+        # Pipeline+Business reflektiert echte Recovery-Fähigkeit
+        recovery_score = (pipe_avg + biz_avg) / 2.0
+        mttr_min = BASE_MTTR[path] / max(0.05, recovery_score)
+
+        return {
+            "system_health": sys_health,
+            "velocity":      velocity,
+            "open_findings": open_findings,
+            "severity":      severity,
+            "mttr_min":      mttr_min,
+            "tech_avg":      tech_avg,
+            "pipe_avg":      pipe_avg,
+            "reg_avg":       reg_avg,
+            "biz_avg":       biz_avg,
+        }
+
+    @st.fragment(run_every=run_every_b)
+    def banking_panel(history, max_step, proj_step, selected_path, ensemble=None):
+
+        is_playing = st.session_state["mode"] == "playback"
+        if is_playing:
+            cur = st.session_state["step"]
+            if cur < max_step:
+                st.session_state["step"] = cur + 1
+            else:
+                st.session_state["mode"] = "manual"
+                st.rerun()
+
+        # Controls
+        ctrl1, ctrl2, ctrl3 = st.columns([1, 1, 4])
+        with ctrl1:
+            if st.button("▶ Play", key="bk_play", disabled=is_playing, width='stretch'):
+                st.session_state["mode"] = "playback"
+                st.session_state["step"] = 0
+                st.rerun()
+        with ctrl2:
+            if st.button("⏸ Step", key="bk_pause", disabled=not is_playing, width='stretch'):
+                st.session_state["mode"] = "manual"
+                st.rerun()
+        with ctrl3:
+            if "banking_sim_step" not in st.session_state:
+                st.session_state["banking_sim_step"] = st.session_state["step"]
+            if is_playing:
+                st.session_state["banking_sim_step"] = st.session_state["step"]
+            step = st.slider("Month", 0, max_step, key="banking_sim_step",
+                             disabled=is_playing, label_visibility="collapsed")
+            if not is_playing:
+                st.session_state["step"] = step
+
+        current     = history[st.session_state["step"]]
+        current_idx = st.session_state["step"]
+        current_month = BANKING_MONTHS[current_idx]
+        is_proj     = current.get("is_projection", False)
+
+        kpis = compute_banking_kpis(current, selected_path)
+
+        # ------------------------------------------
+        # Early Warning Berechnung — Banking-spezifisch
+        #
+        # WICHTIG: Banking-IT-Stress ist STRUKTURELL und KONTINUIERLICH,
+        # nicht eventgetrieben mit akuten Drops wie bei Energy/Pandemic.
+        # Im Fragile-Pfad ist die Pipeline bereits strukturell schwach
+        # vom ersten Tag an — "month-over-month health drop" greift nicht.
+        #
+        # Daher nutzen wir die INTERNEN Latent-Variablen der Simulation:
+        #   - stress_accumulation: slow-moving Latent-Stress
+        #     (Resilient ~0.45, Hybrid ~1.2, Fragile ~5.5)
+        #   - stability_margin: capacity_buffer - stress
+        #     (Resilient +0.82, Hybrid +0.07, Fragile -0.34)
+        #     Negativ = Buffer deckt Stress nicht mehr → kritisch
+        # ------------------------------------------
+        health_series = [h.get("system_health", 0.0) for h in history]
+        stress_acc_series = [h.get("stress_accumulation", 0.0) for h in history]
+        stab_margin_series = [h.get("stability_margin", 0.0) for h in history]
+        n_hist = len(health_series)
+
+        def _banking_ew(stress_acc, stab_margin):
+            """
+            Maps internal latent stress variables to [0, 1] EW signal.
+            Resilient ≈ 0.07, Hybrid ≈ 0.21, Fragile ≈ 0.86+
+            """
+            base = max(0.0, min(1.0, stress_acc / 6.0))
+            # Negative stability margin = critical penalty
+            penalty = max(0.0, -stab_margin) * 0.4
+            return min(1.0, base + penalty)
+
+        ew_norm = [
+            _banking_ew(stress_acc_series[i], stab_margin_series[i])
+            for i in range(n_hist)
+        ]
+
+        # Banking-spezifische Schwellen (lower als Energy weil EW kontinuierlich):
+        #   < 0.20  = Calm     (Resilient-Norm)
+        #   0.20-0.50 = Elevated (Hybrid-Norm bei Stress)
+        #   ≥ 0.50  = High     (Fragile-Norm — strukturelle Schwäche)
+        EW_THRESHOLD_BK   = 0.20
+        EW_HIGH_BK        = 0.50
+        STAB_THRESHOLD_BK = 0.60
+
+        def find_all_ew_pairs(ew_norm, stab, ew_thr, stab_thr):
+            """EW-Spike → Stability-Drop Lead-Pair Detection."""
+            pairs, open_pair, i = [], None, 1
+            while i < len(ew_norm):
+                if ew_norm[i] > ew_thr and ew_norm[i-1] <= ew_thr:
+                    spike, found_drop = i, False
+                    for j in range(spike+1, len(stab)):
+                        if stab[j] < stab_thr and stab[j-1] >= stab_thr:
+                            if j - spike >= 0:
+                                pairs.append((spike, j, j-spike))
+                            i, found_drop = j+1, True
+                            break
+                    if not found_drop:
+                        open_pair = (spike, None, None)
+                        i += 1
+                else:
+                    i += 1
+            return pairs, open_pair
+
+        all_pairs_chart, open_pair_chart = find_all_ew_pairs(
+            ew_norm[:current_idx+1], health_series[:current_idx+1],
+            EW_THRESHOLD_BK, STAB_THRESHOLD_BK,
+        )
+
+        # Aktueller EW-Status für Ampel im Header
+        ew_now = ew_norm[current_idx] if current_idx < len(ew_norm) else 0.0
+        if ew_now >= EW_HIGH_BK:
+            ew_label, ew_color, ew_icon = "High", "#f87171", "🔴"
+        elif ew_now >= EW_THRESHOLD_BK:
+            ew_label, ew_color, ew_icon = "Elevated", "#fbbf24", "🟡"
+        else:
+            ew_label, ew_color, ew_icon = "Calm", "#86efac", "🟢"
+
+        # ------------------------------------------
+        # Header: 6 Spalten — Month / SysH / Velocity / Audit / MTTR / Early Warning
+        # ------------------------------------------
+        m1, m2, m3, m4, m5, m6 = st.columns([1.1, 0.9, 1, 1.1, 0.9, 1])
+        with m1:
+            phase = "📈 Projection" if is_proj else "📅 Historical"
+            st.markdown(f"<div style='font-size:11px;color:var(--color-text-secondary);'>"
+                        f"{phase}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='font-size:22px;font-weight:600;'>{current_month}</div>",
+                        unsafe_allow_html=True)
+
+        with m2:
+            sh_pct = int(round(kpis["system_health"] * 100))
+            sh_color = ("#4ade80" if sh_pct >= 75 else
+                        "#fbbf24" if sh_pct >= 55 else "#f87171")
+            st.markdown(f"<div style='font-size:11px;color:var(--color-text-secondary);'>"
+                        f"System Health</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='font-size:22px;font-weight:600;color:{sh_color};'>"
+                        f"{sh_pct}%</div>", unsafe_allow_html=True)
+
+        with m3:
+            vel = kpis["velocity"]
+            vel_color = ("#4ade80" if vel >= 20 else
+                         "#fbbf24" if vel >= 5 else "#f87171")
+            st.markdown(f"<div style='font-size:11px;color:var(--color-text-secondary);'>"
+                        f"Pipeline Velocity <span style='color:#888;'>· DORA Key</span></div>",
+                        unsafe_allow_html=True)
+            st.markdown(f"<div style='font-size:22px;font-weight:600;color:{vel_color};'>"
+                        f"{vel:.0f} <span style='font-size:13px;font-weight:400;color:var(--color-text-secondary);'>/ day</span></div>",
+                        unsafe_allow_html=True)
+
+        with m4:
+            sev_icon, sev_label = kpis["severity"]
+            of = kpis["open_findings"]
+            st.markdown(f"<div style='font-size:11px;color:var(--color-text-secondary);'>"
+                        f"Audit Status <span style='color:#888;'>· DORA Art. 18</span></div>",
+                        unsafe_allow_html=True)
+            st.markdown(f"<div style='font-size:22px;font-weight:600;'>"
+                        f"{sev_icon} {of} <span style='font-size:13px;font-weight:400;color:var(--color-text-secondary);'>open · {sev_label}</span></div>",
+                        unsafe_allow_html=True)
+
+        with m5:
+            mttr = kpis["mttr_min"]
+            mttr_color = ("#4ade80" if mttr <= 30 else
+                          "#fbbf24" if mttr <= 240 else "#f87171")
+            if mttr < 60:
+                mttr_text = f"{mttr:.0f} min"
+            else:
+                mttr_text = f"{mttr/60:.1f} h"
+            st.markdown(f"<div style='font-size:11px;color:var(--color-text-secondary);'>"
+                        f"MTTR <span style='color:#888;'>· DORA Key</span></div>",
+                        unsafe_allow_html=True)
+            st.markdown(f"<div style='font-size:22px;font-weight:600;color:{mttr_color};'>"
+                        f"{mttr_text}</div>", unsafe_allow_html=True)
+
+        with m6:
+            st.markdown(f"<div style='font-size:11px;color:var(--color-text-secondary);'>"
+                        f"Early Warning</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='font-size:22px;font-weight:600;color:{ew_color};'>"
+                        f"{ew_icon} {ew_label}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='font-size:10px;color:var(--color-text-secondary);'>"
+                        f"↑ {ew_now:.0%} structural signal</div>", unsafe_allow_html=True)
+
+        # ------------------------------------------
+        # Strukturelle EW-Banner (Banking-spezifisch):
+        # Unterscheidung zwischen permanenter Strukturschwäche (Fragile-Norm)
+        # und akuten Lead-Pair-Signalen (Resilient/Hybrid bei Schocks)
+        # ------------------------------------------
+        if ew_now >= EW_HIGH_BK:
+            # Strukturell-kritischer Zustand (typisch Fragile)
+            stress_now = stress_acc_series[current_idx]
+            margin_now = stab_margin_series[current_idx]
+            margin_text = ("buffer below stress floor" if margin_now < 0
+                           else "structural drift accumulating")
+            st.markdown(
+                f"<div style='background:rgba(248,113,113,0.15);border-left:3px solid #f87171;"
+                f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;color:var(--color-text-primary);margin:8px 0;'>"
+                f"🔴 <strong>Critical structural exposure</strong> — "
+                f"stress accumulation at <strong>{stress_now:.1f}</strong>, "
+                f"{margin_text}. DORA-compliance cascade likely under further shock."
+                f"</div>", unsafe_allow_html=True)
+        elif open_pair_chart is not None and open_pair_chart[0] is not None:
+            # Akute Vorwarnung: EW-Spike ohne nachfolgenden Stab-Drop
+            r_month_spike = BANKING_MONTHS[open_pair_chart[0]]
+            elapsed = current_idx - open_pair_chart[0]
+            st.markdown(
+                f"<div style='background:rgba(244,162,97,0.12);border-left:3px solid #f4a261;"
+                f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;color:var(--color-text-primary);margin:8px 0;'>"
+                f"⚠️ <strong>Early Warning active</strong> since {r_month_spike} — "
+                f"structural weakening detected <strong>{elapsed} months ago</strong>. "
+                f"System Health drop not yet confirmed.</div>", unsafe_allow_html=True)
+        elif all_pairs_chart:
+            # Retrospektives Lead-Pair: EW kam vor Stab-Drop
+            last_spike, last_drop, last_lead = all_pairs_chart[-1]
+            if last_lead > 0 and current_idx - last_drop <= 6:
+                r_month_spike = BANKING_MONTHS[last_spike]
+                st.markdown(
+                    f"<div style='background:rgba(34,197,94,0.10);border-left:3px solid #22c55e;"
+                    f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;color:var(--color-text-primary);margin:8px 0;'>"
+                    f"💡 <strong>Early Warning</strong> ({r_month_spike}) signaled structural weakening "
+                    f"<strong>{last_lead} months</strong> before System Health visibly dropped.</div>",
+                    unsafe_allow_html=True)
+
+        # ------------------------------------------
+        # Chart | Network | Events
+        # ------------------------------------------
+        col_left, col_mid, col_right = st.columns([4, 4, 2])
+
+        with col_left:
+            n = len(history)
+            tech_series = [
+                sum(h.get("technical_layer", {}).values()) / max(len(h.get("technical_layer", {})), 1)
+                for h in history
+            ]
+            pipe_series = [
+                sum(h.get("pipeline_layer", {}).values()) / max(len(h.get("pipeline_layer", {})), 1)
+                for h in history
+            ]
+            reg_series = [
+                sum(h.get("regulatory_layer", {}).values()) / max(len(h.get("regulatory_layer", {})), 1)
+                for h in history
+            ]
+            biz_series = [
+                sum(h.get("business_layer", {}).values()) / max(len(h.get("business_layer", {})), 1)
+                for h in history
+            ]
+            sys_series = [h.get("system_health", 0.0) for h in history]
+
+            tick_vals = list(range(0, n, 12))
+            tick_text = [BANKING_MONTHS[i] for i in tick_vals if i < len(BANKING_MONTHS)]
+
+            fig = go.Figure()
+
+            # Optional: Ensemble-Bänder (p25/p75)
+            if ensemble is not None:
+                p25 = ensemble.get("p25_system_health", [])
+                p75 = ensemble.get("p75_system_health", [])
+                if p25 and p75:
+                    fig.add_trace(go.Scatter(
+                        x=list(range(len(p25))), y=p75,
+                        mode="lines", line=dict(width=0),
+                        showlegend=False, hoverinfo="skip"))
+                    fig.add_trace(go.Scatter(
+                        x=list(range(len(p25))), y=p25,
+                        mode="lines", line=dict(width=0),
+                        fill="tonexty", fillcolor="rgba(100,150,200,0.18)",
+                        name="Ensemble p25-p75", hoverinfo="skip"))
+
+            fig.add_trace(go.Scatter(x=list(range(n)), y=sys_series, mode="lines",
+                                     name="System Health", line=dict(color="#4fc3f7", width=2.5)))
+            fig.add_trace(go.Scatter(x=list(range(n)), y=tech_series, mode="lines",
+                                     name="Technical (K8s/Kafka)", line=dict(color="#86efac", width=1.5, dash="dot")))
+            fig.add_trace(go.Scatter(x=list(range(n)), y=pipe_series, mode="lines",
+                                     name="Pipeline (CI/CD)", line=dict(color="#c084fc", width=1.5, dash="dot")))
+            fig.add_trace(go.Scatter(x=list(range(n)), y=reg_series, mode="lines",
+                                     name="Regulatory (DORA)", line=dict(color="#fbbf24", width=1.5, dash="dot")))
+            fig.add_trace(go.Scatter(x=list(range(n)), y=biz_series, mode="lines",
+                                     name="Business (Velocity/MTTR)", line=dict(color="#ffaa66", width=1.5, dash="dot")))
+
+            # Early Warning Linie (orange, gefüllt nach unten)
+            fig.add_trace(go.Scatter(x=list(range(n)), y=ew_norm, mode="lines",
+                                     name="Early Warning",
+                                     line=dict(color="#f4a261", width=2),
+                                     fill="tozeroy", fillcolor="rgba(244,162,97,0.08)"))
+
+            # EW-Spike + Stability-Drop Marker mit Bracket (analog Energy)
+            bracket_y_positions = [0.97, 0.90, 0.83]
+            for pair_idx, (spike, drop, lead) in enumerate(all_pairs_chart):
+                if lead <= 0:
+                    continue
+                bracket_y = bracket_y_positions[min(pair_idx, len(bracket_y_positions)-1)]
+                fig.add_annotation(
+                    x=spike, y=min(1.0, ew_norm[spike] + 0.08),
+                    text="EW signal" if pair_idx == 0 else "EW",
+                    showarrow=True, arrowhead=2,
+                    arrowcolor="#f4a261", ax=0, ay=-28,
+                    font=dict(size=10, color="#f4a261"),
+                )
+                fig.add_annotation(
+                    x=drop, y=max(0.0, sys_series[drop] - 0.08),
+                    text="System Health drops" if pair_idx == 0 else "↓",
+                    showarrow=True, arrowhead=2,
+                    arrowcolor="#4fc3f7", ax=0, ay=28,
+                    font=dict(size=10, color="#4fc3f7"),
+                )
+                fig.add_shape(
+                    type="line", x0=spike, x1=drop, y0=bracket_y, y1=bracket_y,
+                    line=dict(color="#888888", width=1, dash="dot"),
+                )
+                fig.add_annotation(
+                    x=(spike + drop) // 2, y=bracket_y + 0.03,
+                    text=f"{lead}mo ahead",
+                    showarrow=False, font=dict(size=9, color="#aaaaaa"),
+                )
+
+            # Wichtige Banking-Pipeline-Events als vertikale Marker-Linien
+            for ev_month, ev_label, ev_color in [
+                ("Dec 2021", "Log4j",          "#E24B4A"),
+                ("May 2023", "MOVEit",         "#E24B4A"),
+                ("Jan 2024", "DORA adopted",   "#fbbf24"),
+                ("Mar 2024", "XZ Backdoor",    "#A32D2D"),
+                ("Jul 2024", "CrowdStrike",    "#E24B4A"),
+                ("Jan 2025", "DORA in force",  "#fbbf24"),
+                ("Jun 2025", "TIBER-EU",       "#378ADD"),
+            ]:
+                ev_step = BANKING_MONTH_TO_STEP.get(ev_month)
+                if ev_step is not None and ev_step < n:
+                    fig.add_vline(
+                        x=ev_step, line_width=1, line_dash="dot",
+                        line_color=ev_color, opacity=0.7,
+                        annotation_text=ev_label,
+                        annotation_position="top right",
+                        annotation_font_size=9,
+                        annotation_font_color=ev_color,
+                    )
+
+            # Aktueller Step markieren
+            fig.add_vline(x=current_idx, line=dict(color="#888", width=1, dash="dash"))
+            # Projection-Trennlinie
+            fig.add_vline(x=proj_step, line=dict(color="#888", width=1, dash="dot"),
+                          annotation_text="Projection", annotation_position="top")
+
+            fig.update_layout(
+                xaxis=dict(tickmode="array", tickvals=tick_vals, ticktext=tick_text,
+                           tickangle=-45, tickfont=dict(size=9)),
+                yaxis=dict(range=[0, 1.05], tickformat=".0%"),
+                height=380,
+                margin=dict(l=10, r=10, t=20, b=40),
+                legend=dict(orientation="h", yanchor="bottom", y=-0.5, xanchor="center", x=0.5,
+                            font=dict(size=10)),
+                plot_bgcolor="rgba(0,0,0,0)",
+                paper_bgcolor="rgba(0,0,0,0)",
+            )
+            st.plotly_chart(fig, width='stretch')
+
+        with col_mid:
+            highlight_nodes, highlight_edges = set(), set()
+            active_events = []
+            all_evts = get_banking_pipeline_events(selected_path)
+            for event in all_evts:
+                if "month" not in event or event["month"] not in BANKING_MONTH_TO_STEP:
+                    continue
+                es = BANKING_MONTH_TO_STEP[event["month"]]
+                if current_idx >= es and current_idx < es + event.get("duration", 1):
+                    active_events.append(event)
+            for nid in current.get("highlight_nodes", []):
+                highlight_nodes.add(nid)
+            for event in active_events:
+                if "cluster" in event:
+                    for node, data in current["nodes"].items():
+                        if data.get("cluster") == event["cluster"]:
+                            highlight_nodes.add(node)
+
+            # Banner: Compliance-State (kombiniert Audit + Velocity)
+            sh = kpis["system_health"]
+            if sh >= 0.80:
+                banner_text = "🟢 DORA-mature — system absorbing shocks structurally"
+                banner_style = "background:rgba(74,222,128,0.12);color:#86efac;"
+            elif sh >= 0.55:
+                banner_text = "🟡 Findings present — manageable, action plan in place"
+                banner_style = "background:rgba(251,191,36,0.12);color:#fbbf24;"
+            else:
+                banner_text = "🔴 Compliance cascade — major DORA risk exposure"
+                banner_style = "background:rgba(248,113,113,0.12);color:#f87171;"
+
+            st.markdown(
+                f"<div style='{banner_style}border-radius:0 6px 6px 0;"
+                f"padding:6px 12px;font-size:12px;font-weight:600;margin-bottom:6px;'>"
+                f"{banner_text}</div>",
+                unsafe_allow_html=True)
+
+            st.plotly_chart(
+                plot_network(current["graph"], current["load"], current["edges"],
+                             highlight_nodes=highlight_nodes, highlight_edges=highlight_edges,
+                             pos=current.get("pos"), cluster_anchors=current.get("cluster_anchors")),
+                width='stretch')
+
+            # Legende
+            _bk_spaces = list({n.get('space')
+                               for n in current['nodes'].values()
+                               if n.get('space')})
+            _bk_has_bridge = 'bridge_active' in current['edges'].values()
+            _bk_metrics = [
+                ("●", "#86efac", "Technical Resilience",
+                 "Kubernetes, Kafka, Vault, Harbor, GitLab — the platform foundation."),
+                ("■", "#c084fc", "Pipeline Throughput",
+                 "Tekton CI, SAST/SCA/DAST, Cosign+SBOM, ArgoCD, OPA — the delivery chain."),
+                ("◆", "#fbbf24", "Regulatory Coverage",
+                 "Loki, Splunk Audit-Trail, Policy-Reporter, DORA-Reporter — compliance plumbing."),
+                ("⬡", "#ffaa66", "Business Outcomes",
+                 "Release-Velocity, MTTR, Customer-Channels — what the business sees."),
+            ]
+            st.markdown(network_legend_html(
+                spaces=_bk_spaces,
+                has_bridge=_bk_has_bridge,
+                metrics=_bk_metrics,
+            ), unsafe_allow_html=True)
+
+        with col_right:
+            st.markdown("<div style='font-size:11px;font-weight:600;color:var(--color-text-secondary);"
+                        "margin-top:32px;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;'>"
+                        "Active Events</div>", unsafe_allow_html=True)
+            if active_events:
+                type_colors = {
+                    "supply_shock":       ("#7C1D1D", "#FCA5A5"),
+                    "capacity_shock":     ("#7C1D1D", "#FCA5A5"),
+                    "demand_shock":       ("#78350F", "#FCD34D"),
+                    "uncertainty_shock":  ("#78350F", "#FCD34D"),
+                    "capacity_increase":  ("#14532D", "#86EFAC"),
+                    "coupling_shift":     ("#1E3A5F", "#93C5FD"),
+                }
+                pills_html = "<div style='display:flex;flex-direction:column;gap:6px;'>"
+                for ev in active_events:
+                    bg, fg = type_colors.get(ev.get("type", ""), ("#374151", "#D1D5DB"))
+                    icon = "🎲" if ev.get("stochastic") else "⚡"
+                    name = ev.get("name", ev.get("type", "event"))
+                    pills_html += (
+                        f"<span style='background:{bg};color:{fg};font-size:11px;font-weight:500;"
+                        f"padding:5px 10px;border-radius:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>"
+                        f"{icon} {name}</span>"
+                    )
+                pills_html += "</div>"
+                st.markdown(pills_html, unsafe_allow_html=True)
+            else:
+                st.markdown("<div style='color:var(--color-text-secondary);font-size:11px;font-style:italic;'>"
+                            "No active events at this step.</div>", unsafe_allow_html=True)
+
+    banking_panel(history, max_step, proj_step, selected_path, ensemble=ensemble)

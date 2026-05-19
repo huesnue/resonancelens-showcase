@@ -23,6 +23,15 @@ def _node_low_stress_color(space):
         return "#4fc3f7"
     if space == "economic":
         return "#c084fc"
+    # Banking-Pipeline-Spaces: konsistent mit Chart-Layer-Farben
+    if space == "technical":
+        return "#86efac"      # green — platform foundation
+    if space == "pipeline":
+        return "#c084fc"      # purple — CI/CD throughput
+    if space == "regulatory":
+        return "#fbbf24"      # amber — compliance plumbing
+    if space == "business":
+        return "#ffaa66"      # orange — business outcomes
     return "#6bd96b"  # regional, financial, None, default
 
 
@@ -31,6 +40,15 @@ def _node_symbol(space):
         return "square"
     if space == "economic":
         return "diamond"
+    # Banking-Pipeline-Spaces: distinct shapes per resonance space
+    if space == "technical":
+        return "circle"       # ●  platform foundation
+    if space == "pipeline":
+        return "square"       # ■  delivery chain
+    if space == "regulatory":
+        return "diamond"      # ◆  compliance plumbing
+    if space == "business":
+        return "hexagon"      # ⬡  business outcomes
     return "circle"  # sector, digital, None, default
 
 
