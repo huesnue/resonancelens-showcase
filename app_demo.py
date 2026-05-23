@@ -887,6 +887,7 @@ elif scenario["type"] == "energy":
                     f"💡 <strong>Early Warning</strong> ({r_month_spike}) signaled structural weakening "
                     f"<strong>{display_pair[2]} months</strong> before Stability visibly dropped.</div>", unsafe_allow_html=True)
 
+        _state_banner_ph = st.empty()
         col_left, col_mid, col_right = st.columns([4, 4, 2])
 
         with col_left:
@@ -1002,11 +1003,6 @@ elif scenario["type"] == "energy":
                 ew_pair_memory_steps=12,
             )
 
-            st.markdown(
-                f"<div style='{_en_state[1]}border-radius:0 6px 6px 0;"
-                f"padding:6px 12px;font-size:12px;font-weight:600;margin-bottom:6px;'>"
-                f"{_en_state[0]}</div>",
-                unsafe_allow_html=True)
 
             st.plotly_chart(plot_network(current["graph"], current["load"], current["edges"],
                                          highlight_nodes=highlight_nodes, highlight_edges=highlight_edges,
@@ -1019,8 +1015,13 @@ elif scenario["type"] == "energy":
             ), unsafe_allow_html=True)
 
         with col_right:
+            _state_banner_ph.markdown(
+                f"<div style='{_en_state[1]}border-radius:0 6px 6px 0;"
+                f"padding:8px 14px;font-size:13px;font-weight:600;margin:8px 0;'>"
+                f"{_en_state[0]}</div>",
+                unsafe_allow_html=True)
             st.markdown("<div style='font-size:11px;font-weight:600;color:var(--color-text-secondary);"
-                        "margin-top:32px;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;'>"
+                        "margin-top:6px;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;'>"
                         "Active Events</div>", unsafe_allow_html=True)
             if active_events:
                 type_colors = {
@@ -1334,6 +1335,7 @@ elif scenario["type"] == "pandemic":
         # ------------------------------------------
         # Chart | Network | Events
         # ------------------------------------------
+        _state_banner_ph = st.empty()
         col_left, col_mid, col_right = st.columns([4, 4, 2])
 
         with col_left:
@@ -1595,11 +1597,6 @@ elif scenario["type"] == "pandemic":
                 ew_pair_memory_steps=12,
             )
 
-            st.markdown(
-                f"<div style='{_net_state[1]}border-radius:0 6px 6px 0;"
-                f"padding:6px 12px;font-size:12px;font-weight:600;margin-bottom:6px;'>"
-                f"{_net_state[0]}</div>",
-                unsafe_allow_html=True)
 
             st.plotly_chart(
                 plot_network(current["graph"], current["load"], current["edges"],
@@ -1615,8 +1612,13 @@ elif scenario["type"] == "pandemic":
             ), unsafe_allow_html=True)
 
         with col_right:
+            _state_banner_ph.markdown(
+                f"<div style='{_net_state[1]}border-radius:0 6px 6px 0;"
+                f"padding:8px 14px;font-size:13px;font-weight:600;margin:8px 0;'>"
+                f"{_net_state[0]}</div>",
+                unsafe_allow_html=True)
             st.markdown("<div style='font-size:11px;font-weight:600;color:var(--color-text-secondary);"
-                        "margin-top:32px;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;'>"
+                        "margin-top:6px;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;'>"
                         "Active Events</div>", unsafe_allow_html=True)
             if active_events:
                 type_colors = {
@@ -1907,6 +1909,7 @@ elif scenario["type"] == "financial":
         # ------------------------------------------
         # Chart | Network | Events
         # ------------------------------------------
+        _state_banner_ph = st.empty()
         col_left, col_mid, col_right = st.columns([4, 4, 2])
 
         with col_left:
@@ -2171,11 +2174,6 @@ elif scenario["type"] == "financial":
                 ew_pair_memory_steps=12,
             )
 
-            st.markdown(
-                f"<div style='{_net_state[1]}border-radius:0 6px 6px 0;"
-                f"padding:6px 12px;font-size:12px;font-weight:600;margin-bottom:6px;'>"
-                f"{_net_state[0]}</div>",
-                unsafe_allow_html=True)
 
             st.plotly_chart(
                 plot_network(current["graph"], current["load"], current["edges"],
@@ -2201,8 +2199,13 @@ elif scenario["type"] == "financial":
             ), unsafe_allow_html=True)
 
         with col_right:
+            _state_banner_ph.markdown(
+                f"<div style='{_net_state[1]}border-radius:0 6px 6px 0;"
+                f"padding:8px 14px;font-size:13px;font-weight:600;margin:8px 0;'>"
+                f"{_net_state[0]}</div>",
+                unsafe_allow_html=True)
             st.markdown("<div style='font-size:11px;font-weight:600;color:var(--color-text-secondary);"
-                        "margin-top:32px;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;'>"
+                        "margin-top:6px;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;'>"
                         "Active Events</div>", unsafe_allow_html=True)
             if active_events:
                 type_colors = {
@@ -2564,6 +2567,7 @@ elif scenario["type"] == "cyber_cloud":
         # ------------------------------------------
         # Chart | Network | Events
         # ------------------------------------------
+        _state_banner_ph = st.empty()
         col_left, col_mid, col_right = st.columns([4, 4, 2])
 
         with col_left:
@@ -2835,11 +2839,6 @@ elif scenario["type"] == "cyber_cloud":
                 ew_pair_memory_steps=12,
             )
 
-            st.markdown(
-                f"<div style='{_net_state[1]}border-radius:0 6px 6px 0;"
-                f"padding:6px 12px;font-size:12px;font-weight:600;margin-bottom:6px;'>"
-                f"{_net_state[0]}</div>",
-                unsafe_allow_html=True)
 
             st.plotly_chart(
                 plot_network(current["graph"], current["load"], current["edges"],
@@ -2867,8 +2866,13 @@ elif scenario["type"] == "cyber_cloud":
             ), unsafe_allow_html=True)
 
         with col_right:
+            _state_banner_ph.markdown(
+                f"<div style='{_net_state[1]}border-radius:0 6px 6px 0;"
+                f"padding:8px 14px;font-size:13px;font-weight:600;margin:8px 0;'>"
+                f"{_net_state[0]}</div>",
+                unsafe_allow_html=True)
             st.markdown("<div style='font-size:11px;font-weight:600;color:var(--color-text-secondary);"
-                        "margin-top:32px;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;'>"
+                        "margin-top:6px;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;'>"
                         "Active Events</div>", unsafe_allow_html=True)
             if active_events:
                 type_colors = {
@@ -3151,6 +3155,7 @@ elif scenario["type"] == "critical_infra":
                     unsafe_allow_html=True)
                 
         # --- Chart | Network | Events ---
+        _state_banner_ph = st.empty()
         col_left, col_mid, col_right = st.columns([4, 4, 2])
 
         with col_left:
@@ -3331,11 +3336,6 @@ elif scenario["type"] == "critical_infra":
                 ew_pair_memory_steps=12,
             )
 
-            st.markdown(
-                f"<div style='{_net_state[1]}border-radius:0 6px 6px 0;"
-                f"padding:6px 12px;font-size:12px;font-weight:600;margin-bottom:6px;'>"
-                f"{_net_state[0]}</div>",
-                unsafe_allow_html=True)
 
             st.plotly_chart(
                 plot_network(current["graph"], current["load"], current["edges"],
@@ -3365,8 +3365,13 @@ elif scenario["type"] == "critical_infra":
             ), unsafe_allow_html=True)
 
         with col_right:
+            _state_banner_ph.markdown(
+                f"<div style='{_net_state[1]}border-radius:0 6px 6px 0;"
+                f"padding:8px 14px;font-size:13px;font-weight:600;margin:8px 0;'>"
+                f"{_net_state[0]}</div>",
+                unsafe_allow_html=True)
             st.markdown("<div style='font-size:11px;font-weight:600;color:var(--color-text-secondary);"
-                        "margin-top:32px;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;'>"
+                        "margin-top:6px;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;'>"
                         "Active Events</div>", unsafe_allow_html=True)
             if active_events:
                 type_colors = {
@@ -3778,6 +3783,7 @@ elif scenario["type"] == "banking_pipeline":
         # ------------------------------------------
         # Chart | Network | Events
         # ------------------------------------------
+        _state_banner_ph = st.empty()
         col_left, col_mid, col_right = st.columns([4, 4, 2])
 
         with col_left:
@@ -3937,11 +3943,6 @@ elif scenario["type"] == "banking_pipeline":
                 banner_text = "🔴 Compliance cascade — major DORA risk exposure"
                 banner_style = "background:rgba(248,113,113,0.12);color:#f87171;"
 
-            st.markdown(
-                f"<div style='{banner_style}border-radius:0 6px 6px 0;"
-                f"padding:6px 12px;font-size:12px;font-weight:600;margin-bottom:6px;'>"
-                f"{banner_text}</div>",
-                unsafe_allow_html=True)
 
             st.plotly_chart(
                 plot_network(current["graph"], current["load"], current["edges"],
@@ -3971,8 +3972,13 @@ elif scenario["type"] == "banking_pipeline":
             ), unsafe_allow_html=True)
 
         with col_right:
+            _state_banner_ph.markdown(
+                f"<div style='{banner_style}border-radius:0 6px 6px 0;"
+                f"padding:8px 14px;font-size:13px;font-weight:600;margin:8px 0;'>"
+                f"{banner_text}</div>",
+                unsafe_allow_html=True)
             st.markdown("<div style='font-size:11px;font-weight:600;color:var(--color-text-secondary);"
-                        "margin-top:32px;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;'>"
+                        "margin-top:6px;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;'>"
                         "Active Events</div>", unsafe_allow_html=True)
             if active_events:
                 type_colors = {

@@ -95,17 +95,17 @@ def live_network_figure(core, snap: dict, space_style: dict, pos: dict) -> go.Fi
                         line=dict(width=1.5, color="rgba(20,24,33,0.9)")),
             text=[i.split("_", 1)[-1] for i in ids],
             textposition="bottom center",
-            textfont=dict(size=9, color="rgba(220,225,235,0.85)"),
+            textfont=dict(size=9, color="rgba(100,110,130,0.95)"),
             hovertext=texts, hoverinfo="text",
             name=style.get("label", space), showlegend=True,
         ))
 
     fig.update_layout(
-        paper_bgcolor="#0e1117", plot_bgcolor="#0e1117",
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
         margin=dict(l=8, r=8, t=8, b=8), height=420,
         xaxis=dict(visible=False), yaxis=dict(visible=False),
         legend=dict(orientation="h", y=-0.04, x=0.0,
-                    font=dict(size=10, color="#cfd6e4"),
+                    font=dict(size=10),
                     bgcolor="rgba(0,0,0,0)"),
         showlegend=True,
     )

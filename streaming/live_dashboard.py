@@ -162,11 +162,11 @@ def _signal_chart(cfg, history):
             mode="lines", name=m["label"],
             line=dict(width=1.4, color=m["color"]),
         ))
-    # System Health (fett)
+    # System Health (fett, theme-neutrale Headline-Farbe)
     fig.add_trace(go.Scatter(
         x=ticks, y=[h["system_health"] for h in history],
         mode="lines", name="System Health",
-        line=dict(width=3.0, color="#eceff4"),
+        line=dict(width=3.0, color="#334155"),
     ))
     # Early Warning (sekundaere Achse)
     fig.add_trace(go.Scatter(
@@ -175,12 +175,12 @@ def _signal_chart(cfg, history):
         line=dict(width=1.8, color="#ff7043", dash="dot"),
     ))
     fig.update_layout(
-        paper_bgcolor="#0e1117", plot_bgcolor="#0e1117",
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
         margin=dict(l=10, r=10, t=10, b=10), height=420,
-        font=dict(color="#cfd6e4", size=11),
-        xaxis=dict(title="tick", gridcolor="rgba(255,255,255,0.06)"),
+        font=dict(size=11),
+        xaxis=dict(title="tick", gridcolor="rgba(128,128,128,0.15)"),
         yaxis=dict(title="health", range=[0, 1.02],
-                   gridcolor="rgba(255,255,255,0.06)"),
+                   gridcolor="rgba(128,128,128,0.15)"),
         yaxis2=dict(title="EW", overlaying="y", side="right",
                     range=[0, 1.02], showgrid=False),
         legend=dict(orientation="h", y=-0.18, font=dict(size=9)),
@@ -191,11 +191,10 @@ def _signal_chart(cfg, history):
 def _ampel_banner(snap):
     icon, label, color = _AMPEL[snap["ew_level"]]
     st.markdown(
-        f"<div style='background:{color}22;border-left:4px solid {color};"
-        f"border-radius:0 6px 6px 0;padding:8px 12px;margin:6px 0;'>"
+        f"<div style='background:{color}1f;border-left:4px solid {color};"
+        f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;margin:8px 0;'>"
         f"<b>{icon} Structural state: {label}</b> &nbsp;·&nbsp; "
-        f"margin {snap['stability_margin']:.2f} · "
-        f"pressure {snap['shock_pressure']:.2f}</div>",
+        f"margin {snap['stability_margin']:.2f} · pressure {snap['shock_pressure']:.2f}</div>",
         unsafe_allow_html=True,
     )
 
@@ -283,13 +282,13 @@ def render_live_dashboard(scenario_key: str):
 
         # 3) Render
         _kpi_header(cfg, snap)
+        _ampel_banner(snap)
         left, mid, right = st.columns([4, 4, 2])
         with left:
             st.plotly_chart(_signal_chart(cfg, list(core.history)),
                             use_container_width=True,
                             key=f"chart_{scenario_key}")
         with mid:
-            _ampel_banner(snap)
             st.plotly_chart(
                 live_network_figure(core, snap, engine["space_style"], engine["layout"]),
                 use_container_width=True,
