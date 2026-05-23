@@ -52,6 +52,11 @@ def _intro_satellite():
     render_satellite_intro()
 
 
+def _intro_digitalops():
+    from visualization.digitalops_intro import render_digitalops_intro
+    render_digitalops_intro()
+
+
 SCENARIOS = {
     "satellite": {
         "title":      "Mission Control Resilience — SSC",
@@ -63,6 +68,18 @@ SCENARIOS = {
             "satellite": {"weight": 0.40, "symbol": "circle",  "color": "#4fc3f7", "label": "Satellite"},
             "ground":    {"weight": 0.30, "symbol": "square",  "color": "#6bd96b", "label": "Ground"},
             "pipeline":  {"weight": 0.30, "symbol": "diamond", "color": "#c084fc", "label": "Pipeline"},
+        },
+    },
+    "digitalops": {
+        "title":      "Digital Operations Resilience — R+V",
+        "nodes_csv":  _data("digitalops_nodes.csv"),
+        "edges_csv":  _data("digitalops_edges.csv"),
+        "producer_key": "digitalops",
+        "intro":      _intro_digitalops,
+        "spaces": {
+            "api":      {"weight": 0.40, "symbol": "circle",  "color": "#4fc3f7", "label": "API Platform"},
+            "infra":    {"weight": 0.30, "symbol": "square",  "color": "#6bd96b", "label": "IT Infrastructure"},
+            "business": {"weight": 0.30, "symbol": "diamond", "color": "#c084fc", "label": "Business"},
         },
     },
 }

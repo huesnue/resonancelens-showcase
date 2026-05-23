@@ -1,0 +1,16 @@
+source,target,capacity,strength,type
+API_Gateway,API_Auth,100,0.70,intra
+API_Gateway,API_Quote,100,0.65,intra
+API_Gateway,API_Policy,100,0.60,intra
+API_Gateway,API_Claims,100,0.65,intra
+API_Auth,API_Claims,100,0.45,intra
+INFRA_Compute,INFRA_DB,100,0.70,intra
+INFRA_Compute,INFRA_Network,100,0.60,intra
+INFRA_Network,INFRA_Cache,100,0.50,intra
+BIZ_Onboarding,BIZ_Underwriting,100,0.65,intra
+BIZ_Underwriting,BIZ_Payment,100,0.60,intra
+BIZ_Underwriting,BIZ_Support,100,0.50,intra
+API_Gateway,INFRA_Compute,100,0.75,bridge
+API_Claims,BIZ_Underwriting,100,0.70,bridge
+BIZ_Underwriting,INFRA_Compute,100,0.50,bridge
+INFRA_DB,API_Policy,100,0.50,bridge

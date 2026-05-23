@@ -33,6 +33,13 @@ SMOKE_SCENARIOS = {
         "producer_key": "satellite",
         "layers": ["satellite", "ground", "pipeline"],
     },
+    "digitalops": {
+        "nodes": _data("digitalops_nodes.csv"),
+        "edges": _data("digitalops_edges.csv"),
+        "weights": {"api": 0.40, "infra": 0.30, "business": 0.30},
+        "producer_key": "digitalops",
+        "layers": ["api", "infra", "business"],
+    },
 }
 
 

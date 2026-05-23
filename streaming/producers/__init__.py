@@ -5,11 +5,12 @@ generisch den passenden Producer instanziieren kann.
 """
 
 from .satellite_producer import SatelliteProducer
+from .digitalops_producer import DigitalOpsProducer
 
 PRODUCERS = {
-    "satellite": SatelliteProducer,
-    # "digitalops": DigitalOpsProducer,   # folgt
-    # "transit":    TransitProducer,      # folgt
+    "satellite":  SatelliteProducer,
+    "digitalops": DigitalOpsProducer,
+    # "transit":  TransitProducer,      # folgt
 }
 
 
