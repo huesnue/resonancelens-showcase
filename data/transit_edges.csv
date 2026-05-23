@@ -1,0 +1,16 @@
+source,target,capacity,strength,type
+MOB_Dispatch,MOB_SBahn,100,0.65,intra
+MOB_Dispatch,MOB_Bus,100,0.60,intra
+MOB_Dispatch,MOB_Tram,100,0.55,intra
+MOB_SBahn,MOB_Road,100,0.50,intra
+MOB_Bus,MOB_Road,100,0.45,intra
+INF_Energy,INF_Signaling,100,0.60,intra
+INF_TrafficNode,INF_Signaling,100,0.55,intra
+INF_Construction,INF_TrafficNode,100,0.50,intra
+ECO_Logistics,ECO_Production,100,0.65,intra
+ECO_Retail,ECO_Services,100,0.55,intra
+ECO_Production,ECO_Services,100,0.50,intra
+MOB_Road,INF_TrafficNode,100,0.75,bridge
+INF_TrafficNode,ECO_Logistics,100,0.70,bridge
+MOB_Bus,ECO_Retail,100,0.60,bridge
+INF_Energy,MOB_SBahn,100,0.50,bridge

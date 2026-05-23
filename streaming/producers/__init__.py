@@ -6,11 +6,12 @@ generisch den passenden Producer instanziieren kann.
 
 from .satellite_producer import SatelliteProducer
 from .digitalops_producer import DigitalOpsProducer
+from .transit_producer import TransitProducer
 
 PRODUCERS = {
     "satellite":  SatelliteProducer,
     "digitalops": DigitalOpsProducer,
-    # "transit":  TransitProducer,      # folgt
+    "transit":    TransitProducer,
 }
 
 

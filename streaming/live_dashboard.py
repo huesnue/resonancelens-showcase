@@ -57,6 +57,11 @@ def _intro_digitalops():
     render_digitalops_intro()
 
 
+def _intro_transit():
+    from visualization.transit_intro import render_transit_intro
+    render_transit_intro()
+
+
 SCENARIOS = {
     "satellite": {
         "title":      "Mission Control Resilience — SSC",
@@ -80,6 +85,18 @@ SCENARIOS = {
             "api":      {"weight": 0.40, "symbol": "circle",  "color": "#4fc3f7", "label": "API Platform"},
             "infra":    {"weight": 0.30, "symbol": "square",  "color": "#6bd96b", "label": "IT Infrastructure"},
             "business": {"weight": 0.30, "symbol": "diamond", "color": "#c084fc", "label": "Business"},
+        },
+    },
+    "transit": {
+        "title":      "Public Transport Resilience — OePNV",
+        "nodes_csv":  _data("transit_nodes.csv"),
+        "edges_csv":  _data("transit_edges.csv"),
+        "producer_key": "transit",
+        "intro":      _intro_transit,
+        "spaces": {
+            "mobility": {"weight": 0.40, "symbol": "circle",  "color": "#4fc3f7", "label": "Mobility"},
+            "infra":    {"weight": 0.30, "symbol": "square",  "color": "#6bd96b", "label": "Infrastructure"},
+            "economy":  {"weight": 0.30, "symbol": "diamond", "color": "#c084fc", "label": "Economy"},
         },
     },
 }

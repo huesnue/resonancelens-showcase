@@ -40,6 +40,13 @@ SMOKE_SCENARIOS = {
         "producer_key": "digitalops",
         "layers": ["api", "infra", "business"],
     },
+    "transit": {
+        "nodes": _data("transit_nodes.csv"),
+        "edges": _data("transit_edges.csv"),
+        "weights": {"mobility": 0.40, "infra": 0.30, "economy": 0.30},
+        "producer_key": "transit",
+        "layers": ["mobility", "infra", "economy"],
+    },
 }
 
 

@@ -16,7 +16,7 @@ This project demonstrates one core idea:
 
 ## 🔍 What this demo shows
 
-Six scenarios, one insight:
+Ten scenarios across two families, one insight:
 
 **Basic Demo** — Two network systems start identically. One remains stable under constant stress. One collapses under increasing pressure. The Early Warning signal diverges **months before** the Stability signal drops — making the coming failure visible long before it occurs.
 
@@ -30,11 +30,23 @@ Six scenarios, one insight:
 
 > **Rail & Critical Infrastructure Resilience 2020–2030** — A simulated stress-test demonstrator for critical infrastructure across **four coupled spaces**: a digital space (cloud platform, identity provider, control center as the OT/IT bridge, API gateway, communication network), a rail space (main nodes, signaling, dispatching, maintenance capacity, regional network), an economic space (supply chain, freight logistics, production, services, market sentiment) and — newly introduced in this scenario — a social space of mobility clusters (rail commuters, car users, home office, alternative mobility, air travel). Seven cross-space bridges connect the layers and five substitution edges within the social space carry **cluster migration** between mobility forms. Phase 1 (2020–2026) reconstructs publicly documented incidents: the COVID commuter collapse and home-office surge (Mar 2020), SolarWinds (Dec 2020), the DB rail-radio sabotage in Berlin / Schleswig-Holstein / NRW (Oct 2022), GDL rail-strike waves (Jan 2024), the Riedbahn corridor general overhaul Frankfurt–Mannheim (Jul–Dec 2024), the CrowdStrike Falcon global Windows outage (Jul 2024), DORA taking effect (Jan 2025), and an OT/IT bridge compromise at a traffic control center (Oct 2025). Phase 2 (2026–2030) projects three structural pathways — Resilient, Hybrid, and Fragile — with a 50-run Monte Carlo ensemble. A dedicated **Cluster Migration** indicator surfaces in real time when commuter demand shifts away from rail toward substitution clusters; demand is redistributed weighted 50 % car / 30 % home office / 15 % alternative mobility / 5 % air, with a `migration_floor` that prevents structural-dependent commuters from being routed away entirely. Rail trust erodes with hysteresis (faster down, slower up), making the social space a true second-order indicator rather than a passive consequence.
 
+**Banking Build-Pipeline Resilience** — A structural stress-test of a DACH Tier-1 bank's CI/CD pipeline across **four coupled spaces**: a technical space (Kubernetes, Kafka, GitLab, Harbor, Vault, Prometheus/Grafana, Falco), a pipeline space (Tekton CI, SAST/SCA/DAST gates, Cosign+SBOM, ArgoCD, OPA/Gatekeeper), a regulatory space (Loki, Splunk audit-trail, Policy-Reporter, DORA-Reporter) and a business space (release velocity, MTTR, customer channels), connected by cross-space bridges. Phase 1 reconstructs Log4j, MOVEit, the DORA adoption, the XZ backdoor, the CrowdStrike-Falcon outage, DORA entering into force (Jan 2025), and TIBER-EU red-team tests. Phase 2 projects three structural pathways — Resilient, Hybrid, and Fragile — with a 50-run Monte Carlo ensemble. The header surfaces the DORA Four Keys live (deployment frequency, MTTR, audit status); the bridges show where a supply-chain shock or an audit-trail gap turns into a compliance cascade.
+
 The structural pathways represent different inner architectures responding to the same external shocks — not three possible futures, but three different response capacities:
 
 - 🟢 **Contained / Resilient** — high shock absorption, early policy response, stable recovery
 - 🟡 **Prolonged / Drifting / Hybrid** — delayed response, gradual structural erosion, incomplete recovery
 - 🔴 **Systemic / Cascade / Fragile** — coupling failure, cascading instability
+
+### Live scenarios (real-time, Kafka)
+
+Three additional scenarios run as a **live streaming family** rather than batch Monte-Carlo. Instead of a fixed timeline, they consume a real-time event stream over a sliding window and surface the same structural Early-Warning signal — leading the Stability drop — live:
+
+- **Mission Control Resilience (SSC)** — satellite subsystems, ground segment and a DevSecOps pipeline. A thermal anomaly forces power redistribution, drives up the comm error rate, and a faulty deployment degrades ground-side telemetry processing.
+- **Digital Operations Resilience (R+V)** — an insurer's API platform, IT infrastructure and business processes. An API latency spike raises the 5xx error rate, delays customer journeys (rising abandonment), and pushes CPU load up.
+- **Public Transport Resilience (ÖPNV)** — urban mobility, infrastructure and the local economy. A rail disruption pushes commuters onto the road, congestion delays supply chains and cuts retail footfall, and load feeds back onto energy infrastructure.
+
+Each runs over **Kafka** (real broker) or an **in-process simulator** (default, no broker) — selected at runtime, identical downstream. In the app, switch families with the **Scenario family** selector in the sidebar.
 
 ### Signals tracked
 
@@ -72,6 +84,8 @@ streamlit run app_demo.py
 
 Requires Python 3.9+.
 
+**Live scenarios.** The streaming scenarios (SSC / R+V / ÖPNV) run in-process by default — no broker required, so `streamlit run app_demo.py` is enough. To drive them from a real Kafka broker (the optional "live" mode), see [`DEPLOYMENT.md`](DEPLOYMENT.md). The live family requires `streamlit >= 1.37`.
+
 ---
 
 ## 🧠 The core insight
@@ -101,6 +115,8 @@ core_lite/                       # Lightweight simulation engine
   cyber_cloud_ensemble.py        # Cyber Monte Carlo ensemble runner (N=50)
   critical_infra_simulation.py   # Rail & Critical Infrastructure quad-space simulation
   critical_infra_ensemble.py     # Critical Infra Monte Carlo ensemble runner (N=50)
+  banking_pipeline_simulation.py # Banking Build-Pipeline quad-space simulation
+  banking_pipeline_ensemble.py   # Banking Monte Carlo ensemble runner (N=50)
 scenarios/                       # Scenario loaders and event timelines
   basic.py
   energy.py / energy_events.py
@@ -108,6 +124,7 @@ scenarios/                       # Scenario loaders and event timelines
   financial.py / financial_events.py
   cyber_cloud.py / cyber_cloud_events.py
   critical_infra.py / critical_infra_events.py
+  banking_pipeline.py / banking_pipeline_events.py
 visualization/                   # Network plot with dynamic layout and legend
   network_plot.py                # Unified plot + context-aware legend (2-, 3- or 4-space)
 data/                            # Node and edge definitions per scenario
@@ -116,6 +133,18 @@ data/                            # Node and edge definitions per scenario
   financial_nodes.csv / financial_edges.csv
   cyber_cloud_nodes.csv / cyber_cloud_edges.csv
   critical_infra_nodes.csv / critical_infra_edges.csv
+  banking_pipeline_nodes.csv / banking_pipeline_edges.csv
+  satellite_nodes.csv / satellite_edges.csv     # SSC (live)
+  digitalops_nodes.csv / digitalops_edges.csv    # R+V (live)
+  transit_nodes.csv / transit_edges.csv          # ÖPNV (live)
+streaming/                       # Live / streaming family (Kafka ingest)
+  bus.py                         # Dual-mode bus: Kafka | in-process
+  kafka_config.py                # Topics, mode, broker detection
+  stream_core.py                 # Live core: sliding window, coupling, erosion, ampel
+  detectors.py                   # Incident / erosion detection
+  live_plot.py / live_dashboard.py
+  producers/                     # satellite / digitalops / transit
+docker-compose.yml               # Local Kafka broker (live mode only)
 app_demo.py                      # Streamlit app
 ```
 
@@ -212,7 +241,7 @@ Dieses Projekt veranschaulicht einen zentralen Gedanken:
 
 ## 🔍 Was diese Demo zeigt
 
-Sechs Szenarien, eine Erkenntnis:
+Zehn Szenarien in zwei Familien, eine Erkenntnis:
 
 **Basic Demo** — Zwei Netzwerksysteme starten identisch. Eines bleibt stabil unter konstantem Stress. Das andere kollabiert unter zunehmendem Druck. Das Early-Warning-Signal divergiert **Monate bevor** das Stabilitätssignal sinkt — die kommende Krise wird sichtbar, lange bevor sie eintritt.
 
@@ -226,11 +255,23 @@ Sechs Szenarien, eine Erkenntnis:
 
 > **Schienenverkehr & kritische Infrastruktur 2020–2030** — Ein simulierter Stress-Test-Demonstrator für kritische Infrastruktur über **vier gekoppelte Räume**: einen digitalen Raum (Cloud-Plattform, Identity-Provider, Leitstelle als OT/IT-Brücke, API-Gateway, Kommunikationsnetz), einen Schienenverkehrsraum (Hauptknoten, Stellwerks- und Signaltechnik, Disposition, Wartungskapazität, Regionalnetz), einen Wirtschaftsraum (Lieferkette, Güterverkehr, Produktion, Dienstleistungen, Marktstimmung) und — in diesem Szenario erstmals — einen sozialen Raum aus Mobilitätsclustern (Bahn-Pendler, Auto-Nutzer, Homeoffice, alternative Mobilität, Flugreisen). Sieben Brückenkanten koppeln die Schichten raumübergreifend, fünf Substitutionskanten innerhalb des sozialen Raums tragen die **Cluster-Migration** zwischen Mobilitätsformen. Phase 1 (2020–2026) rekonstruiert öffentlich dokumentierte Vorfälle: den COVID-Pendler-Einbruch und Homeoffice-Schub (Mär 2020), SolarWinds (Dez 2020), die DB-Bahnfunk-Sabotage in Berlin / Schleswig-Holstein / NRW (Okt 2022), die GDL-Streikwellen (Jan 2024), die Riedbahn-Generalsanierung Frankfurt–Mannheim (Jul–Dez 2024), den globalen CrowdStrike-Falcon-Windows-Ausfall (Jul 2024), das Inkrafttreten von DORA (Jan 2025) und einen OT/IT-Brückenkompromiss in einer Verkehrsleitstelle (Okt 2025). Phase 2 (2026–2030) projiziert drei strukturelle Entwicklungspfade — Resilient, Hybrid und Fragile — mit einem 50-Lauf-Monte-Carlo-Ensemble. Ein dedizierter **Cluster-Migration**-Indikator zeigt in Echtzeit, wenn Pendler-Nachfrage von der Bahn zu den Substitutionsclustern abwandert; die Verschiebung wird gewichtet auf 50 % Auto / 30 % Homeoffice / 15 % alternative Mobilität / 5 % Flug verteilt, ein `migration_floor` verhindert, dass strukturell auf die Bahn angewiesene Pendler vollständig herausgeroutet werden. Bahn-Vertrauen erodiert mit Hysterese (schneller runter, langsamer wieder hoch) — der soziale Raum wird damit zum eigenständigen Indikator zweiter Ordnung statt zur passiven Folgegröße.
 
+**Banking Build-Pipeline-Resilienz** — Ein struktureller Stress-Test der CI/CD-Pipeline einer DACH-Tier-1-Bank über **vier gekoppelte Räume**: einen technischen Raum (Kubernetes, Kafka, GitLab, Harbor, Vault, Prometheus/Grafana, Falco), einen Pipeline-Raum (Tekton CI, SAST/SCA/DAST-Gates, Cosign+SBOM, ArgoCD, OPA/Gatekeeper), einen regulatorischen Raum (Loki, Splunk-Audit-Trail, Policy-Reporter, DORA-Reporter) und einen Geschäftsraum (Release-Velocity, MTTR, Kundenkanäle), verbunden über Cross-Space-Brücken. Phase 1 rekonstruiert Log4j, MOVEit, die DORA-Einführung, die XZ-Backdoor, den CrowdStrike-Falcon-Ausfall, das Inkrafttreten von DORA (Jan 2025) und TIBER-EU-Red-Team-Tests. Phase 2 projiziert drei Strukturpfade — Resilient, Hybrid und Fragile — mit einem 50-Lauf-Monte-Carlo-Ensemble. Der Header zeigt die DORA Four Keys live (Deployment-Frequency, MTTR, Audit-Status); die Brücken zeigen, wo aus einem Supply-Chain-Schock oder einer Audit-Trail-Lücke eine Compliance-Kaskade wird.
+
 Die Strukturpfade beschreiben verschiedene innere Architekturen unter denselben äußeren Schocks — keine drei möglichen Zukünfte, sondern drei verschiedene Reaktionskapazitäten:
 
 - 🟢 **Contained / Resilient** — hohe Schockabsorption, frühe Policy-Response, stabile Erholung
 - 🟡 **Prolonged / Drifting / Hybrid** — verzögerte Response, graduelle strukturelle Erosion, unvollständige Erholung
 - 🔴 **Systemic / Cascade / Fragile** — Kopplungsversagen, kaskadierende Instabilität
+
+### Live-Szenarien (Echtzeit, Kafka)
+
+Drei zusätzliche Szenarien laufen als **Live-Streaming-Familie** statt als Batch-Monte-Carlo. Statt einer festen Zeitachse konsumieren sie einen Echtzeit-Eventstrom über ein gleitendes Fenster und zeigen dasselbe strukturelle Early-Warning-Signal — das dem Stabilitätseinbruch vorausläuft — live:
+
+- **Mission Control Resilience (SSC)** — Satelliten-Subsysteme, Bodenstation und eine DevSecOps-Pipeline. Eine thermische Anomalie erzwingt eine Lastumverteilung im Power-System, treibt die Comm-Fehlerrate hoch, und ein fehlerhaftes Deployment beeinträchtigt die Telemetrie-Verarbeitung der Bodenstation.
+- **Digital Operations Resilience (R+V)** — API-Plattform, IT-Infrastruktur und Geschäftsprozesse eines Versicherers. Ein API-Latenzspike erhöht die 5xx-Fehlerrate, verzögert Kundenprozesse (steigende Abbruchrate) und treibt die CPU-Last hoch.
+- **Public Transport Resilience (ÖPNV)** — urbane Mobilität, Infrastruktur und lokale Wirtschaft. Eine S-Bahn-Störung verlagert Pendler auf die Straße, Staus verzögern Lieferketten und senken die Kundenfrequenz, die Last koppelt auf die Energie-Infrastruktur zurück.
+
+Jedes läuft über **Kafka** (echter Broker) oder einen **In-Process-Simulator** (Default, kein Broker) — zur Laufzeit wählbar, downstream identisch. In der App wechselt man die Familie über den **Scenario family**-Schalter in der Sidebar.
 
 ### Gemessene Signale
 
@@ -268,6 +309,8 @@ streamlit run app_demo.py
 
 Erfordert Python 3.9+.
 
+**Live-Szenarien.** Die Streaming-Szenarien (SSC / R+V / ÖPNV) laufen standardmäßig in-process — kein Broker nötig, `streamlit run app_demo.py` genügt. Um sie aus einem echten Kafka-Broker zu speisen (optionaler „live"-Modus), siehe [`DEPLOYMENT.md`](DEPLOYMENT.md). Die Live-Familie erfordert `streamlit >= 1.37`.
+
 ---
 
 ## 🧠 Die zentrale Erkenntnis
@@ -297,6 +340,8 @@ core_lite/                       # Leichtgewichtige Simulation
   cyber_cloud_ensemble.py        # Cyber Monte-Carlo-Ensemble-Runner (N=50)
   critical_infra_simulation.py   # Schienenverkehr & kritische Infrastruktur (Vier-Raum)
   critical_infra_ensemble.py     # Critical-Infra Monte-Carlo-Ensemble-Runner (N=50)
+  banking_pipeline_simulation.py # Banking Build-Pipeline Vier-Raum-Simulation
+  banking_pipeline_ensemble.py   # Banking Monte-Carlo-Ensemble-Runner (N=50)
 scenarios/                       # Szenario-Loader und Event-Zeitlinien
   basic.py
   energy.py / energy_events.py
@@ -304,6 +349,7 @@ scenarios/                       # Szenario-Loader und Event-Zeitlinien
   financial.py / financial_events.py
   cyber_cloud.py / cyber_cloud_events.py
   critical_infra.py / critical_infra_events.py
+  banking_pipeline.py / banking_pipeline_events.py
 visualization/                   # Netzwerk-Plot mit dynamischem Layout und Legende
   network_plot.py                # Einheitlicher Plot + kontextbewusste Legende (2-, 3- oder 4-Raum)
 data/                            # Knoten- und Kantendefinitionen je Szenario
@@ -312,6 +358,18 @@ data/                            # Knoten- und Kantendefinitionen je Szenario
   financial_nodes.csv / financial_edges.csv
   cyber_cloud_nodes.csv / cyber_cloud_edges.csv
   critical_infra_nodes.csv / critical_infra_edges.csv
+  banking_pipeline_nodes.csv / banking_pipeline_edges.csv
+  satellite_nodes.csv / satellite_edges.csv     # SSC (live)
+  digitalops_nodes.csv / digitalops_edges.csv    # R+V (live)
+  transit_nodes.csv / transit_edges.csv          # ÖPNV (live)
+streaming/                       # Live-/Streaming-Familie (Kafka-Ingest)
+  bus.py                         # Dual-Mode-Bus: Kafka | In-Process
+  kafka_config.py                # Topics, Modus, Broker-Detection
+  stream_core.py                 # Live-Core: gleitendes Fenster, Kopplung, Erosion, Ampel
+  detectors.py                   # Incident-/Erosions-Detection
+  live_plot.py / live_dashboard.py
+  producers/                     # satellite / digitalops / transit
+docker-compose.yml               # Lokaler Kafka-Broker (nur live-Modus)
 app_demo.py                      # Streamlit-App
 ```
 

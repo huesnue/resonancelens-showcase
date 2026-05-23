@@ -1,0 +1,14 @@
+id,type,space,cluster,supply,demand,capacity,importance
+MOB_Dispatch,hub,mobility,Mobility,120,100,142,1.5
+MOB_SBahn,source,mobility,Mobility,120,100,140,1.6
+MOB_Bus,relay,mobility,Mobility,110,100,128,1.2
+MOB_Tram,relay,mobility,Mobility,108,100,124,1.0
+MOB_Road,sink,mobility,Mobility,115,100,135,1.3
+INF_TrafficNode,hub,infra,Infra,120,100,145,1.5
+INF_Energy,source,infra,Infra,125,100,150,1.6
+INF_Signaling,control,infra,Infra,110,100,128,1.3
+INF_Construction,sink,infra,Infra,105,100,120,0.9
+ECO_Logistics,hub,economy,Economy,118,100,140,1.5
+ECO_Retail,relay,economy,Economy,112,100,130,1.3
+ECO_Production,relay,economy,Economy,115,100,134,1.2
+ECO_Services,sink,economy,Economy,110,100,128,1.1

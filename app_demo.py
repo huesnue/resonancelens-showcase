@@ -22,6 +22,9 @@ from core_lite.pandemic_simulation import run_pandemic_simulation
 from core_lite.financial_simulation import run_financial_simulation
 from core_lite.cyber_cloud_simulation import run_cyber_cloud_simulation
 from visualization.network_plot import plot_network, network_legend_html
+
+# Live/Streaming-Familie (Kafka-Ingest) — Szenarien mit Echtzeit-Input
+from streaming.live_dashboard import render_live_dashboard, SCENARIOS as LIVE_SCENARIOS
 from core_lite.pandemic_ensemble import run_ensemble
 from core_lite.financial_ensemble import run_ensemble as run_financial_ensemble
 from core_lite.cyber_cloud_ensemble import run_ensemble as run_cyber_cloud_ensemble
@@ -378,22 +381,48 @@ if "step" not in st.session_state:
 # SCENARIO SELECTION
 # ------------------------------------------
 with st.sidebar:
-    st.markdown("**Select a scenario**")
-    scenario_name = st.selectbox(
-        "Select a scenario",
-        options=[
-            "Basic Demo",
-            "Energy Crisis",
-            "Pandemic 2020-2030",
-            "Eurozone Financial Stability",
-            "Cloud & Cyber Resilience",
-            "Rail & Critical Infrastructure",
-            "Banking Build-Pipeline",
-        ],
-        label_visibility="collapsed"
+    st.markdown("**Scenario family**")
+    scenario_family = st.radio(
+        "Scenario family",
+        options=["Simulated Input", "Live Stream"],
+        label_visibility="collapsed",
+        help=("Simulated Input — batch Monte-Carlo scenarios with Run + "
+              "timeline slider.  Live Stream — real-time Kafka-fed scenarios, "
+              "auto-running (Pause / Reset, no timeline)."),
     )
-    # render_sidebar_tagline(scenario_name) can be used to show a short description or tagline for each scenario in the sidebar
-    render_sidebar_tagline(scenario_name)
+    st.divider()
+    st.markdown("**Select a scenario**")
+    if scenario_family == "Live Stream":
+        live_key = st.selectbox(
+            "Select a live scenario",
+            options=list(LIVE_SCENARIOS.keys()),
+            format_func=lambda k: LIVE_SCENARIOS[k]["title"],
+            label_visibility="collapsed",
+        )
+        scenario_name = None
+    else:
+        scenario_name = st.selectbox(
+            "Select a scenario",
+            options=[
+                "Basic Demo",
+                "Energy Crisis",
+                "Pandemic 2020-2030",
+                "Eurozone Financial Stability",
+                "Cloud & Cyber Resilience",
+                "Rail & Critical Infrastructure",
+                "Banking Build-Pipeline",
+            ],
+            label_visibility="collapsed"
+        )
+        # render_sidebar_tagline(scenario_name) can be used to show a short description or tagline for each scenario in the sidebar
+        render_sidebar_tagline(scenario_name)
+
+# ------------------------------------------
+# LIVE FAMILY — render streaming dashboard and stop before the batch flow
+# ------------------------------------------
+if scenario_family == "Live Stream":
+    render_live_dashboard(live_key)
+    st.stop()
 
 if scenario_name == "Basic Demo":
     scenario = load_basic()
