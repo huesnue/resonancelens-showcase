@@ -88,6 +88,10 @@ TOPICS = {
         "events": "transit.events",
         "alerts": "transit.alerts",
     },
+    "automotive": {
+        "events": "automotive.events",
+        "alerts": "automotive.alerts",
+    },
 }
 
 

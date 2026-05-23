@@ -7,11 +7,13 @@ generisch den passenden Producer instanziieren kann.
 from .satellite_producer import SatelliteProducer
 from .digitalops_producer import DigitalOpsProducer
 from .transit_producer import TransitProducer
+from .automotive_producer import AutomotiveProducer
 
 PRODUCERS = {
     "satellite":  SatelliteProducer,
     "digitalops": DigitalOpsProducer,
     "transit":    TransitProducer,
+    "automotive": AutomotiveProducer,
 }
 
 

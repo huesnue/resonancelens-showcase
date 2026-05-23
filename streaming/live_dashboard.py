@@ -62,6 +62,11 @@ def _intro_transit():
     render_transit_intro()
 
 
+def _intro_automotive():
+    from visualization.automotive_intro import render_automotive_intro
+    render_automotive_intro()
+
+
 SCENARIOS = {
     "satellite": {
         "title":      "Mission Control Resilience — SSC",
@@ -97,6 +102,20 @@ SCENARIOS = {
             "mobility": {"weight": 0.40, "symbol": "circle",  "color": "#4fc3f7", "label": "Mobility"},
             "infra":    {"weight": 0.30, "symbol": "square",  "color": "#6bd96b", "label": "Infrastructure"},
             "economy":  {"weight": 0.30, "symbol": "diamond", "color": "#c084fc", "label": "Economy"},
+        },
+    },
+    "automotive": {
+        "title":      "Automotive Ecosystem Stability",
+        "nodes_csv":  _data("automotive_nodes.csv"),
+        "edges_csv":  _data("automotive_edges.csv"),
+        "producer_key": "automotive",
+        "intro":      _intro_automotive,
+        "spaces": {
+            "telemetry": {"weight": 0.24, "symbol": "circle",      "color": "#4fc3f7", "label": "Vehicle Telemetry"},
+            "charging":  {"weight": 0.20, "symbol": "square",      "color": "#6bd96b", "label": "Charging"},
+            "backend":   {"weight": 0.22, "symbol": "diamond",     "color": "#c084fc", "label": "Backend"},
+            "ota":       {"weight": 0.18, "symbol": "cross",       "color": "#ffb74d", "label": "OTA Pipeline"},
+            "workshop":  {"weight": 0.16, "symbol": "triangle-up", "color": "#f06292", "label": "Workshop"},
         },
     },
 }

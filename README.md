@@ -16,7 +16,7 @@ This project demonstrates one core idea:
 
 ## 🔍 What this demo shows
 
-Ten scenarios across two families, one insight:
+Eleven scenarios across two families, one insight:
 
 **Basic Demo** — Two network systems start identically. One remains stable under constant stress. One collapses under increasing pressure. The Early Warning signal diverges **months before** the Stability signal drops — making the coming failure visible long before it occurs.
 
@@ -40,11 +40,12 @@ The structural pathways represent different inner architectures responding to th
 
 ### Live scenarios (real-time, Kafka)
 
-Three additional scenarios run as a **live streaming family** rather than batch Monte-Carlo. Instead of a fixed timeline, they consume a real-time event stream over a sliding window and surface the same structural Early-Warning signal — leading the Stability drop — live:
+Four additional scenarios run as a **live streaming family** rather than batch Monte-Carlo. Instead of a fixed timeline, they consume a real-time event stream over a sliding window and surface the same structural Early-Warning signal — leading the Stability drop — live:
 
 - **Mission Control Resilience (SSC)** — satellite subsystems, ground segment and a DevSecOps pipeline. A thermal anomaly forces power redistribution, drives up the comm error rate, and a faulty deployment degrades ground-side telemetry processing.
 - **Digital Operations Resilience (R+V)** — an insurer's API platform, IT infrastructure and business processes. An API latency spike raises the 5xx error rate, delays customer journeys (rising abandonment), and pushes CPU load up.
 - **Public Transport Resilience (ÖPNV)** — urban mobility, infrastructure and the local economy. A rail disruption pushes commuters onto the road, congestion delays supply chains and cuts retail footfall, and load feeds back onto energy infrastructure.
+- **Automotive Ecosystem Stability** — vehicle telemetry, charging infrastructure, the OTA update pipeline, backend services and the workshop network. A battery/thermal spike aborts charging sessions, the aborts trigger a backend retry-storm, the degraded backend delays OTA rollouts, and unstable rollouts overload the workshop network.
 
 Each runs over **Kafka** (real broker) or an **in-process simulator** (default, no broker) — selected at runtime, identical downstream. In the app, switch families with the **Scenario family** selector in the sidebar.
 
@@ -84,7 +85,7 @@ streamlit run app_demo.py
 
 Requires Python 3.9+.
 
-**Live scenarios.** The streaming scenarios (SSC / R+V / ÖPNV) run in-process by default — no broker required, so `streamlit run app_demo.py` is enough. To drive them from a real Kafka broker (the optional "live" mode), see [`DEPLOYMENT.md`](DEPLOYMENT.md). The live family requires `streamlit >= 1.37`.
+**Live scenarios.** The streaming scenarios (SSC / R+V / ÖPNV / Automotive) run in-process by default — no broker required, so `streamlit run app_demo.py` is enough. To drive them from a real Kafka broker (the optional "live" mode), see [`DEPLOYMENT.md`](DEPLOYMENT.md). The live family requires `streamlit >= 1.37`.
 
 ---
 
@@ -137,13 +138,14 @@ data/                            # Node and edge definitions per scenario
   satellite_nodes.csv / satellite_edges.csv     # SSC (live)
   digitalops_nodes.csv / digitalops_edges.csv    # R+V (live)
   transit_nodes.csv / transit_edges.csv          # ÖPNV (live)
+  automotive_nodes.csv / automotive_edges.csv    # Automotive (live)
 streaming/                       # Live / streaming family (Kafka ingest)
   bus.py                         # Dual-mode bus: Kafka | in-process
   kafka_config.py                # Topics, mode, broker detection
   stream_core.py                 # Live core: sliding window, coupling, erosion, ampel
   detectors.py                   # Incident / erosion detection
   live_plot.py / live_dashboard.py
-  producers/                     # satellite / digitalops / transit
+  producers/                     # satellite / digitalops / transit / automotive
 docker-compose.yml               # Local Kafka broker (live mode only)
 app_demo.py                      # Streamlit app
 ```
@@ -241,7 +243,7 @@ Dieses Projekt veranschaulicht einen zentralen Gedanken:
 
 ## 🔍 Was diese Demo zeigt
 
-Zehn Szenarien in zwei Familien, eine Erkenntnis:
+Elf Szenarien in zwei Familien, eine Erkenntnis:
 
 **Basic Demo** — Zwei Netzwerksysteme starten identisch. Eines bleibt stabil unter konstantem Stress. Das andere kollabiert unter zunehmendem Druck. Das Early-Warning-Signal divergiert **Monate bevor** das Stabilitätssignal sinkt — die kommende Krise wird sichtbar, lange bevor sie eintritt.
 
@@ -265,11 +267,12 @@ Die Strukturpfade beschreiben verschiedene innere Architekturen unter denselben 
 
 ### Live-Szenarien (Echtzeit, Kafka)
 
-Drei zusätzliche Szenarien laufen als **Live-Streaming-Familie** statt als Batch-Monte-Carlo. Statt einer festen Zeitachse konsumieren sie einen Echtzeit-Eventstrom über ein gleitendes Fenster und zeigen dasselbe strukturelle Early-Warning-Signal — das dem Stabilitätseinbruch vorausläuft — live:
+Vier zusätzliche Szenarien laufen als **Live-Streaming-Familie** statt als Batch-Monte-Carlo. Statt einer festen Zeitachse konsumieren sie einen Echtzeit-Eventstrom über ein gleitendes Fenster und zeigen dasselbe strukturelle Early-Warning-Signal — das dem Stabilitätseinbruch vorausläuft — live:
 
 - **Mission Control Resilience (SSC)** — Satelliten-Subsysteme, Bodenstation und eine DevSecOps-Pipeline. Eine thermische Anomalie erzwingt eine Lastumverteilung im Power-System, treibt die Comm-Fehlerrate hoch, und ein fehlerhaftes Deployment beeinträchtigt die Telemetrie-Verarbeitung der Bodenstation.
 - **Digital Operations Resilience (R+V)** — API-Plattform, IT-Infrastruktur und Geschäftsprozesse eines Versicherers. Ein API-Latenzspike erhöht die 5xx-Fehlerrate, verzögert Kundenprozesse (steigende Abbruchrate) und treibt die CPU-Last hoch.
 - **Public Transport Resilience (ÖPNV)** — urbane Mobilität, Infrastruktur und lokale Wirtschaft. Eine S-Bahn-Störung verlagert Pendler auf die Straße, Staus verzögern Lieferketten und senken die Kundenfrequenz, die Last koppelt auf die Energie-Infrastruktur zurück.
+- **Automotive Ecosystem Stability** — Fahrzeug-Telemetrie, Ladeinfrastruktur, OTA-Update-Pipeline, Backend-Services und Werkstattnetzwerk. Eine Batterie-/Thermik-Spitze bricht Ladevorgänge ab, die Abbrüche lösen einen Backend-Retry-Storm aus, das degradierte Backend verzögert OTA-Rollouts, und instabile Rollouts überlasten das Werkstattnetzwerk.
 
 Jedes läuft über **Kafka** (echter Broker) oder einen **In-Process-Simulator** (Default, kein Broker) — zur Laufzeit wählbar, downstream identisch. In der App wechselt man die Familie über den **Scenario family**-Schalter in der Sidebar.
 
@@ -309,7 +312,7 @@ streamlit run app_demo.py
 
 Erfordert Python 3.9+.
 
-**Live-Szenarien.** Die Streaming-Szenarien (SSC / R+V / ÖPNV) laufen standardmäßig in-process — kein Broker nötig, `streamlit run app_demo.py` genügt. Um sie aus einem echten Kafka-Broker zu speisen (optionaler „live"-Modus), siehe [`DEPLOYMENT.md`](DEPLOYMENT.md). Die Live-Familie erfordert `streamlit >= 1.37`.
+**Live-Szenarien.** Die Streaming-Szenarien (SSC / R+V / ÖPNV / Automotive) laufen standardmäßig in-process — kein Broker nötig, `streamlit run app_demo.py` genügt. Um sie aus einem echten Kafka-Broker zu speisen (optionaler „live"-Modus), siehe [`DEPLOYMENT.md`](DEPLOYMENT.md). Die Live-Familie erfordert `streamlit >= 1.37`.
 
 ---
 
@@ -362,13 +365,14 @@ data/                            # Knoten- und Kantendefinitionen je Szenario
   satellite_nodes.csv / satellite_edges.csv     # SSC (live)
   digitalops_nodes.csv / digitalops_edges.csv    # R+V (live)
   transit_nodes.csv / transit_edges.csv          # ÖPNV (live)
+  automotive_nodes.csv / automotive_edges.csv    # Automotive (live)
 streaming/                       # Live-/Streaming-Familie (Kafka-Ingest)
   bus.py                         # Dual-Mode-Bus: Kafka | In-Process
   kafka_config.py                # Topics, Modus, Broker-Detection
   stream_core.py                 # Live-Core: gleitendes Fenster, Kopplung, Erosion, Ampel
   detectors.py                   # Incident-/Erosions-Detection
   live_plot.py / live_dashboard.py
-  producers/                     # satellite / digitalops / transit
+  producers/                     # satellite / digitalops / transit / automotive
 docker-compose.yml               # Lokaler Kafka-Broker (nur live-Modus)
 app_demo.py                      # Streamlit-App
 ```
