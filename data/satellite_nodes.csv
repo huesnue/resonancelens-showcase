@@ -1,0 +1,14 @@
+id,type,space,cluster,supply,demand,capacity,importance
+SAT_OBC,hub,satellite,Satellite,120,100,140,1.6
+SAT_Power,source,satellite,Satellite,130,100,150,1.5
+SAT_Thermal,sink,satellite,Satellite,110,100,130,1.2
+SAT_Attitude,control,satellite,Satellite,110,100,125,1.3
+SAT_Comm,relay,satellite,Satellite,115,100,130,1.4
+GND_Antenna,relay,ground,Ground,120,100,140,1.4
+GND_Network,relay,ground,Ground,120,100,140,1.2
+GND_Processing,hub,ground,Ground,125,100,145,1.6
+GND_Storage,sink,ground,Ground,115,100,135,1.0
+PIPE_Build,source,pipeline,Pipeline,110,100,130,1.0
+PIPE_Deploy,relay,pipeline,Pipeline,110,100,130,1.5
+PIPE_Security,control,pipeline,Pipeline,110,100,125,1.3
+PIPE_Monitor,hub,pipeline,Pipeline,120,100,140,1.4

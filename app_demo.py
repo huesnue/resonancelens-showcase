@@ -3649,12 +3649,24 @@ elif scenario["type"] == "banking_pipeline":
             st.markdown(f"<div style='font-size:22px;font-weight:600;'>{current_month}</div>",
                         unsafe_allow_html=True)
 
+        # Helper für konsistente zweizeilige Metrik-Header
+        # Zeile 1: prägnanter Titel (feste Höhe)
+        # Zeile 2: dezentes DORA-Sublabel (feste Höhe, immer vorhanden)
+        def _metric_label(title, sublabel):
+            return (
+                f"<div style='min-height:32px;'>"
+                f"<div style='font-size:12px;font-weight:600;color:var(--color-text-secondary);"
+                f"line-height:1.2;'>{title}</div>"
+                f"<div style='font-size:9px;color:#9aa4b2;text-transform:uppercase;"
+                f"letter-spacing:0.4px;line-height:1.2;'>{sublabel}</div>"
+                f"</div>"
+            )
+
         with m2:
             sh_pct = int(round(kpis["system_health"] * 100))
             sh_color = ("#4ade80" if sh_pct >= 75 else
                         "#fbbf24" if sh_pct >= 55 else "#f87171")
-            st.markdown(f"<div style='font-size:11px;color:var(--color-text-secondary);'>"
-                        f"System Health</div>", unsafe_allow_html=True)
+            st.markdown(_metric_label("System Health", "Aggregate"), unsafe_allow_html=True)
             st.markdown(f"<div style='font-size:22px;font-weight:600;color:{sh_color};'>"
                         f"{sh_pct}%</div>", unsafe_allow_html=True)
 
@@ -3662,9 +3674,7 @@ elif scenario["type"] == "banking_pipeline":
             vel = kpis["velocity"]
             vel_color = ("#4ade80" if vel >= 20 else
                          "#fbbf24" if vel >= 5 else "#f87171")
-            st.markdown(f"<div style='font-size:11px;color:var(--color-text-secondary);'>"
-                        f"Pipeline Velocity <span style='color:#888;'>· DORA Key</span></div>",
-                        unsafe_allow_html=True)
+            st.markdown(_metric_label("Pipeline Velocity", "DORA Four Keys"), unsafe_allow_html=True)
             st.markdown(f"<div style='font-size:22px;font-weight:600;color:{vel_color};'>"
                         f"{vel:.0f} <span style='font-size:13px;font-weight:400;color:var(--color-text-secondary);'>/ day</span></div>",
                         unsafe_allow_html=True)
@@ -3672,9 +3682,7 @@ elif scenario["type"] == "banking_pipeline":
         with m4:
             sev_icon, sev_label = kpis["severity"]
             of = kpis["open_findings"]
-            st.markdown(f"<div style='font-size:11px;color:var(--color-text-secondary);'>"
-                        f"Audit Status <span style='color:#888;'>· DORA Art. 18</span></div>",
-                        unsafe_allow_html=True)
+            st.markdown(_metric_label("Audit Status", "DORA Art. 18"), unsafe_allow_html=True)
             st.markdown(f"<div style='font-size:22px;font-weight:600;'>"
                         f"{sev_icon} {of} <span style='font-size:13px;font-weight:400;color:var(--color-text-secondary);'>open · {sev_label}</span></div>",
                         unsafe_allow_html=True)
@@ -3687,15 +3695,12 @@ elif scenario["type"] == "banking_pipeline":
                 mttr_text = f"{mttr:.0f} min"
             else:
                 mttr_text = f"{mttr/60:.1f} h"
-            st.markdown(f"<div style='font-size:11px;color:var(--color-text-secondary);'>"
-                        f"MTTR <span style='color:#888;'>· DORA Key</span></div>",
-                        unsafe_allow_html=True)
+            st.markdown(_metric_label("MTTR", "DORA Four Keys"), unsafe_allow_html=True)
             st.markdown(f"<div style='font-size:22px;font-weight:600;color:{mttr_color};'>"
                         f"{mttr_text}</div>", unsafe_allow_html=True)
 
         with m6:
-            st.markdown(f"<div style='font-size:11px;color:var(--color-text-secondary);'>"
-                        f"Early Warning</div>", unsafe_allow_html=True)
+            st.markdown(_metric_label("Early Warning", "Structural"), unsafe_allow_html=True)
             st.markdown(f"<div style='font-size:22px;font-weight:600;color:{ew_color};'>"
                         f"{ew_icon} {ew_label}</div>", unsafe_allow_html=True)
             st.markdown(f"<div style='font-size:10px;color:var(--color-text-secondary);'>"
