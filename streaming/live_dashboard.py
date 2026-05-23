@@ -253,9 +253,9 @@ def render_live_dashboard(scenario_key: str):
         st.session_state[run_key] = True
     c1, c2, c3 = st.columns([1.2, 1, 5])
     if c1.button("⏸ Pause" if st.session_state[run_key] else "▶ Start",
-                 key=f"toggle_{scenario_key}", use_container_width=True):
+                 key=f"toggle_{scenario_key}", width="stretch"):
         st.session_state[run_key] = not st.session_state[run_key]
-    if c2.button("↻ Reset", key=f"reset_{scenario_key}", use_container_width=True):
+    if c2.button("↻ Reset", key=f"reset_{scenario_key}", width="stretch"):
         reset_engine(scenario_key)
         st.rerun()
     c3.caption("sim: Producer wird in-process gesteppt · live: externer "
@@ -286,12 +286,12 @@ def render_live_dashboard(scenario_key: str):
         left, mid, right = st.columns([4, 4, 2])
         with left:
             st.plotly_chart(_signal_chart(cfg, list(core.history)),
-                            use_container_width=True,
+                            width="stretch",
                             key=f"chart_{scenario_key}")
         with mid:
             st.plotly_chart(
                 live_network_figure(core, snap, engine["space_style"], engine["layout"]),
-                use_container_width=True,
+                width="stretch",
                 key=f"net_{scenario_key}")
         with right:
             _event_rail(engine, snap)
