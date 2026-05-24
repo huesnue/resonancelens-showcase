@@ -85,7 +85,7 @@ streamlit run app_demo.py
 
 Requires Python 3.9+.
 
-**Live scenarios.** The streaming scenarios (SSC / R+V / ÖPNV / Automotive) run in-process by default — no broker required, so `streamlit run app_demo.py` is enough. To drive them from a real Kafka broker (the optional "live" mode), see [`DEPLOYMENT.md`](DEPLOYMENT.md). The live family requires `streamlit >= 1.37`.
+**Live scenarios.** The streaming scenarios (SSC / R+V / ÖPNV / Automotive) run in-process by default — no broker required, so `streamlit run app_demo.py` is enough. To drive them from a real Kafka broker (the optional "live" mode), set `RL_STREAM_MODE=live` and start the included `docker-compose.yml` broker. The live family requires `streamlit >= 1.37`.
 
 ---
 
@@ -312,7 +312,7 @@ streamlit run app_demo.py
 
 Erfordert Python 3.9+.
 
-**Live-Szenarien.** Die Streaming-Szenarien (SSC / R+V / ÖPNV / Automotive) laufen standardmäßig in-process — kein Broker nötig, `streamlit run app_demo.py` genügt. Um sie aus einem echten Kafka-Broker zu speisen (optionaler „live"-Modus), siehe [`DEPLOYMENT.md`](DEPLOYMENT.md). Die Live-Familie erfordert `streamlit >= 1.37`.
+**Live-Szenarien.** Die Streaming-Szenarien (SSC / R+V / ÖPNV / Automotive) laufen standardmäßig in-process — kein Broker nötig, `streamlit run app_demo.py` genügt. Um sie aus einem echten Kafka-Broker zu speisen (optionaler „live"-Modus), `RL_STREAM_MODE=live` setzen und den mitgelieferten `docker-compose.yml`-Broker starten. Die Live-Familie erfordert `streamlit >= 1.37`.
 
 ---
 
