@@ -33,6 +33,12 @@ from .live_plot import build_layout, live_network_figure
 from .producers import get_producer
 
 
+# Kontinuierliche Cluster-Level-Signale des Echtdaten-Producers (transit_gtfs_producer).
+# Im Live-Modus werden diese als gehaltenes LEVEL behandelt (carry-forward), nicht als
+# akkumulierte Einzel-Events -> robust gegen async Liefer-Jitter (sonst Schein-EW).
+_LEVEL_METRICS = {"delay_pressure", "comp_liability", "infra_disruption"}
+
+
 def _repo_root() -> str:
     return os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
@@ -219,7 +225,23 @@ def _ampel_banner(snap):
 
 
 def _event_rail(engine, snap):
-    st.markdown("**Active events**")
+    # --- Live conditions (chronische Vorerosion) — immer sichtbar ---
+    levels = engine.get("last_levels") or {}
+    if levels:
+        st.markdown("**Live conditions** · chronisch")
+        icons = {"Mobility": "🚆", "Infra": "🛣️", "Economy": "💶"}
+        for cl in ("Mobility", "Infra", "Economy"):
+            ev = levels.get(cl)
+            if ev and ev.get("detail"):
+                st.markdown(
+                    f"<div style='font-size:11px;opacity:.85;margin:2px 0;'>"
+                    f"{icons.get(cl, '•')} {ev['detail']}</div>",
+                    unsafe_allow_html=True,
+                )
+        st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+
+    # --- Active events (akute Eskalation ueber die chronische Last hinaus) ---
+    st.markdown("**Active events** · akut")
     active = snap.get("active_event")
     if active and active.get("severity", 0) > 0.15:
         sev = active["severity"]
@@ -232,6 +254,8 @@ def _event_rail(engine, snap):
             f"<br><span style='opacity:.7'>severity {sev:.0%}</span></div>",
             unsafe_allow_html=True,
         )
+    elif levels:
+        st.caption("— keine akute Eskalation · chronische Last stabil —")
     else:
         st.caption("— nominal —")
 
@@ -325,7 +349,32 @@ def render_live_dashboard(scenario_key: str):
 
         # 2) Step + detect (nur wenn laufend; sonst nur Anzeige)
         if running:
-            snap = core.step(events)
+            # Live: kontinuierliche Cluster-Signale sind ein LEVEL (carry-forward),
+            # Injects/Incidents werden einmalig darauf gelegt. Verhindert, dass async
+            # Liefer-Jitter (Producer ~2s vs. Dashboard-Tick) den Druck zerfallen/
+            # springen laesst und die ableitungsbasierte EW Schein-HIGH feuert.
+            if mode == kafka_config.MODE_LIVE:
+                levels = engine.setdefault("last_levels", {})
+                incidents = []
+                for ev in events:
+                    if ev.get("metric") in _LEVEL_METRICS and ev.get("cluster"):
+                        levels[ev["cluster"]] = ev          # neuestes Level je Cluster
+                    else:
+                        incidents.append(ev)
+                step_events = list(levels.values()) + incidents
+                # Warm-Start: beim ersten echten Level den Kern auf die chronische
+                # Baseline (Vorerosion) einschwingen lassen, statt von 100% zu rampen.
+                # Verhindert den Kaltstart-Peak; Anlauf-Transiente wird nicht gezeigt.
+                if levels and not engine.get("warmed"):
+                    for _ in range(30):
+                        core.step(list(levels.values()))
+                    last_snap = core.history[-1]
+                    core.history.clear()
+                    core.history.append(last_snap)
+                    engine["warmed"] = True
+            else:
+                step_events = events
+            snap = core.step(step_events)
             for alert in engine["detector"].evaluate(snap):
                 engine["alerts"].append(alert)
                 if mode == kafka_config.MODE_LIVE:
