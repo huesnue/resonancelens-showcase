@@ -267,21 +267,31 @@ def render_live_dashboard(scenario_key: str):
     cfg["intro"]()
 
     # Controls
-    run_key = f"live_running_{scenario_key}"
-    if run_key not in st.session_state:
-        st.session_state[run_key] = True
-    c1, c2, c3 = st.columns([1.2, 1, 5])
+    run_key   = f"live_running_{scenario_key}"
+    tempo_key = f"live_tempo_{scenario_key}"
+    win_key   = f"live_window_{scenario_key}"
+    st.session_state.setdefault(run_key, True)
+    st.session_state.setdefault(tempo_key, 2.0)
+    st.session_state.setdefault(win_key, 80)
+
+    c1, c2, c3, c4, c5 = st.columns([1.1, 1, 1.5, 2.2, 2.2])
     if c1.button("⏸ Pause" if st.session_state[run_key] else "▶ Start",
                  key=f"toggle_{scenario_key}", width="stretch"):
         st.session_state[run_key] = not st.session_state[run_key]
     if c2.button("↻ Reset", key=f"reset_{scenario_key}", width="stretch"):
         reset_engine(scenario_key)
         st.rerun()
-    c3.caption("sim: Producer wird in-process gesteppt · live: externer "
-               "Producer-Prozess fuettert den Broker")
+    if c3.button("⚡ Inject incident", key=f"inject_{scenario_key}", width="stretch",
+                 help="Feuert die Szenario-Kaskade sofort in den Stream — "
+                      "Early Warning steigt vor dem System-Health-Einbruch."):
+        engine["producer"].trigger()
+        st.toast("⚡ Incident injected — watch Early Warning lead the dip.")
+    c4.slider("Tick interval (s)", 0.5, 5.0, step=0.5, key=tempo_key)
+    c5.slider("History (ticks)", 30, 200, step=10, key=win_key)
 
     running = st.session_state[run_key]
-    run_every = "2s" if running else None
+    run_every = st.session_state[tempo_key] if running else None
+    window = int(st.session_state[win_key])
 
     @st.fragment(run_every=run_every)
     def _tick():
@@ -304,7 +314,7 @@ def render_live_dashboard(scenario_key: str):
         _ampel_banner(snap)
         left, mid, right = st.columns([4, 4, 2])
         with left:
-            st.plotly_chart(_signal_chart(cfg, list(core.history)),
+            st.plotly_chart(_signal_chart(cfg, list(core.history)[-window:]),
                             width="stretch",
                             key=f"chart_{scenario_key}")
         with mid:

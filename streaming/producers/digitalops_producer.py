@@ -78,6 +78,10 @@ class DigitalOpsProducer:
                 })
         return evs
 
+    def trigger(self):
+        """Manueller Inject: Kaskaden-Phase sofort auf Start setzen (feuert die vorhandene CASCADE)."""
+        self._cycle0 = self.tick_n
+
     def produce_tick(self, bus, topic: str) -> int:
         evs = self._baseline() + self._cascade()
         for e in evs:
