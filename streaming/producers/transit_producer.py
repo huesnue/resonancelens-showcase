@@ -41,10 +41,38 @@ EVENT_PROB = 0.04         # gelegentliches neutrales Betriebsereignis
 
 
 class TransitProducer:
+
+    INJECTS = [
+        {"key": "rail", "label": "⚡ Rail disruption",
+         "help": "Origin: Mobility (rail → road) → Infra → Economy",
+         "events": [
+             (0, "cluster", "Mobility", "rail_delay",    0.82, 0.80, "telemetry", "S-Bahn disruption → modal shift to road"),
+             (2, "cluster", "Infra",    "junction_load", 0.72, 0.72, "telemetry", "Traffic junction overload"),
+             (4, "cluster", "Economy",  "supply_lag",    0.66, 0.66, "process",   "Supply chains delayed, retail footfall drops"),
+             (5, "cluster", "Mobility", "sustain",       0.0,  0.52, "telemetry", None),
+         ]},
+        {"key": "power", "label": "⚡ Power / grid fault",
+         "help": "Origin: Infra (grid → signaling) → Mobility → Economy",
+         "events": [
+             (0, "cluster", "Infra",    "grid_fault",    0.82, 0.82, "telemetry", "Grid overload / signaling fault"),
+             (2, "cluster", "Mobility", "rail_delay",    0.70, 0.70, "telemetry", "Rail delays & road congestion"),
+             (4, "cluster", "Economy",  "supply_lag",    0.60, 0.60, "process",   "Logistics delayed"),
+             (5, "cluster", "Infra",    "sustain",       0.0,  0.52, "telemetry", None),
+         ]},
+        {"key": "construction", "label": "⚡ Construction closure",
+         "help": "Origin: Infra (closure) → Mobility → Economy",
+         "events": [
+             (0, "cluster", "Infra",    "closure",       1.0,  0.78, "process",   "Major construction closure"),
+             (2, "cluster", "Mobility", "congestion",    0.70, 0.70, "telemetry", "Detours → road congestion"),
+             (4, "cluster", "Economy",  "delivery_lag",  0.62, 0.62, "process",   "Delivery delays"),
+             (5, "cluster", "Infra",    "sustain",       0.0,  0.50, "telemetry", None),
+         ]},
+    ]
     def __init__(self, seed: int = 23):
         self.rng = random.Random(seed)
         self.tick_n = 0
         self._cycle0 = 6
+        self._pending = []   # geplante manuelle Injects: (fire_tick, event)
 
     def _baseline(self) -> list[dict]:
         nodes = ["MOB_SBahn", "MOB_Bus", "MOB_Tram", "MOB_Road",
@@ -78,12 +106,24 @@ class TransitProducer:
                 })
         return evs
 
-    def trigger(self):
-        """Manueller Inject: Kaskaden-Phase sofort auf Start setzen (feuert die vorhandene CASCADE)."""
-        self._cycle0 = self.tick_n
+    def inject(self, key: str):
+        """Plant einen benannten Einstiegspunkt (INJECTS) als gestaffelte Mini-Kaskade ab 'jetzt'."""
+        spec = next((s for s in self.INJECTS if s["key"] == key), None)
+        if not spec:
+            return
+        self._pending = []   # laufenden Inject ersetzen statt stapeln (verhindert Aufstauen -> Dauer-Floor)
+        for delay, scope, target, metric, value, sev, kind, label in spec["events"]:
+            self._pending.append((self.tick_n + delay,
+                                  {"kind": kind, scope: target, "metric": metric,
+                                   "value": value, "severity": sev, "label": label}))
+
+    def _due_pending(self) -> list[dict]:
+        due = [ev for ft, ev in self._pending if ft <= self.tick_n]
+        self._pending = [(ft, ev) for ft, ev in self._pending if ft > self.tick_n]
+        return due
 
     def produce_tick(self, bus, topic: str) -> int:
-        evs = self._baseline() + self._cascade()
+        evs = self._baseline() + self._cascade() + self._due_pending()
         for e in evs:
             e["ts"] = time.time()
             bus.produce(topic, e, key=e.get("node"))

@@ -52,10 +52,39 @@ EVENT_PROB = 0.04         # gelegentliches neutrales Betriebsereignis
 
 
 class AutomotiveProducer:
+
+    INJECTS = [
+        {"key": "thermal", "label": "⚡ Thermal spike",
+         "help": "Origin: Telemetry → Charging → Backend → OTA → Workshop",
+         "events": [
+             (0, "cluster", "Telemetry", "temp_peak_c",        78.0,  0.80, "telemetry",  "Battery thermal spike across the fleet"),
+             (2, "cluster", "Charging",  "session_abort_rate", 0.45,  0.78, "telemetry",  "Charging sessions aborting (thermal-driven)"),
+             (4, "cluster", "Backend",   "api_latency_ms",     850.0, 0.80, "telemetry",  "Backend retry-storm — latency & error-rate spike"),
+             (6, "cluster", "OTA",       "rollout_delay",      0.70,  0.76, "deployment", "OTA rollout waves delayed"),
+             (8, "cluster", "Workshop",  "appointment_load",   0.90,  0.74, "process",    "Workshop network overloaded"),
+         ]},
+        {"key": "backend", "label": "⚡ Backend retry-storm",
+         "help": "Origin: Backend → OTA → Workshop (+ telemetry feedback)",
+         "events": [
+             (0, "cluster", "Backend",   "error_rate_spike",   0.90,  0.82, "telemetry",  "Backend error-rate & latency spike"),
+             (2, "cluster", "OTA",       "update_failure",     0.80,  0.78, "deployment", "OTA rollouts failing (backend-driven)"),
+             (4, "cluster", "Workshop",  "appointment_load",   0.85,  0.72, "process",    "Workshop backlog building"),
+             (5, "cluster", "Telemetry", "sensor_fault",       0.60,  0.55, "telemetry",  "Sensor anomalies via firmware feedback"),
+         ]},
+        {"key": "ota", "label": "⚡ OTA rollback wave",
+         "help": "Origin: OTA → Telemetry (feedback) → Workshop → Backend",
+         "events": [
+             (0, "cluster", "OTA",       "rollback",           0.95,  0.80, "deployment", "OTA rollback wave — version mismatch"),
+             (2, "cluster", "Telemetry", "dtc_code",           0.70,  0.62, "telemetry",  "DTC codes rising (firmware feedback)"),
+             (3, "cluster", "Workshop",  "capacity_alert",     0.80,  0.70, "process",    "Workshop load from field returns"),
+             (5, "cluster", "Backend",   "queue_depth",        0.60,  0.55, "telemetry",  "Backend queue backpressure"),
+         ]},
+    ]
     def __init__(self, seed: int = 27):
         self.rng = random.Random(seed)
         self.tick_n = 0
         self._cycle0 = 6
+        self._pending = []   # geplante manuelle Injects: (fire_tick, event)
 
     def _baseline(self) -> list[dict]:
         nodes = ["TEL_Fleet", "TEL_Battery", "TEL_Thermal", "TEL_Sensors",
@@ -91,12 +120,24 @@ class AutomotiveProducer:
                 })
         return evs
 
-    def trigger(self):
-        """Manueller Inject: Kaskaden-Phase sofort auf Start setzen (feuert die vorhandene CASCADE)."""
-        self._cycle0 = self.tick_n
+    def inject(self, key: str):
+        """Plant einen benannten Einstiegspunkt (INJECTS) als gestaffelte Mini-Kaskade ab 'jetzt'."""
+        spec = next((s for s in self.INJECTS if s["key"] == key), None)
+        if not spec:
+            return
+        self._pending = []   # laufenden Inject ersetzen statt stapeln (verhindert Aufstauen -> Dauer-Floor)
+        for delay, scope, target, metric, value, sev, kind, label in spec["events"]:
+            self._pending.append((self.tick_n + delay,
+                                  {"kind": kind, scope: target, "metric": metric,
+                                   "value": value, "severity": sev, "label": label}))
+
+    def _due_pending(self) -> list[dict]:
+        due = [ev for ft, ev in self._pending if ft <= self.tick_n]
+        self._pending = [(ft, ev) for ft, ev in self._pending if ft > self.tick_n]
+        return due
 
     def produce_tick(self, bus, topic: str) -> int:
-        evs = self._baseline() + self._cascade()
+        evs = self._baseline() + self._cascade() + self._due_pending()
         for e in evs:
             e["ts"] = time.time()
             bus.produce(topic, e, key=e.get("node") or e.get("cluster"))

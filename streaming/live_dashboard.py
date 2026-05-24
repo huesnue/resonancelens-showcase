@@ -274,20 +274,34 @@ def render_live_dashboard(scenario_key: str):
     st.session_state.setdefault(tempo_key, 2.0)
     st.session_state.setdefault(win_key, 80)
 
-    c1, c2, c3, c4, c5 = st.columns([1.1, 1, 1.5, 2.2, 2.2])
+    c1, c2, c3, c4 = st.columns([1.2, 1, 2.4, 2.4])
     if c1.button("⏸ Pause" if st.session_state[run_key] else "▶ Start",
                  key=f"toggle_{scenario_key}", width="stretch"):
         st.session_state[run_key] = not st.session_state[run_key]
     if c2.button("↻ Reset", key=f"reset_{scenario_key}", width="stretch"):
         reset_engine(scenario_key)
         st.rerun()
-    if c3.button("⚡ Inject incident", key=f"inject_{scenario_key}", width="stretch",
-                 help="Feuert die Szenario-Kaskade sofort in den Stream — "
-                      "Early Warning steigt vor dem System-Health-Einbruch."):
-        engine["producer"].trigger()
-        st.toast("⚡ Incident injected — watch Early Warning lead the dip.")
-    c4.slider("Tick interval (s)", 0.5, 5.0, step=0.5, key=tempo_key)
-    c5.slider("History (ticks)", 30, 200, step=10, key=win_key)
+    c3.slider("Tick interval (s)", 0.5, 5.0, step=0.5, key=tempo_key)
+    c4.slider("History (ticks)", 30, 200, step=10, key=win_key)
+
+    # Inject entry points — declarative per producer (producer.INJECTS), read generically.
+    # Buttons werden am KPI-Spaltenraster ausgerichtet: gleiche Spaltenzahl wie der
+    # KPI-Header (2 + len(spaces)); die Buttons sitzen unter den Space-Metriken,
+    # System-Health- (links) und Early-Warning-Spalte (rechts) bleiben Spacer.
+    injects = getattr(engine["producer"], "INJECTS", [])
+    if injects:
+        st.caption("⚡ Inject incident — fire a cross-domain cascade from a chosen entry point:")
+        n_spaces = len(cfg["spaces"])
+        if len(injects) <= n_spaces:
+            icols = st.columns(2 + n_spaces)
+            slots = [icols[1 + i] for i in range(len(injects))]
+        else:
+            slots = st.columns(len(injects))
+        for col, spec in zip(slots, injects):
+            if col.button(spec["label"], key=f"inject_{scenario_key}_{spec['key']}",
+                          width="stretch", help=spec.get("help")):
+                engine["producer"].inject(spec["key"])
+                st.toast(f"{spec['label']} — watch Early Warning lead the dip.")
 
     running = st.session_state[run_key]
     run_every = st.session_state[tempo_key] if running else None

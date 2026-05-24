@@ -44,11 +44,39 @@ SECURITY_PROB = 0.04      # gelegentlicher Security-Scan-Event
 
 
 class SatelliteProducer:
+
+    INJECTS = [
+        {"key": "thermal", "label": "⚡ Thermal / power event",
+         "help": "Origin: Satellite (thermal/power) → Ground",
+         "events": [
+             (0, "cluster", "Satellite", "thermal_power", 0.82, 0.82, "telemetry",  "Solar-panel thermal spike — power redistribution"),
+             (2, "cluster", "Ground",    "tlm_lag",       0.70, 0.72, "telemetry",  "Ground telemetry processing strained"),
+             (3, "cluster", "Satellite", "sustain",       0.0,  0.55, "telemetry",  None),
+             (5, "cluster", "Ground",    "sustain",       0.0,  0.52, "telemetry",  None),
+         ]},
+        {"key": "deploy", "label": "⚡ Faulty deployment",
+         "help": "Origin: Pipeline → Ground → satellite downlink",
+         "events": [
+             (0, "cluster", "Pipeline",  "deploy_status", 1.0,  0.82, "deployment", "DevSecOps: faulty deployment rolled out"),
+             (2, "cluster", "Ground",    "tlm_lag",       0.74, 0.74, "telemetry",  "Ground telemetry processing degraded (deploy)"),
+             (4, "cluster", "Satellite", "downlink",      0.60, 0.60, "telemetry",  "Downlink / comm error rate climbing"),
+             (5, "cluster", "Ground",    "sustain",       0.0,  0.52, "telemetry",  None),
+         ]},
+        {"key": "ground", "label": "⚡ Ground-segment outage",
+         "help": "Origin: Ground (antenna/network) → satellite downlink",
+         "events": [
+             (0, "cluster", "Ground",    "outage",        1.0,  0.82, "telemetry",  "Ground-segment outage — antenna & network down"),
+             (2, "cluster", "Satellite", "downlink",      0.62, 0.62, "telemetry",  "Downlink retries / comm errors rising"),
+             (3, "cluster", "Ground",    "sustain",       0.0,  0.55, "telemetry",  None),
+             (5, "cluster", "Satellite", "sustain",       0.0,  0.50, "telemetry",  None),
+         ]},
+    ]
     def __init__(self, seed: int = 7):
         self.rng = random.Random(seed)
         self.tick_n = 0
         # zufaelliger Startversatz, damit nicht sofort die Kaskade laeuft
         self._cycle0 = 6
+        self._pending = []   # geplante manuelle Injects: (fire_tick, event)
 
     # ---- Baseline-Rauschen ----------------------------------------
     def _baseline(self) -> list[dict]:
@@ -85,12 +113,24 @@ class SatelliteProducer:
         return evs
 
     # ---- ein Tick --------------------------------------------------
-    def trigger(self):
-        """Manueller Inject: Kaskaden-Phase sofort auf Start setzen (feuert die vorhandene CASCADE)."""
-        self._cycle0 = self.tick_n
+    def inject(self, key: str):
+        """Plant einen benannten Einstiegspunkt (INJECTS) als gestaffelte Mini-Kaskade ab 'jetzt'."""
+        spec = next((s for s in self.INJECTS if s["key"] == key), None)
+        if not spec:
+            return
+        self._pending = []   # laufenden Inject ersetzen statt stapeln (verhindert Aufstauen -> Dauer-Floor)
+        for delay, scope, target, metric, value, sev, kind, label in spec["events"]:
+            self._pending.append((self.tick_n + delay,
+                                  {"kind": kind, scope: target, "metric": metric,
+                                   "value": value, "severity": sev, "label": label}))
+
+    def _due_pending(self) -> list[dict]:
+        due = [ev for ft, ev in self._pending if ft <= self.tick_n]
+        self._pending = [(ft, ev) for ft, ev in self._pending if ft > self.tick_n]
+        return due
 
     def produce_tick(self, bus, topic: str) -> int:
-        evs = self._baseline() + self._cascade()
+        evs = self._baseline() + self._cascade() + self._due_pending()
         for e in evs:
             e["ts"] = time.time()
             bus.produce(topic, e, key=e.get("node"))

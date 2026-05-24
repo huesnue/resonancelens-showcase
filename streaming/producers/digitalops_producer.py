@@ -41,10 +41,38 @@ DEPLOY_PROB = 0.04        # gelegentliches sauberes Deployment (neutral)
 
 
 class DigitalOpsProducer:
+
+    INJECTS = [
+        {"key": "api", "label": "⚡ API latency spike",
+         "help": "Origin: API → Business → Infra",
+         "events": [
+             (0, "cluster", "API",      "latency_5xx",  0.82, 0.82, "telemetry", "API p95 latency & 5xx error spike"),
+             (2, "cluster", "Business", "process_lag",  0.72, 0.72, "process",   "Customer journeys delayed (abandonment rising)"),
+             (4, "cluster", "Infra",    "cpu_load",     0.70, 0.70, "telemetry", "CPU load up (retries / backlog)"),
+             (5, "cluster", "API",      "sustain",      0.0,  0.52, "telemetry", None),
+         ]},
+        {"key": "infra", "label": "⚡ Infra / DB degradation",
+         "help": "Origin: Infra (DB/compute) → API → Business",
+         "events": [
+             (0, "cluster", "Infra",    "db_latency",   0.82, 0.82, "telemetry", "Database latency / compute saturation"),
+             (2, "cluster", "API",      "error_5xx",    0.70, 0.70, "telemetry", "API errors rising (DB feedback)"),
+             (4, "cluster", "Business", "process_lag",  0.66, 0.66, "process",   "Payment / underwriting delayed"),
+             (5, "cluster", "Infra",    "sustain",      0.0,  0.52, "telemetry", None),
+         ]},
+        {"key": "demand", "label": "⚡ Demand surge",
+         "help": "Origin: Business (volume) → Infra → API",
+         "events": [
+             (0, "cluster", "Business", "volume_surge", 0.82, 0.80, "process",   "Customer onboarding volume surge"),
+             (2, "cluster", "Infra",    "cpu_load",     0.72, 0.72, "telemetry", "Compute load from backlog"),
+             (4, "cluster", "API",      "error_5xx",    0.62, 0.62, "telemetry", "API strain (rising 5xx)"),
+             (5, "cluster", "Business", "sustain",      0.0,  0.52, "process",   None),
+         ]},
+    ]
     def __init__(self, seed: int = 11):
         self.rng = random.Random(seed)
         self.tick_n = 0
         self._cycle0 = 6
+        self._pending = []   # geplante manuelle Injects: (fire_tick, event)
 
     def _baseline(self) -> list[dict]:
         nodes = ["API_Gateway", "API_Quote", "API_Policy", "API_Claims",
@@ -78,12 +106,24 @@ class DigitalOpsProducer:
                 })
         return evs
 
-    def trigger(self):
-        """Manueller Inject: Kaskaden-Phase sofort auf Start setzen (feuert die vorhandene CASCADE)."""
-        self._cycle0 = self.tick_n
+    def inject(self, key: str):
+        """Plant einen benannten Einstiegspunkt (INJECTS) als gestaffelte Mini-Kaskade ab 'jetzt'."""
+        spec = next((s for s in self.INJECTS if s["key"] == key), None)
+        if not spec:
+            return
+        self._pending = []   # laufenden Inject ersetzen statt stapeln (verhindert Aufstauen -> Dauer-Floor)
+        for delay, scope, target, metric, value, sev, kind, label in spec["events"]:
+            self._pending.append((self.tick_n + delay,
+                                  {"kind": kind, scope: target, "metric": metric,
+                                   "value": value, "severity": sev, "label": label}))
+
+    def _due_pending(self) -> list[dict]:
+        due = [ev for ft, ev in self._pending if ft <= self.tick_n]
+        self._pending = [(ft, ev) for ft, ev in self._pending if ft > self.tick_n]
+        return due
 
     def produce_tick(self, bus, topic: str) -> int:
-        evs = self._baseline() + self._cascade()
+        evs = self._baseline() + self._cascade() + self._due_pending()
         for e in evs:
             e["ts"] = time.time()
             bus.produce(topic, e, key=e.get("node"))
