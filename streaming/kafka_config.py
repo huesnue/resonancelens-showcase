@@ -79,25 +79,30 @@ TOPICS = {
     "satellite": {
         "events": "satellite.telemetry",
         "alerts": "satellite.alerts",
+        "control": "satellite.control",
     },
     "digitalops": {
         "events": "digitalops.api_logs",
         "alerts": "digitalops.alerts",
+        "control": "digitalops.control",
     },
     "transit": {
         "events": "transit.events",
         "alerts": "transit.alerts",
+        "control": "transit.control",
     },
     "automotive": {
         "events": "automotive.events",
         "alerts": "automotive.alerts",
+        "control": "automotive.control",
     },
 }
 
 
 def topics_for(scenario_key: str) -> dict:
     return TOPICS.get(scenario_key, {"events": f"{scenario_key}.events",
-                                      "alerts": f"{scenario_key}.alerts"})
+                                      "alerts": f"{scenario_key}.alerts",
+                                      "control": f"{scenario_key}.control"})
 
 
 # Consumer-Group-Prefix (live mode)

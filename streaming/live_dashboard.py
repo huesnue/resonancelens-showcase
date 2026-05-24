@@ -285,22 +285,31 @@ def render_live_dashboard(scenario_key: str):
     c4.slider("History (ticks)", 30, 200, step=10, key=win_key)
 
     # Inject entry points — declarative per producer (producer.INJECTS), read generically.
-    # Buttons werden am KPI-Spaltenraster ausgerichtet: gleiche Spaltenzahl wie der
-    # KPI-Header (2 + len(spaces)); die Buttons sitzen unter den Space-Metriken,
+    # Jeder Inject deklariert seinen Ursprungsraum ("space"); der Button sitzt unter der
+    # zugehoerigen Space-Metrik (gleiche Spaltenzahl wie der KPI-Header, 2 + len(spaces)).
     # System-Health- (links) und Early-Warning-Spalte (rechts) bleiben Spacer.
     injects = getattr(engine["producer"], "INJECTS", [])
     if injects:
         st.caption("⚡ Inject incident — fire a cross-domain cascade from a chosen entry point:")
-        n_spaces = len(cfg["spaces"])
-        if len(injects) <= n_spaces:
-            icols = st.columns(2 + n_spaces)
-            slots = [icols[1 + i] for i in range(len(injects))]
-        else:
-            slots = st.columns(len(injects))
-        for col, spec in zip(slots, injects):
-            if col.button(spec["label"], key=f"inject_{scenario_key}_{spec['key']}",
-                          width="stretch", help=spec.get("help")):
-                engine["producer"].inject(spec["key"])
+        space_keys = list(cfg["spaces"])
+        icols = st.columns(2 + len(space_keys))
+        used = set()
+        for spec in injects:
+            sp = spec.get("space")
+            idx = (1 + space_keys.index(sp)) if sp in space_keys else None
+            if idx is None or idx in used:                # Fallback: erste freie Space-Spalte
+                free = [c for c in range(1, 1 + len(space_keys)) if c not in used]
+                idx = free[0] if free else 1
+            used.add(idx)
+            if icols[idx].button(spec["label"], key=f"inject_{scenario_key}_{spec['key']}",
+                                 width="stretch", help=spec.get("help")):
+                if mode == kafka_config.MODE_LIVE:
+                    # live: Kommando an den externen Producer-Prozess via Control-Topic
+                    engine["bus"].produce(engine["topics"]["control"],
+                                          {"cmd": "inject", "key": spec["key"]})
+                else:
+                    # sim: Producer wird in-process gesteppt -> direkt schedulen
+                    engine["producer"].inject(spec["key"])
                 st.toast(f"{spec['label']} — watch Early Warning lead the dip.")
 
     running = st.session_state[run_key]

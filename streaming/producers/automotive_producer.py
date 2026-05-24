@@ -54,7 +54,7 @@ EVENT_PROB = 0.04         # gelegentliches neutrales Betriebsereignis
 class AutomotiveProducer:
 
     INJECTS = [
-        {"key": "thermal", "label": "⚡ Thermal spike",
+        {"key": "thermal", "label": "⚡ Thermal spike", "space": "telemetry",
          "help": "Origin: Telemetry → Charging → Backend → OTA → Workshop",
          "events": [
              (0, "cluster", "Telemetry", "temp_peak_c",        78.0,  0.80, "telemetry",  "Battery thermal spike across the fleet"),
@@ -63,7 +63,7 @@ class AutomotiveProducer:
              (6, "cluster", "OTA",       "rollout_delay",      0.70,  0.76, "deployment", "OTA rollout waves delayed"),
              (8, "cluster", "Workshop",  "appointment_load",   0.90,  0.74, "process",    "Workshop network overloaded"),
          ]},
-        {"key": "backend", "label": "⚡ Backend retry-storm",
+        {"key": "backend", "label": "⚡ Backend retry-storm", "space": "backend",
          "help": "Origin: Backend → OTA → Workshop (+ telemetry feedback)",
          "events": [
              (0, "cluster", "Backend",   "error_rate_spike",   0.90,  0.82, "telemetry",  "Backend error-rate & latency spike"),
@@ -71,7 +71,7 @@ class AutomotiveProducer:
              (4, "cluster", "Workshop",  "appointment_load",   0.85,  0.72, "process",    "Workshop backlog building"),
              (5, "cluster", "Telemetry", "sensor_fault",       0.60,  0.55, "telemetry",  "Sensor anomalies via firmware feedback"),
          ]},
-        {"key": "ota", "label": "⚡ OTA rollback wave",
+        {"key": "ota", "label": "⚡ OTA rollback wave", "space": "ota",
          "help": "Origin: OTA → Telemetry (feedback) → Workshop → Backend",
          "events": [
              (0, "cluster", "OTA",       "rollback",           0.95,  0.80, "deployment", "OTA rollback wave — version mismatch"),
@@ -144,11 +144,16 @@ class AutomotiveProducer:
         self.tick_n += 1
         return len(evs)
 
-    def run(self, bus, topic: str, hz: float = 1.0):
+    def run(self, bus, topic: str, hz: float = 1.0, control_topic: str | None = None):
         period = 1.0 / max(hz, 0.1)
         print(f"[automotive_producer] -> topic '{topic}', {hz} Hz. Ctrl-C zum Stoppen.")
         try:
             while True:
+                if control_topic:
+                    for cmd in bus.poll([control_topic], max_messages=20):
+                        if cmd.get("cmd") == "inject":
+                            self.inject(cmd.get("key"))
+                            print(f"  [control] inject '{cmd.get('key')}'")
                 n = self.produce_tick(bus, topic)
                 print(f"  tick {self.tick_n}: {n} events")
                 if hasattr(bus, "flush"):
@@ -164,11 +169,12 @@ def main():
     from streaming import bus as bus_mod, kafka_config
     b = bus_mod.get_bus()
     topic = kafka_config.topics_for("automotive")["events"]
+    control_topic = kafka_config.topics_for("automotive")["control"]
     print(f"[automotive_producer] Bus-Modus: {bus_mod.bus_mode()}")
     if bus_mod.bus_mode() == kafka_config.MODE_SIM:
         print("  HINWEIS: sim-Modus -> Events landen im In-Process-Bus dieses "
               "Prozesses. Fuer echten Broker: RL_STREAM_MODE=live + docker-compose up.")
-    AutomotiveProducer().run(b, topic, hz=1.0)
+    AutomotiveProducer().run(b, topic, hz=1.0, control_topic=control_topic)
 
 
 if __name__ == "__main__":

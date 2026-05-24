@@ -43,7 +43,7 @@ DEPLOY_PROB = 0.04        # gelegentliches sauberes Deployment (neutral)
 class DigitalOpsProducer:
 
     INJECTS = [
-        {"key": "api", "label": "⚡ API latency spike",
+        {"key": "api", "label": "⚡ API latency spike", "space": "api",
          "help": "Origin: API → Business → Infra",
          "events": [
              (0, "cluster", "API",      "latency_5xx",  0.82, 0.82, "telemetry", "API p95 latency & 5xx error spike"),
@@ -51,7 +51,7 @@ class DigitalOpsProducer:
              (4, "cluster", "Infra",    "cpu_load",     0.70, 0.70, "telemetry", "CPU load up (retries / backlog)"),
              (5, "cluster", "API",      "sustain",      0.0,  0.52, "telemetry", None),
          ]},
-        {"key": "infra", "label": "⚡ Infra / DB degradation",
+        {"key": "infra", "label": "⚡ Infra / DB degradation", "space": "infra",
          "help": "Origin: Infra (DB/compute) → API → Business",
          "events": [
              (0, "cluster", "Infra",    "db_latency",   0.82, 0.82, "telemetry", "Database latency / compute saturation"),
@@ -59,7 +59,7 @@ class DigitalOpsProducer:
              (4, "cluster", "Business", "process_lag",  0.66, 0.66, "process",   "Payment / underwriting delayed"),
              (5, "cluster", "Infra",    "sustain",      0.0,  0.52, "telemetry", None),
          ]},
-        {"key": "demand", "label": "⚡ Demand surge",
+        {"key": "demand", "label": "⚡ Demand surge", "space": "business",
          "help": "Origin: Business (volume) → Infra → API",
          "events": [
              (0, "cluster", "Business", "volume_surge", 0.82, 0.80, "process",   "Customer onboarding volume surge"),
@@ -130,11 +130,16 @@ class DigitalOpsProducer:
         self.tick_n += 1
         return len(evs)
 
-    def run(self, bus, topic: str, hz: float = 1.0):
+    def run(self, bus, topic: str, hz: float = 1.0, control_topic: str | None = None):
         period = 1.0 / max(hz, 0.1)
         print(f"[digitalops_producer] -> topic '{topic}', {hz} Hz. Ctrl-C zum Stoppen.")
         try:
             while True:
+                if control_topic:
+                    for cmd in bus.poll([control_topic], max_messages=20):
+                        if cmd.get("cmd") == "inject":
+                            self.inject(cmd.get("key"))
+                            print(f"  [control] inject '{cmd.get('key')}'")
                 n = self.produce_tick(bus, topic)
                 print(f"  tick {self.tick_n}: {n} events")
                 if hasattr(bus, "flush"):
@@ -150,11 +155,12 @@ def main():
     from streaming import bus as bus_mod, kafka_config
     b = bus_mod.get_bus()
     topic = kafka_config.topics_for("digitalops")["events"]
+    control_topic = kafka_config.topics_for("digitalops")["control"]
     print(f"[digitalops_producer] Bus-Modus: {bus_mod.bus_mode()}")
     if bus_mod.bus_mode() == kafka_config.MODE_SIM:
         print("  HINWEIS: sim-Modus -> Events landen im In-Process-Bus dieses "
               "Prozesses. Fuer echten Broker: RL_STREAM_MODE=live + docker-compose up.")
-    DigitalOpsProducer().run(b, topic, hz=1.0)
+    DigitalOpsProducer().run(b, topic, hz=1.0, control_topic=control_topic)
 
 
 if __name__ == "__main__":

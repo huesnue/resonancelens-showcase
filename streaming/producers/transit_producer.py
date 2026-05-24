@@ -43,7 +43,7 @@ EVENT_PROB = 0.04         # gelegentliches neutrales Betriebsereignis
 class TransitProducer:
 
     INJECTS = [
-        {"key": "rail", "label": "⚡ Rail disruption",
+        {"key": "rail", "label": "⚡ Rail disruption", "space": "mobility",
          "help": "Origin: Mobility (rail → road) → Infra → Economy",
          "events": [
              (0, "cluster", "Mobility", "rail_delay",    0.82, 0.80, "telemetry", "S-Bahn disruption → modal shift to road"),
@@ -51,7 +51,7 @@ class TransitProducer:
              (4, "cluster", "Economy",  "supply_lag",    0.66, 0.66, "process",   "Supply chains delayed, retail footfall drops"),
              (5, "cluster", "Mobility", "sustain",       0.0,  0.52, "telemetry", None),
          ]},
-        {"key": "power", "label": "⚡ Power / grid fault",
+        {"key": "power", "label": "⚡ Power / grid fault", "space": "infra",
          "help": "Origin: Infra (grid → signaling) → Mobility → Economy",
          "events": [
              (0, "cluster", "Infra",    "grid_fault",    0.82, 0.82, "telemetry", "Grid overload / signaling fault"),
@@ -59,13 +59,13 @@ class TransitProducer:
              (4, "cluster", "Economy",  "supply_lag",    0.60, 0.60, "process",   "Logistics delayed"),
              (5, "cluster", "Infra",    "sustain",       0.0,  0.52, "telemetry", None),
          ]},
-        {"key": "construction", "label": "⚡ Construction closure",
-         "help": "Origin: Infra (closure) → Mobility → Economy",
+        {"key": "demand", "label": "⚡ Demand / logistics surge", "space": "economy",
+         "help": "Origin: Economy (retail/logistics) → Infra → Mobility",
          "events": [
-             (0, "cluster", "Infra",    "closure",       1.0,  0.78, "process",   "Major construction closure"),
-             (2, "cluster", "Mobility", "congestion",    0.70, 0.70, "telemetry", "Detours → road congestion"),
-             (4, "cluster", "Economy",  "delivery_lag",  0.62, 0.62, "process",   "Delivery delays"),
-             (5, "cluster", "Infra",    "sustain",       0.0,  0.50, "telemetry", None),
+             (0, "cluster", "Economy",  "demand_surge",  0.82, 0.80, "process",   "Retail & logistics demand surge"),
+             (2, "cluster", "Infra",    "freight_load",  0.72, 0.72, "telemetry", "Freight floods road / junction load"),
+             (4, "cluster", "Mobility", "congestion",    0.66, 0.66, "telemetry", "Transit & road congestion rising"),
+             (5, "cluster", "Economy",  "sustain",       0.0,  0.52, "process",   None),
          ]},
     ]
     def __init__(self, seed: int = 23):
@@ -130,11 +130,16 @@ class TransitProducer:
         self.tick_n += 1
         return len(evs)
 
-    def run(self, bus, topic: str, hz: float = 1.0):
+    def run(self, bus, topic: str, hz: float = 1.0, control_topic: str | None = None):
         period = 1.0 / max(hz, 0.1)
         print(f"[transit_producer] -> topic '{topic}', {hz} Hz. Ctrl-C zum Stoppen.")
         try:
             while True:
+                if control_topic:
+                    for cmd in bus.poll([control_topic], max_messages=20):
+                        if cmd.get("cmd") == "inject":
+                            self.inject(cmd.get("key"))
+                            print(f"  [control] inject '{cmd.get('key')}'")
                 n = self.produce_tick(bus, topic)
                 print(f"  tick {self.tick_n}: {n} events")
                 if hasattr(bus, "flush"):
@@ -150,11 +155,12 @@ def main():
     from streaming import bus as bus_mod, kafka_config
     b = bus_mod.get_bus()
     topic = kafka_config.topics_for("transit")["events"]
+    control_topic = kafka_config.topics_for("transit")["control"]
     print(f"[transit_producer] Bus-Modus: {bus_mod.bus_mode()}")
     if bus_mod.bus_mode() == kafka_config.MODE_SIM:
         print("  HINWEIS: sim-Modus -> Events landen im In-Process-Bus dieses "
               "Prozesses. Fuer echten Broker: RL_STREAM_MODE=live + docker-compose up.")
-    TransitProducer().run(b, topic, hz=1.0)
+    TransitProducer().run(b, topic, hz=1.0, control_topic=control_topic)
 
 
 if __name__ == "__main__":

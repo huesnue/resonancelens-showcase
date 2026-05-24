@@ -46,7 +46,7 @@ SECURITY_PROB = 0.04      # gelegentlicher Security-Scan-Event
 class SatelliteProducer:
 
     INJECTS = [
-        {"key": "thermal", "label": "⚡ Thermal / power event",
+        {"key": "thermal", "label": "⚡ Thermal / power event", "space": "satellite",
          "help": "Origin: Satellite (thermal/power) → Ground",
          "events": [
              (0, "cluster", "Satellite", "thermal_power", 0.82, 0.82, "telemetry",  "Solar-panel thermal spike — power redistribution"),
@@ -54,7 +54,7 @@ class SatelliteProducer:
              (3, "cluster", "Satellite", "sustain",       0.0,  0.55, "telemetry",  None),
              (5, "cluster", "Ground",    "sustain",       0.0,  0.52, "telemetry",  None),
          ]},
-        {"key": "deploy", "label": "⚡ Faulty deployment",
+        {"key": "deploy", "label": "⚡ Faulty deployment", "space": "pipeline",
          "help": "Origin: Pipeline → Ground → satellite downlink",
          "events": [
              (0, "cluster", "Pipeline",  "deploy_status", 1.0,  0.82, "deployment", "DevSecOps: faulty deployment rolled out"),
@@ -62,7 +62,7 @@ class SatelliteProducer:
              (4, "cluster", "Satellite", "downlink",      0.60, 0.60, "telemetry",  "Downlink / comm error rate climbing"),
              (5, "cluster", "Ground",    "sustain",       0.0,  0.52, "telemetry",  None),
          ]},
-        {"key": "ground", "label": "⚡ Ground-segment outage",
+        {"key": "ground", "label": "⚡ Ground-segment outage", "space": "ground",
          "help": "Origin: Ground (antenna/network) → satellite downlink",
          "events": [
              (0, "cluster", "Ground",    "outage",        1.0,  0.82, "telemetry",  "Ground-segment outage — antenna & network down"),
@@ -138,11 +138,16 @@ class SatelliteProducer:
         return len(evs)
 
     # ---- Standalone-Schleife (live) -------------------------------
-    def run(self, bus, topic: str, hz: float = 1.0):
+    def run(self, bus, topic: str, hz: float = 1.0, control_topic: str | None = None):
         period = 1.0 / max(hz, 0.1)
         print(f"[satellite_producer] -> topic '{topic}', {hz} Hz. Ctrl-C zum Stoppen.")
         try:
             while True:
+                if control_topic:
+                    for cmd in bus.poll([control_topic], max_messages=20):
+                        if cmd.get("cmd") == "inject":
+                            self.inject(cmd.get("key"))
+                            print(f"  [control] inject '{cmd.get('key')}'")
                 n = self.produce_tick(bus, topic)
                 print(f"  tick {self.tick_n}: {n} events")
                 if hasattr(bus, "flush"):
@@ -158,11 +163,12 @@ def main():
     from streaming import bus as bus_mod, kafka_config
     b = bus_mod.get_bus()
     topic = kafka_config.topics_for("satellite")["events"]
+    control_topic = kafka_config.topics_for("satellite")["control"]
     print(f"[satellite_producer] Bus-Modus: {bus_mod.bus_mode()}")
     if bus_mod.bus_mode() == kafka_config.MODE_SIM:
         print("  HINWEIS: sim-Modus -> Events landen im In-Process-Bus dieses "
               "Prozesses. Fuer echten Broker: RL_STREAM_MODE=live + docker-compose up.")
-    SatelliteProducer().run(b, topic, hz=1.0)
+    SatelliteProducer().run(b, topic, hz=1.0, control_topic=control_topic)
 
 
 if __name__ == "__main__":
