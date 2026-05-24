@@ -1,0 +1,8 @@
+# Extra-Abhaengigkeit NUR fuer den lokalen Live-Modus (echter Kafka-Broker).
+# Bewusst getrennt von requirements.txt, damit Streamlit Cloud (sim-only) schlank
+# bleibt und dort kein kafka-python installiert wird.
+#
+# Installation zusaetzlich zu requirements.txt:
+#   pip install -r requirements.txt -r requirements-live.txt
+#
+kafka-python>=2.0,<3.0
