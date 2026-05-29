@@ -1,7 +1,7 @@
 """
 ResonanceLens Streaming Subsystem
 =================================
-Echtzeit-Ingest-Schicht fuer die Live-Szenarien (SSC, R+V, OePNV).
+Echtzeit-Ingest-Schicht fuer die Live-Szenarien (Satellite, DigitalOps, Transit).
 
 Architektur:
   bus.py          - Dual-Mode Message-Bus (KafkaBus | InProcessBus, gleiche API)

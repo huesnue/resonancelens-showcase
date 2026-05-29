@@ -1,7 +1,7 @@
 """
-Satellite Telemetry Producer (SSC / Mission Control Resilience)
-===============================================================
-Erzeugt einen plausiblen Echtzeit-Telemetriestrom fuer das SSC-Szenario.
+Satellite Telemetry Producer (Mission Control Resilience)
+=========================================================
+Erzeugt einen plausiblen Echtzeit-Telemetriestrom fuer das Satellite-Szenario.
 
 Zwei Betriebsarten:
   - tick(bus, topic)  : ein Tick, publiziert Events. Wird im sim-Modus vom

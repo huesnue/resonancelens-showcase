@@ -1,5 +1,5 @@
 """
-Intro-Renderer fuer das R+V / Digital Operations Resilience (Live-Streaming).
+Intro-Renderer fuer Digital Operations Resilience (Live-Streaming).
 Gleiches 6-Felder-Muster wie die uebrigen Szenarien.
 
   - render_digitalops_primer():  grosse Card
@@ -117,7 +117,7 @@ def render_digitalops_primer():
     st.markdown(_CARD_CSS, unsafe_allow_html=True)
     st.markdown(
         '<div class="dops-scenario-label">SCENARIO · LIVE</div>'
-        '<div class="dops-scenario-title">Digital Operations Resilience (R+V)</div>',
+        '<div class="dops-scenario-title">Digital Operations Resilience</div>',
         unsafe_allow_html=True,
     )
     st.markdown(_grid(), unsafe_allow_html=True)

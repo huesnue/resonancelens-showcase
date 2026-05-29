@@ -1,8 +1,8 @@
 """
-Digital Operations Producer (R+V Versicherung)
-==============================================
+Digital Operations Producer
+===========================
 Erzeugt einen plausiblen Echtzeit-Strom aus API-Logs / Infra-Metriken /
-Geschaeftsprozess-Events fuer das R+V-Szenario.
+Geschaeftsprozess-Events fuer das DigitalOps-Szenario.
 
 Zwei Betriebsarten (analog satellite_producer):
   - produce_tick(bus, topic) : ein Tick (sim-Modus, vom Dashboard gesteppt)

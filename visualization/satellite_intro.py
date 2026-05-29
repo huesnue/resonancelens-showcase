@@ -1,5 +1,5 @@
 """
-Intro-Renderer fuer das SSC / Mission Control Resilience (Live-Streaming).
+Intro-Renderer fuer Mission Control Resilience (Live-Streaming).
 Gleiches 6-Felder-Muster wie die Batch-Szenarien, angepasst an den
 Echtzeit-/Kafka-Kontext.
 
@@ -116,7 +116,7 @@ def render_satellite_primer():
     st.markdown(_CARD_CSS, unsafe_allow_html=True)
     st.markdown(
         '<div class="sat-scenario-label">SCENARIO · LIVE</div>'
-        '<div class="sat-scenario-title">Mission Control Resilience (SSC)</div>',
+        '<div class="sat-scenario-title">Mission Control Resilience</div>',
         unsafe_allow_html=True,
     )
     st.markdown(_grid(), unsafe_allow_html=True)

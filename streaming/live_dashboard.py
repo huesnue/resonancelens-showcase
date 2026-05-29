@@ -6,7 +6,7 @@ st.fragment(run_every=...), steppt den StreamCore, fuehrt den Detector aus
 und zeichnet KPI-Header, Live-Signal-Chart, Live-Netzwerk und Event-Rail.
 
 Eine Szenario-Registry (SCENARIOS) haelt die Konfiguration. Neue Szenarien
-(R+V, OePNV) ergaenzen hier nur einen Eintrag + Producer + CSVs.
+(DigitalOps, Transit) ergaenzen hier nur einen Eintrag + Producer + CSVs.
 
 Streamlit-Integration:
   - Engine (bus/core/producer/detector/layout) als @st.cache_resource-Singleton
@@ -75,7 +75,7 @@ def _intro_automotive():
 
 SCENARIOS = {
     "satellite": {
-        "title":      "Mission Control Resilience — SSC",
+        "title":      "Mission Control Resilience",
         "nodes_csv":  _data("satellite_nodes.csv"),
         "edges_csv":  _data("satellite_edges.csv"),
         "producer_key": "satellite",
@@ -87,7 +87,7 @@ SCENARIOS = {
         },
     },
     "digitalops": {
-        "title":      "Digital Operations Resilience — R+V",
+        "title":      "Digital Operations Resilience",
         "nodes_csv":  _data("digitalops_nodes.csv"),
         "edges_csv":  _data("digitalops_edges.csv"),
         "producer_key": "digitalops",
