@@ -52,6 +52,11 @@ EW_RATE_NORM     = 0.15   # Normierung der Anstiegsraten
 EW_GREEN  = 0.20
 EW_AMBER  = 0.45
 
+# Un-verduenntes EW (Maximum ueber Raeume) + Zustands-Term:
+EW_RATE_W     = 0.70   # Gewicht des Vorlauf-(Raten-)Terms
+EW_STATE_HI   = 0.60   # Raum-Health darueber -> kein Zustands-Beitrag (Baseline ruht hoeher)
+EW_STATE_GAIN = 0.45   # wie stark ein tief stehender Raum die Warnung erhoeht haelt
+
 HISTORY_LEN = 360
 
 
@@ -192,20 +197,26 @@ class StreamCore:
         stability_margin = max(0.0, min(1.0, capacity_buffer - shock_pressure))
         self._stress_acc = (1 - EWMA_ALPHA) * self._stress_acc + EWMA_ALPHA * shock_pressure
 
-        # 7) Fruehwarnung: ABLEITUNGSBASIERT -> reagiert auf die Anstiegsrate
-        #    von shock_pressure und den Abfall der stability_margin. Beides
-        #    bewegt sich bei Kaskaden-Onset BEVOR sich der Buffer erodiert und
-        #    system_health sichtbar einbricht -> echter Vorlauf. Persistenz
-        #    (EW_DECAY) haelt das Signal waehrend des Dips, faded im Recovery.
-        prev_pressure = self.history[-EW_WINDOW]["shock_pressure"] \
-            if len(self.history) >= EW_WINDOW else None
-        prev_margin = self.history[-EW_WINDOW]["stability_margin"] \
-            if len(self.history) >= EW_WINDOW else None
-        pressure_rate = max(0.0, shock_pressure - prev_pressure) / EW_RATE_NORM \
-            if prev_pressure is not None else 0.0
-        margin_rate = max(0.0, prev_margin - stability_margin) / EW_RATE_NORM \
-            if prev_margin is not None else 0.0
-        ew_inst = min(1.0, 0.70 * pressure_rate + 0.60 * margin_rate)
+        # 7) Fruehwarnung: VORLAUF (Rate) + ZUSTAND. Un-verduennt: Maximum ueber
+        #    die Raeume statt Mittelwert -> ein einzelner kollabierender Raum
+        #    verschwindet nicht im Aggregat (entspricht der Stufe-4-Aggregations-
+        #    regel "Maximum" des Core). Der Raten-Term bewegt sich bei Kaskaden-
+        #    Onset BEVOR system_health sichtbar einbricht -> echter Vorlauf. Der
+        #    Zustands-Term haelt die Warnung erhoeht, solange ein Raum strukturell
+        #    tief steht -> "calm" erst bei Erholung, nicht schon wenn der Einbruch
+        #    nur aufhoert (sonst zeigt das UI "Raum bei 20 %, aber calm").
+        if len(self.history) >= EW_WINDOW:
+            prev_sh = self.history[-EW_WINDOW]["space_health"]
+            worst_drop = max(
+                (prev_sh.get(sp, space_health[sp]) - space_health[sp])
+                for sp in self.spaces
+            )
+        else:
+            worst_drop = 0.0
+        erosion_rate = max(0.0, worst_drop) / EW_RATE_NORM           # Vorlauf (Rate)
+        worst_health = min(space_health.values()) if space_health else 1.0
+        state_term = EW_STATE_GAIN * max(0.0, (EW_STATE_HI - worst_health) / EW_STATE_HI)  # Zustand
+        ew_inst = min(1.0, EW_RATE_W * erosion_rate + state_term)
         prev_ew = self.history[-1]["early_warning"] if self.history else 0.0
         early_warning = max(0.0, min(1.0, max(ew_inst, prev_ew * EW_DECAY)))
         if early_warning < EW_GREEN:
