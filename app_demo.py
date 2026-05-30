@@ -39,6 +39,9 @@ from scenarios.energy_events import EVENTS as ENERGY_EVENTS, get_events as get_e
 from scenarios.pandemic_events import get_events as get_pandemic_events, STOCHASTIC_PARAMS as PANDEMIC_STOCHASTIC_PARAMS
 from scenarios.financial_events import get_events as get_financial_events, STOCHASTIC_PARAMS as FINANCIAL_STOCHASTIC_PARAMS
 from scenarios.cyber_cloud_events import get_events as get_cyber_cloud_events, STOCHASTIC_PARAMS as CYBER_STOCHASTIC_PARAMS
+from scenarios.ctpp_concentration import load_scenario as load_ctpp_concentration
+from scenarios.ctpp_concentration_events import get_events as get_ctpp_events, STOCHASTIC_PARAMS as CTPP_STOCHASTIC_PARAMS
+from core_lite.ctpp_kpis import compute_ctpp_kpis
 from core_lite.critical_infra_simulation import run_critical_infra_simulation
 from core_lite.critical_infra_ensemble import run_ensemble as run_critical_infra_ensemble
 from scenarios.critical_infra import load_scenario as load_critical_infra
@@ -409,6 +412,7 @@ with st.sidebar:
                 "Pandemic 2020-2030",
                 "Eurozone Financial Stability",
                 "Cloud & Cyber Resilience",
+                "ICT Third-Party Concentration",
                 "Rail & Critical Infrastructure",
                 "Banking Build-Pipeline",
             ],
@@ -432,6 +436,8 @@ elif scenario_name == "Eurozone Financial Stability":
     scenario = {"type": "financial"}   # path selected inside panel
 elif scenario_name == "Cloud & Cyber Resilience":
     scenario = {"type": "cyber_cloud"}   # path selected inside panel
+elif scenario_name == "ICT Third-Party Concentration":
+    scenario = {"type": "ctpp_concentration"}   # path selected inside panel
 elif scenario_name == "Rail & Critical Infrastructure":
     scenario = {"type": "critical_infra"}   # path selected inside panel
 elif scenario_name == "Banking Build-Pipeline":
@@ -471,6 +477,12 @@ if st.session_state["last_scenario"] != scenario_name:
                 "cyber_cloud_ensemble_resilient",
                 "cyber_cloud_ensemble_hybrid",
                 "cyber_cloud_ensemble_fragile",
+                "ctpp_history_resilient",
+                "ctpp_history_hybrid",
+                "ctpp_history_fragile",
+                "ctpp_ensemble_resilient",
+                "ctpp_ensemble_hybrid",
+                "ctpp_ensemble_fragile",
                 "critical_infra_history_resilient",
                 "critical_infra_history_hybrid",
                 "critical_infra_history_fragile",
@@ -2943,6 +2955,682 @@ elif scenario["type"] == "cyber_cloud":
 
     cyber_cloud_panel(history, max_step, proj_step, selected_path, ensemble=ensemble)
 
+# ==========================================
+# CTTP CONCENTRATION SCENARIO
+# ==========================================
+elif scenario["type"] == "ctpp_concentration":
+    st.divider()
+    st.subheader("ICT Third-Party Concentration Risk — DORA Stress-Test Demonstrator")
+    st.caption(
+        "This scenario is not a forecast. It is a structural stress-test demonstrator "
+        "showing how concentration on a few critical ICT third-party providers propagates across the financial sector and the real economy."
+    )
+
+    path_options = {
+        "🟢 Resilient": "resilient",
+        "🟡 Hybrid":    "hybrid",
+        "🔴 Fragile":   "fragile",
+    }
+    selected_label = st.radio(
+        "Structural path",
+        options=list(path_options.keys()),
+        horizontal=True,
+        key="ctpp_path_radio"
+    )
+    selected_path = path_options[selected_label]
+    history_key   = f"ctpp_history_{selected_path}"
+    ensemble_key  = f"ctpp_ensemble_{selected_path}"
+
+    if run_clicked:
+        params = CTPP_STOCHASTIC_PARAMS[selected_path]
+
+        def _load_cy_nodes():
+            return load_ctpp_concentration(path=selected_path)["nodes"]
+        def _load_cy_edges():
+            return load_ctpp_concentration(path=selected_path)["edges"]
+
+        # Pfad-unabhängige Vor-Belastung (einmalig laden)
+        _cy_bg_load = load_ctpp_concentration(path=selected_path).get("background_load")
+
+        path_label = selected_label
+        progress_bar = st.progress(0, text=f"Running ensemble — {path_label} — 0 / 30")
+
+        def _update_cy_progress(pct, done, total):
+            progress_bar.progress(pct, text=f"Running ensemble — {path_label} — {done} / {total}")
+
+        ensemble = run_cyber_cloud_ensemble(
+            load_nodes_fn=_load_cy_nodes,
+            load_edges_fn=_load_cy_edges,
+            run_simulation_fn=run_cyber_cloud_simulation,
+            get_events_fn=get_ctpp_events,
+            stochastic_params=params,
+            path_name=selected_path,
+            steps=CYBER_STEPS,
+            month_to_step=CYBER_MONTH_TO_STEP,
+            projection_start_month=CYBER_PROJECTION_START,
+            month_labels=CYBER_MONTHS,
+            background_load=_cy_bg_load,
+            n_runs=30,
+            progress_callback=_update_cy_progress,
+        )
+        progress_bar.empty()
+
+        st.session_state[ensemble_key] = ensemble
+        st.session_state[history_key]  = ensemble["median_history"]
+        st.session_state["step"] = 0
+        st.session_state["mode"] = "manual"
+
+    # ------------------------------------------
+    # Pre-Run-Guard: show primer card until user clicks Run for this path
+    # ------------------------------------------
+    if history_key not in st.session_state:
+        render_primer_card("ICT Third-Party Concentration")
+        st.stop()
+
+    # Live-Dashboard: compact info expander above the controls
+    render_intro_expander("ICT Third-Party Concentration")
+
+    ensemble  = st.session_state.get(ensemble_key)
+    history   = st.session_state[history_key]
+    max_step  = len(history) - 1
+    proj_step = CYBER_MONTH_TO_STEP.get(CYBER_PROJECTION_START, max_step)
+
+    run_every_c = 1.0 if st.session_state["mode"] == "playback" else None
+
+    @st.fragment(run_every=run_every_c)
+    def ctpp_panel(history, max_step, proj_step, selected_path, ensemble=None):
+
+        is_playing = st.session_state["mode"] == "playback"
+        if is_playing:
+            cur = st.session_state["step"]
+            if cur < max_step:
+                st.session_state["step"] = cur + 1
+            else:
+                st.session_state["mode"] = "manual"
+                st.rerun()
+
+        # ------------------------------------------
+        # Controls
+        # ------------------------------------------
+        ctrl1, ctrl2, ctrl3 = st.columns([1, 1, 4])
+        with ctrl1:
+            if st.button("▶ Play", key="cy_play", disabled=is_playing, width='stretch'):
+                st.session_state["mode"] = "playback"
+                st.session_state["step"] = 0
+                st.rerun()
+        with ctrl2:
+            if st.button("⏸ Step", key="cy_pause", disabled=not is_playing, width='stretch'):
+                st.session_state["mode"] = "manual"
+                st.rerun()
+        with ctrl3:
+            if "ctpp_sim_step" not in st.session_state:
+                st.session_state["ctpp_sim_step"] = st.session_state["step"]
+            if is_playing:
+                st.session_state["ctpp_sim_step"] = st.session_state["step"]
+            step = st.slider("Month", 0, max_step, key="ctpp_sim_step",
+                             disabled=is_playing, label_visibility="collapsed")
+            if not is_playing:
+                st.session_state["step"] = step
+
+        current     = history[st.session_state["step"]]
+        current_idx = st.session_state["step"]
+        current_month = CYBER_MONTHS[current_idx]
+        is_proj     = current.get("is_projection", False)
+
+        # ------------------------------------------
+        # Metrics — six columns: Phase / Health / Digital / Financial / Economic / EW
+        # ------------------------------------------
+        m1, m2, m3, m4, m5, m6 = st.columns(6)
+        health_val = current["system_health"]
+
+        dig_layer = current.get("digital_layer", {})
+        fin_layer = current.get("financial_layer", {})
+        eco_layer = current.get("economic_layer", {})
+        avg_dig = sum(dig_layer.values()) / len(dig_layer) if dig_layer else health_val
+        avg_fin = sum(fin_layer.values()) / len(fin_layer) if fin_layer else health_val
+        avg_eco = sum(eco_layer.values()) / len(eco_layer) if eco_layer else health_val
+
+        _phase_label = "📡 Projection" if is_proj else "📂 Historical"
+        m1.metric(_phase_label, current_month)
+        m2.metric("System Health", f"{health_val:.0%}")
+        m3.metric("☁️ Digital Resilience", f"{avg_dig:.0%}")
+        m4.metric("🏦 Financial Stability", f"{avg_fin:.0%}")
+        m5.metric("🌍 Economic Output", f"{avg_eco:.0%}")
+        _ew_placeholder = m6.empty()
+
+        # --- DORA-Header-Kacheln (ICT-Konzentrationsrisiko) ---
+        _ctpp_edges = load_ctpp_concentration(path=selected_path)["edges"]
+        _kpis = compute_ctpp_kpis(current, _ctpp_edges)
+        _ci, _sp, _cr = _kpis["concentration_index"], _kpis["spof_exposure"], _kpis["cif_at_risk"]
+        _kc1, _kc2, _kc3 = st.columns(3)
+        _kc1.metric(f"{_ci['icon']} ICT Concentration (HHI)", f"{_ci['value']:.0%}", _ci['label'])
+        _kc2.metric(f"{_sp['icon']} SPoF Exposure", f"{_sp['value']:.0%}", _sp['label'])
+        _kc3.metric(f"{_cr['icon']} CIF at Risk", f"{_cr['count']}/{_cr['total']}", _cr['label'])
+
+        # ------------------------------------------
+        # Active Attack Banner — driven by snapshot active_attack
+        # ------------------------------------------
+        active_attack = current.get("active_attack")
+        if active_attack:
+            atype  = active_attack.get("type", "unknown")
+            actor  = active_attack.get("actor", "unknown")
+            inten  = active_attack.get("intensity", 0.0)
+            target = active_attack.get("target_cluster") or "system-wide"
+            st.markdown(
+                f"<div style='background:rgba(167,71,71,0.12);border-left:3px solid #c66767;"
+                f"border-radius:0 6px 6px 0;padding:6px 14px;font-size:12px;margin-bottom:8px;"
+                f"display:flex;flex-wrap:wrap;gap:14px;align-items:center;'>"
+                f"<span>⚔️ <strong>Active threat</strong></span>"
+                f"<span style='opacity:0.85;'>type: <strong>{atype}</strong></span>"
+                f"<span style='opacity:0.85;'>actor: <strong>{actor}</strong></span>"
+                f"<span style='opacity:0.85;'>target: <strong>{target}</strong></span>"
+                f"<span style='opacity:0.85;'>intensity: <strong>{inten:.2f}</strong></span>"
+                f"</div>", unsafe_allow_html=True)
+
+        # ------------------------------------------
+        # FRUEHWARNARCHITEKTUR — gradient + level Komponenten (Cyber-spezifisch)
+        # Im Cyber-Szenario soll die EW echtes "Vorlaufsignal" liefern:
+        # nicht erst bei Impact sondern schon bei der schleichenden Erosion,
+        # die jedem Cyber-Vorfall vorausgeht (Reconnaissance, Pre-Positioning,
+        # Staging, Credential-Harvesting etc.).
+        # Daher zwei Komponenten-Familien:
+        #   acute    — Differenzen (reagieren AT events) — 65% Gewicht
+        #   leading  — Pegel langsamer Variablen (akkumulieren ZWISCHEN events) — 35%
+        # ------------------------------------------
+        health_series = [h["system_health"] for h in history]
+        n = len(health_series)
+        stability_norm = health_series
+
+        cb_series   = [h.get("capacity_buffer",  0.60) for h in history]
+        sp_series   = [h.get("shock_pressure",   0.0)  for h in history]
+        sm_series   = [h.get("stability_margin", 0.0)  for h in history]
+        sa_series   = [h.get("stress_accumulation", 0.0) for h in history]
+        econ_series = [
+            sum(h.get("economic_layer", {}).values()) / max(len(h.get("economic_layer", {})), 1)
+            for h in history
+        ]
+
+        # Buffer-Baseline: Initialwert dient als historische Referenz fuer Annotationen.
+        cb_baseline = max(0.05, cb_series[0]) if cb_series else 0.60
+
+        structural_drift_raw = [0.0]
+        for i in range(1, n):
+            # --- Acute (gradient) — Veraenderungen seit letztem Step ---
+            d_cb     = max(0.0, cb_series[i-1]    - cb_series[i])
+            d_sp     = max(0.0, sp_series[i]       - sp_series[i-1])
+            d_health = max(0.0, health_series[i-1] - health_series[i])
+            d_econ   = max(0.0, econ_series[i-1]   - econ_series[i])
+            acute = 0.25 * d_cb + 0.15 * d_sp + 0.15 * d_health + 0.10 * d_econ
+
+            # --- Leading (level) — kumulierte strukturelle Erosion ---
+            # Buffer-Vulnerability: wie weit ist der Buffer vom theoretischen
+            # Maximum (1.0) entfernt. Damit skaliert die Metrik korrekt mit
+            # Pfadfragilitaet — Resilient mit hohem Buffer hat fast keine
+            # Vulnerability, Fragile mit niedrigem Buffer ist chronisch
+            # vulnerabel auch zwischen Events.
+            buffer_vulnerability = max(0.0, 1.0 - cb_series[i])
+            # Stress-Akkumulation: latente Belastung normalisiert
+            sa_normalized = min(1.0, sa_series[i] / 4.0)
+            leading = 0.20 * buffer_vulnerability + 0.15 * sa_normalized
+
+            structural_drift_raw.append(acute + leading)
+
+        n_smooth = 3
+        structural_drift_smooth = []
+        for i in range(n):
+            window = structural_drift_raw[max(0, i-n_smooth+1):i+1]
+            structural_drift_smooth.append(sum(window) / len(window))
+
+        drift_max = max(structural_drift_smooth) if max(structural_drift_smooth) > 0 else 1.0
+        ew_norm = [max(0.0, v / drift_max) for v in structural_drift_smooth]
+
+        _ew_now = ew_norm[current_idx] if current_idx < len(ew_norm) else 0.0
+        if _ew_now >= 0.60:
+            _ew_label, _ew_color, _ew_icon = "High", "#ff3b3b", "🔴"
+        elif _ew_now >= 0.20:
+            _ew_label, _ew_color, _ew_icon = "Elevated", "#f4a261", "🟡"
+        else:
+            _ew_label, _ew_color, _ew_icon = "Low", "#6bd96b", "🟢"
+        with _ew_placeholder:
+            st.metric(
+                label="Early Warning",
+                value=f"{_ew_icon} {_ew_label}",
+                delta=f"{_ew_now:.0%} structural signal",
+                delta_color="off",
+            )
+
+        m_l1 = 3
+        level_1 = []
+        for i in range(n):
+            if i < m_l1:
+                level_1.append(0.0)
+            else:
+                cb_grad  = max(0.0, cb_series[i-m_l1]     - cb_series[i]) / m_l1
+                hlt_grad = max(0.0, health_series[i-m_l1] - health_series[i]) / m_l1
+                level_1.append(min(1.0, cb_grad * 8.0 + hlt_grad * 4.0))
+
+        m_l2 = 6
+        level_2 = []
+        for i in range(n):
+            if i < m_l2:
+                level_2.append(0.0)
+            else:
+                neg = sum(1 for j in range(i-m_l2, i) if sm_series[j] < 0)
+                level_2.append(neg / m_l2)
+
+        L0_THR   = 0.20
+        STAB_THR = 0.75
+
+        # ------------------------------------------------------------
+        # EW-Spike-Detektor — Cyber-Variante
+        # ------------------------------------------------------------
+        # Cyber-EW hat zwei Komponenten-Familien (acute + leading);
+        # auf dem Fragile-Pfad bleibt die Leading-Komponente chronisch
+        # hoch (~0.60–0.80). Reine Schwellen-Übergangs-Logik feuert
+        # dann nur einmal zu Beginn der Zeitreihe und niemals wieder
+        # — der Banner-Counter läuft anschließend gegen +∞.
+        #
+        # Daher: Spike = lokaler Anstieg von >= DELTA_THR ggü. dem
+        # rollenden Minimum der letzten WINDOW Monate. Das fängt
+        # echte Akut-Spitzen auch auf chronisch erhöhter Baseline,
+        # ohne den ursprünglichen Schwellen-Übergang zu verlieren.
+        DELTA_THR = 0.15   # min. Anstieg ggü. lokalem Tief
+        WINDOW    = 6      # Lookback in Monaten
+        COOLDOWN  = 3      # min. Abstand zwischen zwei offenen Spikes
+
+        def find_ew_pairs(ew, stab, et, st_thr,
+                          delta_thr=DELTA_THR, window=WINDOW,
+                          cooldown=COOLDOWN):
+            pairs, open_pair, last_spike, i = [], None, -10**9, 1
+            while i < len(ew):
+                lo = max(0, i - window)
+                local_min   = min(ew[lo:i+1])
+                absolute_ok = ew[i] > et and ew[i-1] <= et
+                delta_ok    = (ew[i] - local_min) >= delta_thr and ew[i] > et
+                cool_ok     = (i - last_spike) >= cooldown
+                if (absolute_ok or delta_ok) and cool_ok:
+                    spike, found = i, False
+                    last_spike = i
+                    for j in range(spike+1, len(stab)):
+                        if stab[j] < st_thr and stab[j-1] >= st_thr:
+                            pairs.append((spike, j, j-spike))
+                            i, found = j+1, True
+                            break
+                    if not found:
+                        open_pair = (spike, None, None)
+                        i += 1
+                else:
+                    i += 1
+            return pairs, open_pair
+
+        all_pairs, open_pair = find_ew_pairs(
+            ew_norm[:current_idx+1], stability_norm[:current_idx+1], L0_THR, STAB_THR)
+
+        display_pair, display_open = None, False
+        if open_pair:
+            display_pair, display_open = open_pair, True
+        elif all_pairs:
+            last = all_pairs[-1]
+            if current_idx - last[1] <= 8:
+                display_pair, display_open = last, False
+
+        if display_pair:
+            spike_m = CYBER_MONTHS[display_pair[0]] if display_pair[0] < len(CYBER_MONTHS) else ""
+            if display_open:
+                steps_since = current_idx - display_pair[0]
+                st.markdown(
+                    f"<div style='background:rgba(244,162,97,0.15);border-left:3px solid #f4a261;"
+                    f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;margin-bottom:8px;'>"
+                    f"⚠️ <strong>Early Warning active</strong> since {spike_m} "
+                    f"— structural weakening detected <strong>{steps_since} month{'s' if steps_since!=1 else ''} ago</strong>. "
+                    f"Stability drop not yet confirmed.</div>", unsafe_allow_html=True)
+            else:
+                st.markdown(
+                    f"<div style='background:rgba(244,162,97,0.12);border-left:3px solid #f4a261;"
+                    f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;margin-bottom:8px;'>"
+                    f"💡 <strong>Early Warning</strong> ({spike_m}) signaled structural weakening "
+                    f"<strong>{display_pair[2]} months</strong> before Stability visibly dropped.</div>",
+                    unsafe_allow_html=True)
+
+        # ------------------------------------------
+        # Chart | Network | Events
+        # ------------------------------------------
+        _state_banner_ph = st.empty()
+        col_left, col_mid, col_right = st.columns([4, 4, 2])
+
+        with col_left:
+            dig_layer_avg = [
+                sum(h.get("digital_layer", {}).values()) / max(len(h.get("digital_layer", {})), 1)
+                for h in history
+            ]
+            fin_layer_avg = [
+                sum(h.get("financial_layer", {}).values()) / max(len(h.get("financial_layer", {})), 1)
+                for h in history
+            ]
+            eco_layer_avg = [
+                sum(h.get("economic_layer", {}).values()) / max(len(h.get("economic_layer", {})), 1)
+                for h in history
+            ]
+
+            tick_vals = list(range(0, n, 12))
+            tick_text = [CYBER_MONTHS[i] for i in tick_vals if i < len(CYBER_MONTHS)]
+
+            fig = go.Figure()
+
+            # Projektionszone
+            if current_idx >= proj_step:
+                fig.add_vrect(x0=proj_step, x1=current_idx,
+                              fillcolor="#1E3A5F", opacity=0.04, layer="below", line_width=0)
+            fig.add_vline(x=proj_step, line_width=1, line_dash="dash",
+                          line_color="rgba(147,197,253,0.6)",
+                          annotation_text="▶ Projection", annotation_position="top right",
+                          annotation_font_size=9, annotation_font_color="#93C5FD")
+
+            # Historische Cyber-Stresszonen
+            for zone_start, zone_end, color, label in [
+                ("Dec 2021", "May 2022",  "#f4a261", "Log4Shell + Viasat"),
+                ("Jul 2024", "Aug 2024",  "#E24B4A", "CrowdStrike global outage"),
+                ("Oct 2025", "Nov 2025",  "#E24B4A", "AWS US-EAST-1 DNS"),
+            ]:
+                s = CYBER_MONTH_TO_STEP.get(zone_start)
+                e = CYBER_MONTH_TO_STEP.get(zone_end)
+                if s is not None and e is not None:
+                    fig.add_vrect(x0=s, x1=e, fillcolor=color, opacity=0.07,
+                                  layer="below", line_width=0)
+
+            visible_end = current_idx + 1
+
+            xs_hist = list(range(min(visible_end, proj_step + 1)))
+            xs_proj = list(range(proj_step, visible_end)) if visible_end > proj_step else []
+
+            def hist_slice(series):
+                return series[:min(visible_end, proj_step + 1)]
+
+            def proj_slice(series):
+                return series[proj_step:visible_end] if visible_end > proj_step else []
+
+            # System Health — historisch
+            fig.add_trace(go.Scatter(
+                x=xs_hist, y=hist_slice(stability_norm), mode="lines",
+                name="Stability (combined)",
+                line=dict(color="#4fc3f7", width=2.5)))
+
+            # Ensemble-Bänder in Projektionsphase
+            if xs_proj and ensemble:
+                hp = ensemble["health"]
+                proj_start_idx = CYBER_MONTH_TO_STEP.get(CYBER_PROJECTION_START, proj_step)
+                p90_proj = hp["p90"][proj_start_idx:visible_end]
+                p10_proj = hp["p10"][proj_start_idx:visible_end]
+                p75_proj = hp["p75"][proj_start_idx:visible_end]
+                p25_proj = hp["p25"][proj_start_idx:visible_end]
+                p50_proj = hp["p50"][proj_start_idx:visible_end]
+                if p90_proj:
+                    fig.add_trace(go.Scatter(
+                        x=xs_proj, y=p90_proj, mode="lines",
+                        name="p90", showlegend=False,
+                        line=dict(width=0),
+                        fillcolor="rgba(79,195,247,0.18)", fill="tonexty"))
+                    fig.add_trace(go.Scatter(
+                        x=xs_proj, y=p10_proj, mode="lines",
+                        name="p10–p90 band", showlegend=True,
+                        line=dict(width=0),
+                        fillcolor="rgba(79,195,247,0.18)", fill="tonexty"))
+                    fig.add_trace(go.Scatter(
+                        x=xs_proj, y=p75_proj, mode="lines",
+                        name="p75", showlegend=False,
+                        line=dict(width=0),
+                        fillcolor="rgba(79,195,247,0.30)", fill="tonexty"))
+                    fig.add_trace(go.Scatter(
+                        x=xs_proj, y=p25_proj, mode="lines",
+                        name="p25–p75 band", showlegend=True,
+                        line=dict(width=0),
+                        fillcolor="rgba(79,195,247,0.30)", fill="tonexty"))
+                    fig.add_trace(go.Scatter(
+                        x=xs_proj, y=p50_proj, mode="lines",
+                        name="Median (p50)", showlegend=True,
+                        line=dict(color="#4fc3f7", width=2.0, dash="dash")))
+            elif xs_proj:
+                fig.add_trace(go.Scatter(
+                    x=xs_proj, y=proj_slice(stability_norm), mode="lines",
+                    name="Stability (proj)", showlegend=False,
+                    line=dict(color="#4fc3f7", width=2.0, dash="dash")))
+
+            # Digital layer (sky blue, dotted)
+            fig.add_trace(go.Scatter(
+                x=xs_hist, y=hist_slice(dig_layer_avg), mode="lines",
+                name="Digital Resilience",
+                line=dict(color="#60A5FA", width=1.5, dash="dot"),
+                fill="tozeroy", fillcolor="rgba(96,165,250,0.05)"))
+            if xs_proj:
+                fig.add_trace(go.Scatter(
+                    x=xs_proj, y=proj_slice(dig_layer_avg), mode="lines",
+                    name="Digital Resilience (proj)", showlegend=False,
+                    line=dict(color="#60A5FA", width=1.5, dash="dot")))
+
+            # Financial layer (green)
+            fig.add_trace(go.Scatter(
+                x=xs_hist, y=hist_slice(fin_layer_avg), mode="lines",
+                name="Financial Stability",
+                line=dict(color="#86EFAC", width=1.5, dash="dot"),
+                fill="tozeroy", fillcolor="rgba(134,239,172,0.05)"))
+            if xs_proj:
+                fig.add_trace(go.Scatter(
+                    x=xs_proj, y=proj_slice(fin_layer_avg), mode="lines",
+                    name="Financial Stability (proj)", showlegend=False,
+                    line=dict(color="#86EFAC", width=1.5, dash="dot")))
+
+            # Economic layer (purple)
+            fig.add_trace(go.Scatter(
+                x=xs_hist, y=hist_slice(eco_layer_avg), mode="lines",
+                name="Economic Output",
+                line=dict(color="#c084fc", width=1.5, dash="dot"),
+                fill="tozeroy", fillcolor="rgba(192,132,252,0.05)"))
+            if xs_proj:
+                fig.add_trace(go.Scatter(
+                    x=xs_proj, y=proj_slice(eco_layer_avg), mode="lines",
+                    name="Economic Output (proj)", showlegend=False,
+                    line=dict(color="#c084fc", width=1.5, dash="dot")))
+
+            # Early Warning
+            fig.add_trace(go.Scatter(
+                x=xs_hist, y=hist_slice(ew_norm), mode="lines",
+                name="Early Warning",
+                line=dict(color="#f4a261", width=1.8),
+                fill="tozeroy", fillcolor="rgba(244,162,97,0.07)"))
+            if xs_proj:
+                fig.add_trace(go.Scatter(
+                    x=xs_proj, y=proj_slice(ew_norm), mode="lines",
+                    name="Early Warning (proj)", showlegend=False,
+                    line=dict(color="#f4a261", width=1.4, dash="dot")))
+
+            # EW-Pair Annotations
+            all_pairs_chart, open_pair_chart = find_ew_pairs(
+                ew_norm, stability_norm, L0_THR, STAB_THR)
+
+            for pair_idx, (spike, drop, lead) in enumerate(all_pairs_chart[:3]):
+                if spike > current_idx:
+                    break
+                if lead <= 0:
+                    continue
+                if drop <= current_idx:
+                    fig.add_vrect(
+                        x0=spike, x1=drop,
+                        fillcolor="rgba(244,162,97,0.10)", layer="below", line_width=0)
+                fig.add_vline(
+                    x=spike, line_width=1.5, line_dash="dot",
+                    line_color="rgba(244,162,97,0.85)",
+                    annotation_text="⚠ EW signal",
+                    annotation_position="top left",
+                    annotation_font_size=9,
+                    annotation_font_color="#f4a261")
+                if drop <= current_idx:
+                    fig.add_vline(
+                        x=drop, line_width=1.5, line_dash="dot",
+                        line_color="rgba(255,59,59,0.85)",
+                        annotation_text="↓ Instability",
+                        annotation_position="top right",
+                        annotation_font_size=9,
+                        annotation_font_color="#ff3b3b")
+                by = 0.97 - pair_idx * 0.07
+                x_end = min(drop, current_idx)
+                fig.add_shape(type="line", x0=spike, x1=x_end, y0=by, y1=by,
+                              line=dict(color="#f4a261", width=1.2, dash="dot"))
+                fig.add_annotation(
+                    x=(spike + x_end) // 2, y=by + 0.035,
+                    text=f"⏱ {lead} months ahead" if drop <= current_idx else f"⏱ {current_idx - spike}mo so far",
+                    showarrow=False,
+                    font=dict(size=9, color="#f4a261"),
+                    bgcolor="rgba(0,0,0,0.35)",
+                    borderpad=2)
+
+            if open_pair_chart and open_pair_chart[0] <= current_idx:
+                ow_spike = open_pair_chart[0]
+                fig.add_vline(
+                    x=ow_spike, line_width=1.5, line_dash="dot",
+                    line_color="rgba(244,162,97,0.85)",
+                    annotation_text="⚠ EW signal",
+                    annotation_position="top left",
+                    annotation_font_size=9,
+                    annotation_font_color="#f4a261")
+                fig.add_vrect(
+                    x0=ow_spike, x1=current_idx,
+                    fillcolor="rgba(244,162,97,0.07)", layer="below", line_width=0)
+                steps_open = current_idx - ow_spike
+                fig.add_annotation(
+                    x=(ow_spike + current_idx) // 2, y=0.97,
+                    text=f"⏱ {steps_open}mo — no drop yet",
+                    showarrow=False,
+                    font=dict(size=9, color="#f4a261"),
+                    bgcolor="rgba(0,0,0,0.35)",
+                    borderpad=2)
+
+            fig.add_vline(x=current_idx, line_width=1.5, line_dash="dash",
+                          line_color="rgba(255,255,255,0.35)")
+
+            # Gleitendes Fenster: 48 Monate
+            window = 48
+            win_end   = min(n-1, max(window-1, current_idx+8))
+            win_start = max(0, win_end-window+1)
+            win_tv = [i for i in tick_vals if win_start <= i <= win_end]
+            win_tt = [CYBER_MONTHS[i] for i in win_tv if i < len(CYBER_MONTHS)]
+
+            fig.update_layout(
+                height=440,
+                margin=dict(l=20, r=20, t=30, b=70),
+                plot_bgcolor="rgba(0,0,0,0)",
+                paper_bgcolor="rgba(0,0,0,0)",
+                yaxis=dict(range=[0,1.08], showgrid=True, gridcolor="rgba(255,255,255,0.05)",
+                           tickformat=".0%", tickfont=dict(size=9)),
+                xaxis=dict(range=[win_start-0.5, win_end+0.5], tickvals=win_tv, ticktext=win_tt,
+                           tickangle=-45, tickfont=dict(size=9), showgrid=False),
+                legend=dict(orientation="h", yanchor="bottom", y=-0.45,
+                            xanchor="center", x=0.5, font=dict(size=10)),
+            )
+            st.plotly_chart(fig, width='stretch')
+
+        with col_mid:
+            # Event-Highlights (cyber-Events haben optionale Cluster)
+            highlight_nodes, highlight_edges = set(), set()
+            active_events = []
+            all_evts = get_ctpp_events(selected_path)
+            for event in all_evts:
+                if "month" not in event or event["month"] not in CYBER_MONTH_TO_STEP:
+                    continue
+                es = CYBER_MONTH_TO_STEP[event["month"]]
+                if current_idx >= es and current_idx < es + event.get("duration", 1):
+                    active_events.append(event)
+            for nid in current.get("highlight_nodes", []):
+                highlight_nodes.add(nid)
+            for event in active_events:
+                if "cluster" in event:
+                    for node, data in current["nodes"].items():
+                        if data.get("cluster") == event["cluster"]:
+                            highlight_nodes.add(node)
+
+            # D: Netzwerk-State Banner (mehrdimensional)
+            # Cyber-Cloud-Schwellen leicht erhöht — System läuft durch
+            # Background-Load (Cyber-Bedrohung als Dauerlast) etwas tiefer
+            # als bei Pandemic/Energy, aber milder als Critical-Infra
+            _net_state = compute_system_state(
+                current_idx=current_idx,
+                stability_norm=stability_norm,
+                econ_norm=eco_layer_avg,
+                ew_norm=ew_norm,
+                active_events=active_events,
+                open_ew_pair=open_pair_chart,
+                all_ew_pairs=all_pairs_chart,
+                instability_drop=0.30,
+                structural_drop=0.15,
+                elevated_drop=0.06,
+                econ_structural_drop=0.22,
+                ew_elevated_threshold=0.20,
+                ew_pair_memory_steps=12,
+            )
+
+
+            st.plotly_chart(
+                plot_network(current["graph"], current["load"], current["edges"],
+                             highlight_nodes=highlight_nodes, highlight_edges=highlight_edges,
+                             pos=current.get("pos"), cluster_anchors=current.get("cluster_anchors")),
+                width='stretch')
+
+            # Legende: drei Räume + Bridge + drei Metriken
+            _cy_spaces = list({n.get('space')
+                               for n in current['nodes'].values()
+                               if n.get('space')})
+            _cy_has_bridge = 'bridge_active' in current['edges'].values()
+            _cy_metrics = [
+                ("●", "#4fc3f7", "Digital Resilience",
+                 "Operational health of cloud, IAM, payments switch and platform layer."),
+                ("■", "#6bd96b", "Financial Stability",
+                 "Liquidity supply, market confidence and bank funding flows."),
+                ("◆", "#c084fc", "Economic Output",
+                 "Country economies, SME sector and public services under stress."),
+            ]
+            st.markdown(network_legend_html(
+                spaces=_cy_spaces,
+                has_bridge=_cy_has_bridge,
+                metrics=_cy_metrics,
+            ), unsafe_allow_html=True)
+
+        with col_right:
+            _state_banner_ph.markdown(
+                f"<div style='{_net_state[1]}border-radius:0 6px 6px 0;"
+                f"padding:8px 14px;font-size:13px;font-weight:600;margin:8px 0;'>"
+                f"{_net_state[0]}</div>",
+                unsafe_allow_html=True)
+            st.markdown("<div style='font-size:11px;font-weight:600;color:var(--color-text-secondary);"
+                        "margin-top:6px;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;'>"
+                        "Active Events</div>", unsafe_allow_html=True)
+            if active_events:
+                type_colors = {
+                    "supply_shock":       ("#7C1D1D", "#FCA5A5"),
+                    "capacity_shock":     ("#7C1D1D", "#FCA5A5"),
+                    "demand_shock":       ("#78350F", "#FCD34D"),
+                    "uncertainty_shock":  ("#78350F", "#FCD34D"),
+                    "variability_shock":  ("#78350F", "#FCD34D"),
+                    "capacity_increase":  ("#14532D", "#86EFAC"),
+                    "coupling_shift":     ("#1E3A5F", "#93C5FD"),
+                    "alliance_shift":     ("#312E81", "#C4B5FD"),
+                }
+                pills_html = "<div style='display:flex;flex-direction:column;gap:6px;'>"
+                for ev in active_events:
+                    bg, fg = type_colors.get(ev.get("type", ""), ("#374151", "#D1D5DB"))
+                    icon = "🎲" if ev.get("stochastic") else "⚡"
+                    name = ev.get("name", ev.get("type", "event"))
+                    pills_html += (
+                        f"<span style='background:{bg};color:{fg};font-size:11px;font-weight:500;"
+                        f"padding:5px 10px;border-radius:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>"
+                        f"{icon} {name}</span>"
+                    )
+                pills_html += "</div>"
+                st.markdown(pills_html, unsafe_allow_html=True)
+            else:
+                st.markdown("<div style='color:var(--color-text-secondary);font-size:11px;font-style:italic;'>"
+                            "No active events at this step.</div>", unsafe_allow_html=True)
+
+    ctpp_panel(history, max_step, proj_step, selected_path, ensemble=ensemble)
+    
 # ==========================================
 # CRITICAL INFRASTRUCTURE SCENARIO
 # ==========================================
