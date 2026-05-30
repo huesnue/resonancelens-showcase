@@ -196,6 +196,49 @@ def compute_dynamic_layout(G, nodes, affinity, cluster_anchors, pos_prev):
     return pos
 
 
+def _build_edge_map(edges, nodes, allow_failed_consumer=True):
+    """
+    Baut Graph + edge_map, das parallele Kanten zwischen demselben Knotenpaar
+    als LISTE führt (statt 'letzte gewinnt'). Damit tragen mehrere Kanäle
+    (z. B. pipeline + shipping zwischen denselben Knoten) gemeinsam Fluss,
+    und kanal-selektive Schocks wirken korrekt auf den jeweiligen Kanal.
+
+    allow_failed_consumer: failed consumers bleiben im Graph (für Recovery).
+    Gibt (G, edge_map) zurück; edge_map[(u,v)] = [e1, e2, ...].
+    """
+    G = nx.Graph()
+    edge_map = {}
+    for node_id, node_data in nodes.items():
+        G.add_node(node_id, **node_data)
+    for e in edges:
+        if e["status"] == "failed":
+            continue
+        u, v = e["source"], e["target"]
+        if allow_failed_consumer:
+            u_failed = nodes[u]["status"] == "failed" and nodes[u]["type"] != "consumer"
+            v_failed = nodes[v]["status"] == "failed" and nodes[v]["type"] != "consumer"
+        else:
+            u_failed = nodes[u]["status"] == "failed"
+            v_failed = nodes[v]["status"] == "failed"
+        if u_failed or v_failed:
+            continue
+        G.add_edge(u, v)
+        edge_map.setdefault((u, v), []).append(e)
+        edge_map.setdefault((v, u), []).append(e)
+    return G, edge_map
+
+
+def _hop_capacity(edge_map, a, b):
+    """
+    Summe der wirksamen Kapazität (capacity * strength) aller aktiven
+    parallelen Kanten zwischen a und b. Failed-Kanten zählen nicht.
+    Gibt (total_capacity, active_edge_list) zurück.
+    """
+    es = [e for e in edge_map.get((a, b), []) if e["status"] != "failed"]
+    total = sum(e["capacity"] * e["strength"] for e in es)
+    return total, es
+
+
 def run_energy_simulation(nodes, edges, steps=10, month_to_step=None,
                           path="hybrid", stochastic_params=None,
                           background_load=None,
@@ -389,25 +432,7 @@ def run_energy_simulation(nodes, edges, steps=10, month_to_step=None,
         # ------------------------------------------
         # BUILD GRAPH
         # ------------------------------------------
-        G = nx.Graph()
-        edge_map = {}
-
-        for node_id, node_data in nodes.items():
-            G.add_node(node_id, **node_data)
-
-        for e in edges:
-            if e["status"] == "failed":
-                continue
-            u, v = e["source"], e["target"]
-            # Failed producers/transit nodes are excluded
-            # Failed consumers stay in graph to receive partial flow (enables recovery)
-            u_failed = nodes[u]["status"] == "failed" and nodes[u]["type"] != "consumer"
-            v_failed = nodes[v]["status"] == "failed" and nodes[v]["type"] != "consumer"
-            if u_failed or v_failed:
-                continue
-            G.add_edge(u, v)
-            edge_map[(u, v)] = e
-            edge_map[(v, u)] = e
+        G, edge_map = _build_edge_map(edges, nodes, allow_failed_consumer=True)
 
         # ------------------------------------------
         # MARKET LOGIC
@@ -433,11 +458,11 @@ def run_energy_simulation(nodes, edges, steps=10, month_to_step=None,
                 for path in paths:
                     capacities = []
                     for i in range(len(path) - 1):
-                        e = edge_map.get((path[i], path[i + 1]))
-                        if not e or e["status"] == "failed":
+                        hop_cap, hop_edges = _hop_capacity(edge_map, path[i], path[i + 1])
+                        if not hop_edges or hop_cap <= 0:
                             capacities = []
                             break
-                        capacities.append(e["capacity"] * e["strength"])
+                        capacities.append(hop_cap)
 
                     if not capacities:
                         continue
@@ -461,8 +486,13 @@ def run_energy_simulation(nodes, edges, steps=10, month_to_step=None,
                     continue
 
             for i in range(len(best_path) - 1):
-                e = edge_map[(best_path[i], best_path[i + 1])]
-                e["flow"] += flow
+                hop_cap, hop_edges = _hop_capacity(edge_map, best_path[i], best_path[i + 1])
+                if hop_cap <= 0 or not hop_edges:
+                    continue
+                # Fluss proportional zur wirksamen Kapazität der parallelen Kanäle verteilen
+                for e in hop_edges:
+                    share = (e["capacity"] * e["strength"]) / hop_cap
+                    e["flow"] += flow * share
 
             nodes[producer]["supply"] -= flow
             nodes[consumer]["received"] += flow
@@ -507,19 +537,7 @@ def run_energy_simulation(nodes, edges, steps=10, month_to_step=None,
                 e["strength"] = 0.3
 
         # Rebuild graph after recovery
-        G = nx.Graph()
-        edge_map = {}
-        for node_id, node_data in nodes.items():
-            G.add_node(node_id, **node_data)
-        for e in edges:
-            if e["status"] == "failed":
-                continue
-            u, v = e["source"], e["target"]
-            if nodes[u]["status"] == "failed" or nodes[v]["status"] == "failed":
-                continue
-            G.add_edge(u, v)
-            edge_map[(u, v)] = e
-            edge_map[(v, u)] = e
+        G, edge_map = _build_edge_map(edges, nodes, allow_failed_consumer=False)
 
         # ------------------------------------------
         # CONNECTIVITY SAFEGUARD
