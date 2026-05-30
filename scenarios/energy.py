@@ -1,11 +1,12 @@
 """
 Energy Scenario Loader
 ======================
-Lädt Nodes/Edges für das Energy-Crisis-Szenario 2020-2025.
+Lädt Nodes/Edges für das Energy-Crisis-Szenario 2020-2030.
 
 Pfad-Auswahl: 'resilient' | 'hybrid' | 'fragile'
 
-Cluster-Logik: globale Energie-Cluster (EU_NORTH/SOUTH/CENTRAL, US, RU, ME, ASIA).
+Cluster-Logik: globale Energie-Cluster (EU_NORTH/SOUTH/CENTRAL/EAST, RUSSIA,
+CAUCASUS, MIDDLE_EAST, TURKEY, TRANSIT, US, ASIA — siehe data/nodes.csv).
 Pfad-spezifische Initial-Skalierung über STOCHASTIC_PARAMS, Event-Severity
 pfad-abhängig via get_events(path).
 """

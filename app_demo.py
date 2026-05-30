@@ -668,7 +668,7 @@ elif scenario["type"] == "energy":
     edges = scenario["edges"]
 
     st.divider()
-    st.subheader("Energy Network Simulation 2020–2025")
+    st.subheader("Energy Network Simulation 2020–2030")
 
     # Pfad-Auswahl
     selected_path = st.radio(
@@ -704,7 +704,7 @@ elif scenario["type"] == "energy":
             run_simulation_fn=run_energy_simulation,
             stochastic_params=ENERGY_STOCHASTIC_PARAMS[selected_path],
             path_name=selected_path,
-            steps=126,
+            steps=ENERGY_STEPS,
             month_to_step=MONTH_TO_STEP,
             background_load=scenario.get("background_load"),
             n_runs=30,
@@ -729,7 +729,7 @@ elif scenario["type"] == "energy":
     run_every = 1.0 if st.session_state["mode"] == "playback" else None
 
     @st.fragment(run_every=run_every)
-    def playback_panel(history, max_step):
+    def playback_panel(history, max_step, ensemble=None):
 
         is_playing = st.session_state["mode"] == "playback"
         if is_playing:
@@ -914,6 +914,46 @@ elif scenario["type"] == "energy":
                           fillcolor="#1D9E75", opacity=0.07, layer="below", line_width=0)
             fig.add_vrect(x0=MONTH_TO_STEP.get("Jan 2026",60), x1=MONTH_TO_STEP.get("Apr 2026",63),
                           fillcolor="#E24B4A", opacity=0.12, layer="below", line_width=0)
+
+            # Ensemble-Bänder in Projektionsphase (p10–p90, p25–p75)
+            # Energy-Konvention: durchgehende Step-x-Achse, Bänder ab ENERGY_PROJECTION_START.
+            proj_start_step = MONTH_TO_STEP.get(ENERGY_PROJECTION_START, 77)
+            if ensemble and "health" in ensemble:
+                hp = ensemble["health"]
+                xs_proj = list(range(proj_start_step, n))
+                p90_proj = hp["p90"][proj_start_step:n]
+                p10_proj = hp["p10"][proj_start_step:n]
+                p75_proj = hp["p75"][proj_start_step:n]
+                p25_proj = hp["p25"][proj_start_step:n]
+                p50_proj = hp["p50"][proj_start_step:n]
+
+                if xs_proj and p90_proj:
+                    # Basis-Linie (p10, unsichtbar) — Anker für tonexty
+                    fig.add_trace(go.Scatter(
+                        x=xs_proj, y=p10_proj, mode="lines",
+                        name="p10", showlegend=False,
+                        line=dict(width=0), hoverinfo="skip"))
+                    fig.add_trace(go.Scatter(
+                        x=xs_proj, y=p90_proj, mode="lines",
+                        name="p10–p90 band", showlegend=True,
+                        line=dict(width=0),
+                        fillcolor="rgba(79,195,247,0.18)", fill="tonexty"))
+                    # p25–p75 Band (inneres, kräftiger)
+                    fig.add_trace(go.Scatter(
+                        x=xs_proj, y=p25_proj, mode="lines",
+                        name="p25", showlegend=False,
+                        line=dict(width=0), hoverinfo="skip"))
+                    fig.add_trace(go.Scatter(
+                        x=xs_proj, y=p75_proj, mode="lines",
+                        name="p25–p75 band", showlegend=True,
+                        line=dict(width=0),
+                        fillcolor="rgba(79,195,247,0.30)", fill="tonexty"))
+                    # Median-Linie
+                    fig.add_trace(go.Scatter(
+                        x=xs_proj, y=p50_proj, mode="lines",
+                        name="Median (p50)", showlegend=True,
+                        line=dict(color="#4fc3f7", width=2.0, dash="dash")))
+
             fig.add_trace(go.Scatter(x=list(range(n)), y=stability_norm, mode="lines", name="Stability",
                                      line=dict(color="#4fc3f7", width=2.5)))
             fig.add_trace(go.Scatter(x=list(range(n)), y=ew_norm, mode="lines", name="Early Warning",
@@ -1041,7 +1081,7 @@ elif scenario["type"] == "energy":
                 st.markdown("<div style='color:var(--color-text-secondary);font-size:11px;font-style:italic;'>"
                             "No active events at this step.</div>", unsafe_allow_html=True)
 
-    playback_panel(history, max_step)
+    playback_panel(history, max_step, ensemble=st.session_state.get(ensemble_key))
 
 
 # ==========================================
@@ -1409,22 +1449,22 @@ elif scenario["type"] == "pandemic":
                         x=xs_proj, y=p90_proj, mode="lines",
                         name="p90", showlegend=False,
                         line=dict(width=0),
-                        fillcolor="rgba(79,195,247,0.08)", fill="tonexty"))
+                        fillcolor="rgba(79,195,247,0.18)", fill="tonexty"))
                     fig.add_trace(go.Scatter(
                         x=xs_proj, y=p10_proj, mode="lines",
                         name="p10–p90 band", showlegend=True,
                         line=dict(width=0),
-                        fillcolor="rgba(79,195,247,0.08)", fill="tonexty"))
+                        fillcolor="rgba(79,195,247,0.18)", fill="tonexty"))
                     fig.add_trace(go.Scatter(
                         x=xs_proj, y=p75_proj, mode="lines",
                         name="p75", showlegend=False,
                         line=dict(width=0),
-                        fillcolor="rgba(79,195,247,0.14)", fill="tonexty"))
+                        fillcolor="rgba(79,195,247,0.30)", fill="tonexty"))
                     fig.add_trace(go.Scatter(
                         x=xs_proj, y=p25_proj, mode="lines",
                         name="p25–p75 band", showlegend=True,
                         line=dict(width=0),
-                        fillcolor="rgba(79,195,247,0.14)", fill="tonexty"))
+                        fillcolor="rgba(79,195,247,0.30)", fill="tonexty"))
                     # Median-Linie
                     fig.add_trace(go.Scatter(
                         x=xs_proj, y=p50_proj, mode="lines",
@@ -1978,22 +2018,22 @@ elif scenario["type"] == "financial":
                         x=xs_proj, y=p90_proj, mode="lines",
                         name="p90", showlegend=False,
                         line=dict(width=0),
-                        fillcolor="rgba(79,195,247,0.08)", fill="tonexty"))
+                        fillcolor="rgba(79,195,247,0.18)", fill="tonexty"))
                     fig.add_trace(go.Scatter(
                         x=xs_proj, y=p10_proj, mode="lines",
                         name="p10–p90 band", showlegend=True,
                         line=dict(width=0),
-                        fillcolor="rgba(79,195,247,0.08)", fill="tonexty"))
+                        fillcolor="rgba(79,195,247,0.18)", fill="tonexty"))
                     fig.add_trace(go.Scatter(
                         x=xs_proj, y=p75_proj, mode="lines",
                         name="p75", showlegend=False,
                         line=dict(width=0),
-                        fillcolor="rgba(79,195,247,0.14)", fill="tonexty"))
+                        fillcolor="rgba(79,195,247,0.30)", fill="tonexty"))
                     fig.add_trace(go.Scatter(
                         x=xs_proj, y=p25_proj, mode="lines",
                         name="p25–p75 band", showlegend=True,
                         line=dict(width=0),
-                        fillcolor="rgba(79,195,247,0.14)", fill="tonexty"))
+                        fillcolor="rgba(79,195,247,0.30)", fill="tonexty"))
                     fig.add_trace(go.Scatter(
                         x=xs_proj, y=p50_proj, mode="lines",
                         name="Median (p50)", showlegend=True,
@@ -2641,22 +2681,22 @@ elif scenario["type"] == "cyber_cloud":
                         x=xs_proj, y=p90_proj, mode="lines",
                         name="p90", showlegend=False,
                         line=dict(width=0),
-                        fillcolor="rgba(79,195,247,0.08)", fill="tonexty"))
+                        fillcolor="rgba(79,195,247,0.18)", fill="tonexty"))
                     fig.add_trace(go.Scatter(
                         x=xs_proj, y=p10_proj, mode="lines",
                         name="p10–p90 band", showlegend=True,
                         line=dict(width=0),
-                        fillcolor="rgba(79,195,247,0.08)", fill="tonexty"))
+                        fillcolor="rgba(79,195,247,0.18)", fill="tonexty"))
                     fig.add_trace(go.Scatter(
                         x=xs_proj, y=p75_proj, mode="lines",
                         name="p75", showlegend=False,
                         line=dict(width=0),
-                        fillcolor="rgba(79,195,247,0.14)", fill="tonexty"))
+                        fillcolor="rgba(79,195,247,0.30)", fill="tonexty"))
                     fig.add_trace(go.Scatter(
                         x=xs_proj, y=p25_proj, mode="lines",
                         name="p25–p75 band", showlegend=True,
                         line=dict(width=0),
-                        fillcolor="rgba(79,195,247,0.14)", fill="tonexty"))
+                        fillcolor="rgba(79,195,247,0.30)", fill="tonexty"))
                     fig.add_trace(go.Scatter(
                         x=xs_proj, y=p50_proj, mode="lines",
                         name="Median (p50)", showlegend=True,

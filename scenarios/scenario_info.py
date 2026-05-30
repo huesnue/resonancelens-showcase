@@ -109,15 +109,19 @@ _BASIC = {
 }
 
 # ----------------------------------------------------------------------
-# ENERGY CRISIS 2021–2026
+# ENERGY CRISIS 2020-2030
 # ----------------------------------------------------------------------
 _ENERGY = {
     "en": {
-        "tagline": "European energy supply network under 28 real geopolitical events.",
+        "tagline": "European energy supply network across a decade — historical events 2020–2026 plus projection through 2030.",
         "topic": (
             "A European energy supply network — producers, transit corridors, "
-            "consumer regions — driven by 28 documented events from 2021 to "
-            "2026 (Ukraine war, Nord Stream, LNG rerouting, Hormuz, Iran)."
+            "consumer regions — driven by documented events from 2020 to mid-2026 "
+            "(COVID demand collapse, OPEC+ price war, Ukraine war, Nord Stream, "
+            "LNG rerouting, Hormuz, Iran). A 4-year projection extends through "
+            "Jun 2030 under five guiding assumptions (sustained Middle East "
+            "tensions, renewables acceleration, China-Russia axis, US Trump 2.0 "
+            "energy policy, delayed NetZero)."
         ),
         "problem": (
             "Energy crises propagate through opaque interdependencies "
@@ -152,12 +156,15 @@ _ENERGY = {
         },
     },
     "de": {
-        "tagline": "Europäisches Energie-Versorgungsnetzwerk unter 28 realen Ereignissen.",
+        "tagline": "Europäisches Energie-Versorgungsnetzwerk über ein Jahrzehnt — historische Ereignisse 2020–2026 plus Projektion bis 2030.",
         "topic": (
-            "Ein europäisches Energie-Versorgungsnetzwerk — Produzenten, "
-            "Transitkorridore, Verbraucher-Regionen — getrieben durch 28 "
-            "dokumentierte Ereignisse 2021–2026 (Ukraine, Nord Stream, "
-            "LNG-Umleitungen, Hormuz, Iran)."
+            "Ein europäisches Energie-Versorgungsnetzwerk — Produzenten, Transit-"
+            "Korridore, Konsumregionen — getrieben von dokumentierten Ereignissen "
+            "von 2020 bis Mitte 2026 (COVID-Nachfrageeinbruch, OPEC+-Preiskrieg, "
+            "Ukraine-Krieg, Nord Stream, LNG-Umlenkung, Hormus, Iran). Eine "
+            "4-Jahres-Projektion reicht bis Juni 2030 unter fünf Leitannahmen "
+            "(anhaltende Nahost-Spannungen, Erneuerbaren-Beschleunigung, "
+            "China-Russland-Achse, Trump-2.0-Energiepolitik, NetZero-Verzögerung)."
         ),
         "problem": (
             "Energiekrisen propagieren über schwer einsehbare Verflechtungen "

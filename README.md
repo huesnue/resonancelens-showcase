@@ -20,7 +20,7 @@ Eleven scenarios across two families, one insight:
 
 **Basic Demo** — Two network systems start identically. One remains stable under constant stress. One collapses under increasing pressure. The Early Warning signal diverges **months before** the Stability signal drops — making the coming failure visible long before it occurs.
 
-**Energy Crisis 2021–2026** — A simulated European energy supply network driven by 28 real-world geopolitical events: the Ukraine war, Nord Stream sabotage, LNG rerouting, US-Israel strikes on Iran, the Strait of Hormuz closure, and more. Watch how shocks propagate through the network — and how structural signals respond **before** system health visibly collapses.
+**Energy Crisis 2020–2030** — A simulated European energy supply network — producers, transit corridors, consumer regions. Phase 1 (2020–mid-2026) reconstructs 52 documented events: the COVID demand collapse, the OPEC+ price war, the Ukraine war, Nord Stream sabotage, LNG rerouting, Strait of Hormuz tensions, and Iran escalation. Phase 2 projects through Jun 2030 along three structural pathways — Resilient, Hybrid, and Fragile — with a 50-run Monte Carlo ensemble. Watch how shocks propagate through the network — and how structural signals respond **before** system health visibly collapses.
 
 **Pandemic 2020–2030** — A simulated European public health and economic network across 20 country nodes and 5 regional clusters. Phase 1 (2020–2024) reconstructs real events: COVID-19 waves, the Omicron shock, Mpox outbreaks, and the H5N1 escalation. Phase 2 (2025–2030) projects three structural pathways — Resilient, Drifting, and Cascade — driven by stochastic event generation and a Monte Carlo ensemble of 50 runs. A dual signal layer tracks health system capacity and economic output independently.
 
@@ -85,7 +85,7 @@ streamlit run app_demo.py
 
 Requires Python 3.9+.
 
-**Live scenarios.** The streaming scenarios (SSC / R+V / ÖPNV / Automotive) run in-process by default — no broker required, so `streamlit run app_demo.py` is enough. To drive them from a real Kafka broker (the optional "live" mode), set `RL_STREAM_MODE=live` and start the included `docker-compose.yml` broker. The live family requires `streamlit >= 1.37`.
+**Live scenarios.** The streaming scenarios (Satellite / Digital Operations / Public Transport / Automotive) run in-process by default — no broker required, so `streamlit run app_demo.py` is enough. To drive them from a real Kafka broker (the optional "live" mode), set `RL_STREAM_MODE=live` and start the included `docker-compose.yml` broker. The live family requires `streamlit >= 1.37`.
 
 ---
 
@@ -135,9 +135,9 @@ data/                            # Node and edge definitions per scenario
   cyber_cloud_nodes.csv / cyber_cloud_edges.csv
   critical_infra_nodes.csv / critical_infra_edges.csv
   banking_pipeline_nodes.csv / banking_pipeline_edges.csv
-  satellite_nodes.csv / satellite_edges.csv     # SSC (live)
-  digitalops_nodes.csv / digitalops_edges.csv    # R+V (live)
-  transit_nodes.csv / transit_edges.csv          # ÖPNV (live)
+  satellite_nodes.csv / satellite_edges.csv     # Satellite (live)
+  digitalops_nodes.csv / digitalops_edges.csv    # Digital Operations (live)
+  transit_nodes.csv / transit_edges.csv          # Public Transport (live)
   automotive_nodes.csv / automotive_edges.csv    # Automotive (live)
 streaming/                       # Live / streaming family (Kafka ingest)
   bus.py                         # Dual-mode bus: Kafka | in-process
@@ -247,7 +247,7 @@ Elf Szenarien in zwei Familien, eine Erkenntnis:
 
 **Basic Demo** — Zwei Netzwerksysteme starten identisch. Eines bleibt stabil unter konstantem Stress. Das andere kollabiert unter zunehmendem Druck. Das Early-Warning-Signal divergiert **Monate bevor** das Stabilitätssignal sinkt — die kommende Krise wird sichtbar, lange bevor sie eintritt.
 
-**Energiekrise 2021–2026** — Ein simuliertes europäisches Energieversorgungsnetzwerk, gesteuert durch 28 reale geopolitische Ereignisse: der Ukraine-Krieg, Nord-Stream-Sabotage, LNG-Umleitung, US-israelische Angriffe auf den Iran, Schließung der Straße von Hormuz und mehr. Verfolge, wie sich Schocks durch das Netzwerk ausbreiten — und wie strukturelle Signale reagieren, **bevor** die Systemgesundheit sichtbar einbricht.
+**Energiekrise 2020–2030** — Ein simuliertes europäisches Energieversorgungsnetzwerk — Produzenten, Transitkorridore, Verbraucherregionen. Phase 1 (2020–Mitte 2026) rekonstruiert 52 dokumentierte Ereignisse: den COVID-Nachfrageeinbruch, den OPEC+-Preiskrieg, den Ukraine-Krieg, Nord-Stream-Sabotage, LNG-Umleitung, Spannungen an der Straße von Hormus und die Iran-Eskalation. Phase 2 projiziert bis Juni 2030 entlang dreier struktureller Pfade — Resilient, Hybrid und Fragile — mit einem 50-Lauf-Monte-Carlo-Ensemble. Verfolge, wie sich Schocks durch das Netzwerk ausbreiten — und wie strukturelle Signale reagieren, **bevor** die Systemgesundheit sichtbar einbricht.
 
 **Pandemie 2020–2030** — Ein simuliertes europäisches Gesundheits- und Wirtschaftsnetzwerk mit 20 Länderknoten und 5 regionalen Clustern. Phase 1 (2020–2024) rekonstruiert reale Ereignisse: COVID-19-Wellen, den Omikron-Schock, Mpox-Ausbrüche und die H5N1-Eskalation. Phase 2 (2025–2030) projiziert drei strukturelle Entwicklungspfade — Resilient, Drifting und Cascade — auf Basis stochastischer Ereignisgenerierung und eines Monte-Carlo-Ensembles mit 50 Runs. Ein dualer Signallayer beobachtet Gesundheitssystemkapazität und Wirtschaftsleistung separat.
 
@@ -312,7 +312,7 @@ streamlit run app_demo.py
 
 Erfordert Python 3.9+.
 
-**Live-Szenarien.** Die Streaming-Szenarien (SSC / R+V / ÖPNV / Automotive) laufen standardmäßig in-process — kein Broker nötig, `streamlit run app_demo.py` genügt. Um sie aus einem echten Kafka-Broker zu speisen (optionaler „live"-Modus), `RL_STREAM_MODE=live` setzen und den mitgelieferten `docker-compose.yml`-Broker starten. Die Live-Familie erfordert `streamlit >= 1.37`.
+**Live-Szenarien.** Die Streaming-Szenarien (Satellite / Digital Operations / Public Transport / Automotive) laufen standardmäßig in-process — kein Broker nötig, `streamlit run app_demo.py` genügt. Um sie aus einem echten Kafka-Broker zu speisen (optionaler „live"-Modus), `RL_STREAM_MODE=live` setzen und den mitgelieferten `docker-compose.yml`-Broker starten. Die Live-Familie erfordert `streamlit >= 1.37`.
 
 ---
 
