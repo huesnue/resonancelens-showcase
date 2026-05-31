@@ -665,12 +665,18 @@ def run_cyber_cloud_simulation(
         # ------------------------------------------
         # ROUTING Phase 1: Selbstversorgung
         # ------------------------------------------
+        # self_throughput[node] = intern gedeckte Nachfrage (kein Inter-Knoten-
+        # Fluss, daher keine Sankey-Kante; geht in die Knoten-Dicke / den
+        # Raum-Eigendurchsatz ein). Additiv fuer die Sankey-Ansicht.
+        self_throughput = {}
         for n in nodes.values():
             if n["status"] == "failed":
                 continue
             self_supply = min(n["supply"], n["demand"])
             n["received"] += self_supply
             n["supply"]   = max(0.0, n["supply"] - self_supply)
+            if self_supply > 0:
+                self_throughput[n["id"]] = self_supply
 
         # ------------------------------------------
         # ROUTING Phase 2: Ueberschuss-Verteilung
@@ -883,6 +889,7 @@ def run_cyber_cloud_simulation(
         # EDGE STATE SNAPSHOT
         # ------------------------------------------
         edge_state = {}
+        edge_flows = {}   # directed numeric flow for the Sankey view (additive)
         for e in edges:
             u, v = e["source"], e["target"]
             key = tuple(sorted((u, v)))
@@ -904,6 +911,13 @@ def run_cyber_cloud_simulation(
                 state = "new"
 
             edge_state[key] = state
+
+            # Directed flow keyed by (source, target) — preserves direction the
+            # Sankey needs (edge_state's sorted key discards it). Only positive
+            # flows are kept; the routing only transfers along the active edge.
+            if flow and flow > 0:
+                edge_flows[(u, v)] = edge_flows.get((u, v), 0.0) + float(flow)
+
 
         # ------------------------------------------
         # STRUKTURELLE DRIFT-INDIKATOREN
@@ -947,6 +961,8 @@ def run_cyber_cloud_simulation(
             "graph":           G,
             "nodes":           {k: v.copy() for k, v in nodes.items()},
             "edges":           edge_state,
+            "edge_flows":      dict(edge_flows),  # directed flows for Sankey view
+            "self_throughput": dict(self_throughput),  # intra-node supply for Sankey
             "system_health":   system_health,
             "load":            {k: nodes[k]["stress"] for k in nodes},
             "pos":             dict(pos),

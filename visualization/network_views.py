@@ -42,7 +42,7 @@ NETWORK_VIEW_MODES = [VIEW_2D_FLAT, VIEW_3D_LAYERED, VIEW_3D_CLUSTER, VIEW_3D_TO
 # Heatmap and Sankey are on the roadmap (shown as "coming soon" in the selector)
 # and get added here once their renderers land.
 _IMPLEMENTED = {VIEW_2D_FLAT, VIEW_3D_LAYERED, VIEW_3D_CLUSTER, VIEW_3D_TOPOLOGY,
-                VIEW_HEATMAP}
+                VIEW_HEATMAP, VIEW_SANKEY}
 
 _PURPOSE = {
     VIEW_2D_FLAT:     "Flat layout — color = stress, shape = resonance space.",
@@ -139,6 +139,26 @@ def select_network_view(key: str = "network_view_mode",
             help="Heatmap rows: individual nodes or aggregated clusters.",
         )
         st.session_state[res_key] = res_chosen
+
+    # When the Sankey view is active, offer a spaces/clusters/nodes aggregation
+    # toggle. Same session_state mirror pattern as the heatmap resolution.
+    if chosen == VIEW_SANKEY:
+        sk_key = "sankey_resolution"
+        sk_opts = [SANKEY_RES_SPACES, SANKEY_RES_CLUSTERS, SANKEY_RES_NODES]
+        if sk_key not in st.session_state or st.session_state[sk_key] not in sk_opts:
+            st.session_state[sk_key] = SANKEY_RES_SPACES
+        sk_labels = {SANKEY_RES_SPACES: "Spaces",
+                     SANKEY_RES_CLUSTERS: "Clusters",
+                     SANKEY_RES_NODES: "Nodes"}
+        sk_chosen = st.radio(
+            "Sankey grouping", sk_opts,
+            index=sk_opts.index(st.session_state[sk_key]),
+            horizontal=True, format_func=lambda r: sk_labels[r],
+            key=f"{key}__sankey_res__radio",
+            label_visibility="collapsed",
+            help="Group the throughput flows by resonance space, cluster, or node.",
+        )
+        st.session_state[sk_key] = sk_chosen
 
     if chosen not in _IMPLEMENTED:
         st.caption(f"↪ **{chosen}** is planned — {_PURPOSE.get(chosen, '')} "
@@ -679,6 +699,13 @@ def render_network(G, node_load, edge_state,
             pos=pos, cluster_anchors=cluster_anchors,
         )
 
+    if view_mode == VIEW_SANKEY:
+        return plot_network_sankey(
+            G, node_load, edge_state,
+            highlight_nodes=highlight_nodes, highlight_edges=highlight_edges,
+            pos=pos, cluster_anchors=cluster_anchors,
+        )
+
     return plot_network(
         G, node_load, edge_state,
         highlight_nodes=highlight_nodes, highlight_edges=highlight_edges,
@@ -836,5 +863,211 @@ def plot_network_heatmap(G, node_load, edge_state,
         plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
         xaxis=dict(title="Step", showgrid=False),
         yaxis=dict(showgrid=False, autorange="reversed"),  # first row on top
+    )
+    return fig
+
+# ============================================================================
+# Sankey view — coupling throughput (engine flow, current step)
+# ============================================================================
+# Shows the directed supply throughput of the active scenario at the current
+# step. Two ingredients from the snapshot (added by the engine, additive):
+#   snap["edge_flows"]      = {(source, target): flow}   inter-node transfer
+#   snap["self_throughput"] = {node: self_supply}        intra-node supply
+# Node space/cluster come from G (carries the scalar node attributes).
+#
+# Aggregation toggle, mirrored into st.session_state["sankey_resolution"]:
+#   "spaces"   -> digital / financial / economic        (default, clearest)
+#   "clusters" -> per-cluster
+#   "nodes"    -> per-node (finest, can be busy)
+# Self-supply is rendered as a node's own inflow band (kept separate from
+# inter-node transfer) so total throughput is visible without self-loops.
+
+SANKEY_RES_SPACES   = "spaces"
+SANKEY_RES_CLUSTERS = "clusters"
+SANKEY_RES_NODES    = "nodes"
+
+# Space ordering / colours mirror the layered view so the Sankey reads
+# top-of-stack (digital) to real economy, consistent across views.
+_SANKEY_SPACE_ORDER = ["digital", "technical", "sector",
+                       "financial", "pipeline", "regional",
+                       "economic", "regulatory", "business"]
+_SANKEY_NODE_COLOR = {
+    "digital": "#4fc3f7", "sector": "#4fc3f7", "technical": "#86efac",
+    "financial": "#6bd96b", "regional": "#6bd96b", "pipeline": "#c084fc",
+    "economic": "#c084fc", "regulatory": "#fbbf24", "business": "#ffaa66",
+}
+
+
+def _sankey_group_of(node, G, resolution):
+    """Map a node id to its Sankey group label for the chosen resolution."""
+    if resolution == SANKEY_RES_NODES:
+        return str(node)
+    try:
+        attrs = G.nodes[node]
+    except Exception:
+        attrs = {}
+    if resolution == SANKEY_RES_CLUSTERS:
+        return str(attrs.get("cluster", "default"))
+    return str(attrs.get("space", "")) or "other"
+
+
+def _sankey_order_key(label, resolution):
+    """Stable order: spaces by canonical stack order, else alphabetical."""
+    if resolution == SANKEY_RES_SPACES:
+        try:
+            return (_SANKEY_SPACE_ORDER.index(label), label)
+        except ValueError:
+            return (len(_SANKEY_SPACE_ORDER), label)
+    return (0, label)
+
+
+def plot_network_sankey(G, node_load, edge_state,
+                        highlight_nodes=None, highlight_edges=None,
+                        pos=None, cluster_anchors=None):
+    """Coupling-throughput Sankey for the current step. Drop-in signature; the
+    flow data come from the active history snapshot (see module note). The
+    aggregation toggle is read from st.session_state["sankey_resolution"]."""
+    history = _get_history()
+    if not history:
+        return _empty_heatmap("Run the simulation to populate the flow view.")
+
+    # Current step (clamped) — the Sankey is a snapshot at the slider position.
+    cur = st.session_state.get("step", 0)
+    if not isinstance(cur, int):
+        cur = 0
+    cur = max(0, min(cur, len(history) - 1))
+    snap = history[cur]
+
+    edge_flows = snap.get("edge_flows", {}) or {}
+    self_tp    = snap.get("self_throughput", {}) or {}
+
+    if not edge_flows and not self_tp:
+        return _empty_heatmap("No throughput recorded at this step.")
+
+    resolution = st.session_state.get("sankey_resolution", SANKEY_RES_SPACES)
+
+    # group_space[label] = resonance space that dominates this group (by summed
+    # throughput), used to colour nodes and links consistently with the rest of
+    # the dashboard (digital=blue, financial=green, economic=purple, ...).
+    group_space = {}
+
+    def _space_of_node(n):
+        try:
+            return G.nodes[n].get("space", "") or ""
+        except Exception:
+            return ""
+
+    def _accrue_space(group_label, node_id, weight):
+        sp = _space_of_node(node_id)
+        if not sp:
+            return
+        d = group_space.setdefault(group_label, {})
+        d[sp] = d.get(sp, 0.0) + weight
+
+    # --- Aggregate directed transfer flows into group->group links ----------
+    # link_w[(src_group, dst_group)] = summed transfer. Self-supply is added as
+    # a group's own inflow via a synthetic "supply" source per group, so the
+    # node/group thickness reflects total throughput without self-loops.
+    link_w = {}
+    for (u, v), f in edge_flows.items():
+        if f <= 0:
+            continue
+        gu = _sankey_group_of(u, G, resolution)
+        gv = _sankey_group_of(v, G, resolution)
+        _accrue_space(gu, u, float(f))
+        _accrue_space(gv, v, float(f))
+        if gu == gv:
+            # intra-group transfer — fold into the group's self inflow instead
+            link_w[("· self", gv)] = link_w.get(("· self", gv), 0.0) + float(f)
+        else:
+            link_w[(gu, gv)] = link_w.get((gu, gv), 0.0) + float(f)
+
+    for node, s in self_tp.items():
+        if s <= 0:
+            continue
+        g = _sankey_group_of(node, G, resolution)
+        _accrue_space(g, node, float(s))
+        link_w[("· self", g)] = link_w.get(("· self", g), 0.0) + float(s)
+
+    if not link_w:
+        return _empty_heatmap("No throughput recorded at this step.")
+
+    # Resolve the dominant space per group (highest summed throughput).
+    def _dominant_space(label):
+        if resolution == SANKEY_RES_SPACES:
+            return label
+        d = group_space.get(label)
+        return max(d, key=d.get) if d else ""
+
+
+    # --- Build node index list ----------------------------------------------
+    labels_set = set()
+    for (a, b) in link_w:
+        labels_set.add(a)
+        labels_set.add(b)
+    # "· self" sources sort first (left), then groups in canonical order.
+    def _lk(lbl):
+        if lbl == "· self":
+            return (-1, "")
+        return _sankey_order_key(lbl, resolution)
+    labels = sorted(labels_set, key=_lk)
+    idx = {lbl: i for i, lbl in enumerate(labels)}
+
+    def _space_color(space, fallback="#9aa7b8"):
+        return _SANKEY_NODE_COLOR.get(space, fallback)
+
+    def _node_color(lbl):
+        if lbl == "· self":
+            return "rgba(160,160,160,0.55)"
+        return _space_color(_dominant_space(lbl))
+
+    node_colors = [_node_color(l) for l in labels]
+
+    src = [idx[a] for (a, b) in link_w]
+    dst = [idx[b] for (a, b) in link_w]
+    val = [w for w in link_w.values()]
+
+    # Links coloured by their source group's dominant space (translucent), so a
+    # band shows where the supply originates. The "· self" source inherits the
+    # destination's space so self-supply reads in the receiving space's colour.
+    def _hex_to_rgba(hex_color, alpha):
+        h = hex_color.lstrip("#")
+        if len(h) != 6:
+            return f"rgba(150,160,175,{alpha})"
+        r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+        return f"rgba({r},{g},{b},{alpha})"
+
+    def _link_color(a, b):
+        # source space if a real group, else the destination's space for self
+        space = _dominant_space(b) if a == "· self" else _dominant_space(a)
+        return _hex_to_rgba(_space_color(space), 0.28)
+
+    link_colors = [_link_color(a, b) for (a, b) in link_w]
+
+    fig = go.Figure(data=[go.Sankey(
+        arrangement="snap",
+        node=dict(
+            label=labels, color=node_colors,
+            pad=20, thickness=20,
+            line=dict(width=0.5, color="#666"),
+        ),
+        # Plotly's default Sankey label styling applies a text shadow/halo that
+        # renders as a smeared double outline over coloured nodes/bands. Setting
+        # shadow="none" with a plain normal-weight sans fixes the legibility.
+        textfont=dict(
+            size=13, color="#1f2937", family="Arial, Helvetica, sans-serif",
+            weight="normal", shadow="none",
+        ),
+        link=dict(
+            source=src, target=dst, value=val,
+            color=link_colors,
+            hovertemplate="%{source.label} → %{target.label}<br>"
+                          "Throughput: %{value:.1f}<extra></extra>",
+        ),
+    )])
+    fig.update_layout(
+        height=440,
+        margin=dict(l=4, r=4, t=20, b=0),
+        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
     )
     return fig
