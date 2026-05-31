@@ -663,11 +663,6 @@ def run_cyber_cloud_simulation(
                            strength=e["strength"])
 
         # ------------------------------------------
-        # CLUSTER STRESS (fuer Layout + Propagation)
-        # ------------------------------------------
-        cluster_stress = compute_cluster_stress(nodes)
-
-        # ------------------------------------------
         # ROUTING Phase 1: Selbstversorgung
         # ------------------------------------------
         for n in nodes.values():
@@ -718,6 +713,16 @@ def run_cyber_cloud_simulation(
 
             if not moved:
                 break
+
+        # ------------------------------------------
+        # CLUSTER STRESS (nach dem Routing: 'received' ist jetzt befuellt)
+        # ------------------------------------------
+        # Muss NACH dem Routing stehen: compute_cluster_stress liest 'received',
+        # das zu Step-Beginn auf 0 zurueckgesetzt und erst durch die Routing-
+        # Phasen gefuellt wird. Vor dem Routing ergab (demand-received)/demand
+        # konstant 1.0 fuer jeden Cluster (struktureller Defekt). Der Wert wird
+        # in der Stress-Propagation (cluster_stress.get) und im Snapshot genutzt.
+        cluster_stress = compute_cluster_stress(nodes)
 
         # ------------------------------------------
         # CAPACITY BUFFER DYNAMIK (pro Knoten)

@@ -8,7 +8,8 @@ Live today:
   - "2D Flat"     — Variante A (color = stress, shape = resonance space)
   - "3D Layered"  — stacked layers per resonance space, stress cascading
                     top -> bottom, cross-space bridges drawn (near-)vertical
-All four modes are implemented.
+All four 3D/2D modes are implemented. "Heatmap" and "Sankey" are on the
+roadmap and currently shown as "coming soon" in the selector.
 
 The selector is rendered once at the top of each scenario panel (right of the
 structural-path radio) via select_network_view(); the choice is mirrored into a
@@ -31,17 +32,25 @@ VIEW_2D_FLAT     = "2D Flat"
 VIEW_3D_LAYERED  = "3D Layered"
 VIEW_3D_CLUSTER  = "3D Clustering"
 VIEW_3D_TOPOLOGY = "3D Topology"
+VIEW_HEATMAP     = "Heatmap"
+VIEW_SANKEY      = "Sankey"
 
-NETWORK_VIEW_MODES = [VIEW_2D_FLAT, VIEW_3D_LAYERED, VIEW_3D_CLUSTER, VIEW_3D_TOPOLOGY]
+NETWORK_VIEW_MODES = [VIEW_2D_FLAT, VIEW_3D_LAYERED, VIEW_3D_CLUSTER, VIEW_3D_TOPOLOGY,
+                      VIEW_HEATMAP, VIEW_SANKEY]
 
 # Modes implemented today. Everything else renders as 2D Flat with a hint.
-_IMPLEMENTED = {VIEW_2D_FLAT, VIEW_3D_LAYERED, VIEW_3D_CLUSTER, VIEW_3D_TOPOLOGY}
+# Heatmap and Sankey are on the roadmap (shown as "coming soon" in the selector)
+# and get added here once their renderers land.
+_IMPLEMENTED = {VIEW_2D_FLAT, VIEW_3D_LAYERED, VIEW_3D_CLUSTER, VIEW_3D_TOPOLOGY,
+                VIEW_HEATMAP}
 
 _PURPOSE = {
     VIEW_2D_FLAT:     "Flat layout — color = stress, shape = resonance space.",
     VIEW_3D_LAYERED:  "Stacked layers — stress cascading top to bottom across spaces.",
     VIEW_3D_CLUSTER:  "Translucent hulls — concentration and cluster membership.",
     VIEW_3D_TOPOLOGY: "Free 3D force layout — overall coupling structure.",
+    VIEW_HEATMAP:     "Stress over time — nodes or clusters as rows, steps as columns.",
+    VIEW_SANKEY:      "Flow view — coupling throughput along edges between spaces.",
 }
 
 # --- Layer conventions (shared with the chart layer colors) -----------------
@@ -109,6 +118,27 @@ def select_network_view(key: str = "network_view_mode",
         help="Switch how the resonance network is rendered.",
     )
     st.session_state[key] = chosen   # durable mirror read by render_network()
+
+    # When the Heatmap view is active, offer a node/cluster resolution toggle.
+    # Mirrored into st.session_state["heatmap_resolution"] (plain entry, same
+    # pattern as the view mode) so plot_network_heatmap can read it. Hidden for
+    # all other views so it never clutters them.
+    if chosen == VIEW_HEATMAP:
+        res_key = "heatmap_resolution"
+        if res_key not in st.session_state or \
+                st.session_state[res_key] not in (HEATMAP_RES_NODES, HEATMAP_RES_CLUSTERS):
+            st.session_state[res_key] = HEATMAP_RES_NODES
+        res_labels = {HEATMAP_RES_NODES: "Nodes", HEATMAP_RES_CLUSTERS: "Clusters"}
+        res_opts = [HEATMAP_RES_NODES, HEATMAP_RES_CLUSTERS]
+        res_chosen = st.radio(
+            "Heatmap rows", res_opts,
+            index=res_opts.index(st.session_state[res_key]),
+            horizontal=True, format_func=lambda r: res_labels[r],
+            key=f"{key}__heatmap_res__radio",
+            label_visibility="collapsed",
+            help="Heatmap rows: individual nodes or aggregated clusters.",
+        )
+        st.session_state[res_key] = res_chosen
 
     if chosen not in _IMPLEMENTED:
         st.caption(f"↪ **{chosen}** is planned — {_PURPOSE.get(chosen, '')} "
@@ -642,8 +672,169 @@ def render_network(G, node_load, edge_state,
             pos=pos, cluster_anchors=cluster_anchors,
         )
 
+    if view_mode == VIEW_HEATMAP:
+        return plot_network_heatmap(
+            G, node_load, edge_state,
+            highlight_nodes=highlight_nodes, highlight_edges=highlight_edges,
+            pos=pos, cluster_anchors=cluster_anchors,
+        )
+
     return plot_network(
         G, node_load, edge_state,
         highlight_nodes=highlight_nodes, highlight_edges=highlight_edges,
         pos=pos, cluster_anchors=cluster_anchors,
     )
+
+# ---------------------------------------------------------------------------
+# Heatmap view — stress over time
+# ---------------------------------------------------------------------------
+# Reads the simulation history (one snapshot per step) from a session_state
+# mirror, NOT from the drop-in arguments — the same pattern select_network_view
+# uses for the view mode. This keeps render_network's plot_network signature
+# intact while still giving the heatmap the full time axis it needs.
+#
+#   st.session_state["active_history_key"]  -> key of the history list
+#   st.session_state[that key]              -> [snap, snap, ...] per step
+#
+# Each snapshot carries:
+#   snap["load"]           = {node_id: stress}     (per-node, raw stress)
+#   snap["cluster_stress"] = {cluster: 0..1}       (per-cluster, normalised)
+#
+# Resolution toggle (node vs cluster) is read from:
+#   st.session_state["heatmap_resolution"] in {"nodes", "clusters"}  (default "nodes")
+# The toggle widget itself is drawn by the panel, not here (mirror pattern).
+
+HEATMAP_RES_NODES    = "nodes"
+HEATMAP_RES_CLUSTERS = "clusters"
+
+# Fixed stress ceiling for the node heatmap. The engine normalises internally
+# with stress/100 and uses failure/degradation thresholds at 30/60/95, so 100
+# is the natural, scenario-independent full-scale value. Using a fixed ceiling
+# (rather than the per-run maximum) keeps colour meaning identical across paths:
+# a resilient path reads mostly green, a fragile one mostly red, and red always
+# means high stress — consistent with the KPI tiles and the 2D/cluster views.
+_HEATMAP_STRESS_CEILING = 100.0
+
+_HEATMAP_COLORSCALE = [
+    [0.0, "#6bd96b"],   # low stress / healthy   (matches 2D green)
+    [0.4, "#ffd54a"],   # building
+    [0.7, "#ff9c3b"],   # medium stress          (matches 2D amber)
+    [1.0, "#ff3b3b"],   # high stress / failed    (matches 2D red)
+]
+
+
+def _empty_heatmap(message):
+    """Friendly placeholder when no history is available yet."""
+    fig = go.Figure()
+    fig.add_annotation(text=message, xref="paper", yref="paper",
+                       x=0.5, y=0.5, showarrow=False,
+                       font=dict(size=13, color="#888"))
+    fig.update_layout(
+        height=440,
+        margin=dict(l=0, r=0, t=20, b=0),
+        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+        xaxis=dict(visible=False), yaxis=dict(visible=False),
+    )
+    return fig
+
+
+def _get_history():
+    """Read the active simulation history via the session_state mirror.
+    Returns a list of snapshots (possibly empty)."""
+    key = st.session_state.get("active_history_key")
+    if not key:
+        return []
+    hist = st.session_state.get(key)
+    return hist if isinstance(hist, list) else []
+
+
+def plot_network_heatmap(G, node_load, edge_state,
+                         highlight_nodes=None, highlight_edges=None,
+                         pos=None, cluster_anchors=None):
+    """Stress-over-time heatmap. Rows = nodes or clusters, columns = steps.
+
+    Drop-in compatible signature (the positional args are accepted but the
+    time series come from the history mirror, see module note above). The
+    resolution toggle is read from st.session_state["heatmap_resolution"]."""
+    history = _get_history()
+    if not history:
+        return _empty_heatmap("Run the simulation to populate the stress heatmap.")
+
+    resolution = st.session_state.get("heatmap_resolution", HEATMAP_RES_NODES)
+
+    n_steps = len(history)
+    x_steps = list(range(n_steps))
+
+    if resolution == HEATMAP_RES_CLUSTERS:
+        # --- Cluster x Time -------------------------------------------------
+        # cluster_stress is already normalised 0..1.
+        clusters = []
+        seen = set()
+        for snap in history:
+            for c in snap.get("cluster_stress", {}):
+                if c not in seen:
+                    seen.add(c)
+                    clusters.append(c)
+        if not clusters:
+            return _empty_heatmap("No cluster stress recorded for this scenario.")
+        clusters = sorted(clusters)
+        z = [[float(snap.get("cluster_stress", {}).get(c, 0.0)) for snap in history]
+             for c in clusters]
+        y_labels = clusters
+        zmin, zmax = 0.0, 1.0
+        hover = "Cluster: %{y}<br>Step: %{x}<br>Stress: %{z:.2f}<extra></extra>"
+        cbar_title = "Stress"
+    else:
+        # --- Node x Time ----------------------------------------------------
+        # Raw stress; the colour scale depends on the scale toggle (see the
+        # HEATMAP_SCALE_* notes above). Order nodes by resonance space (matches
+        # the layer ordering) so the heatmap reads top-down like 3D Layered.
+        space_rank = {s: i for i, s in enumerate(_SPACE_VORDER)}
+
+        def _space_of(n):
+            try:
+                return G.nodes[n].get("space", "")
+            except Exception:
+                return ""
+
+        nodes = list(history[0].get("load", {}).keys())
+        nodes.sort(key=lambda n: (space_rank.get(_space_of(n), 99), str(n)))
+        if not nodes:
+            return _empty_heatmap("No per-node stress recorded for this scenario.")
+
+        raw = [[float(snap.get("load", {}).get(n, 0.0)) for snap in history]
+               for n in nodes]
+
+        # Fixed engine ceiling, clipped to 1.0. Colour is comparable across
+        # nodes and paths; resilient reads mostly green, fragile mostly red,
+        # and red always means high stress (consistent with the KPI tiles).
+        ceil = _HEATMAP_STRESS_CEILING
+        z = [[min(1.0, max(0.0, v / ceil)) for v in row] for row in raw]
+
+        y_labels = nodes
+        zmin, zmax = 0.0, 1.0
+        hover = ("Node: %{y}<br>Step: %{x}<br>Stress: %{z:.2f}"
+                 "<extra></extra>")
+        cbar_title = "Stress"
+
+    fig = go.Figure(data=go.Heatmap(
+        z=z, x=x_steps, y=y_labels,
+        colorscale=_HEATMAP_COLORSCALE, zmin=zmin, zmax=zmax,
+        colorbar=dict(title=cbar_title, thickness=12, len=0.8),
+        hovertemplate=hover,
+    ))
+
+    # Mark the current step (read by select_network_view's siblings) if present.
+    cur = st.session_state.get("step")
+    if isinstance(cur, int) and 0 <= cur < n_steps:
+        fig.add_vline(x=cur, line_width=1.5, line_dash="dash",
+                      line_color="rgba(0,0,0,0.45)")
+
+    fig.update_layout(
+        height=440,
+        margin=dict(l=0, r=0, t=20, b=0),
+        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+        xaxis=dict(title="Step", showgrid=False),
+        yaxis=dict(showgrid=False, autorange="reversed"),  # first row on top
+    )
+    return fig

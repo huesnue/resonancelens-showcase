@@ -701,6 +701,7 @@ elif scenario["type"] == "energy":
         select_network_view(key="network_view_mode")
 
     history_key  = f"energy_history_{selected_path}"
+    st.session_state["active_history_key"] = history_key  # heatmap view reads this
     ensemble_key = f"energy_ensemble_{selected_path}"
 
     if run_clicked:
@@ -1136,6 +1137,7 @@ elif scenario["type"] == "pandemic":
     # Run simulation for selected path
     # ------------------------------------------
     history_key = f"pandemic_history_{selected_path}"
+    st.session_state["active_history_key"] = history_key  # heatmap view reads this
 
     ensemble_key = f"pandemic_ensemble_{selected_path}"
     if run_clicked:
@@ -1732,6 +1734,7 @@ elif scenario["type"] == "financial":
         select_network_view(key="network_view_mode")
     selected_path  = path_options[selected_label]
     history_key    = f"financial_history_{selected_path}"
+    st.session_state["active_history_key"] = history_key  # heatmap view reads this
 
     ensemble_key = f"financial_ensemble_{selected_path}"
 
@@ -2328,6 +2331,7 @@ elif scenario["type"] == "cyber_cloud":
         select_network_view(key="network_view_mode")
     selected_path = path_options[selected_label]
     history_key   = f"cyber_cloud_history_{selected_path}"
+    st.session_state["active_history_key"] = history_key  # heatmap view reads this
     ensemble_key  = f"cyber_cloud_ensemble_{selected_path}"
 
     if run_clicked:
@@ -2999,6 +3003,7 @@ elif scenario["type"] == "ctpp_concentration":
         select_network_view(key="network_view_mode")
     selected_path = path_options[selected_label]
     history_key   = f"ctpp_history_{selected_path}"
+    st.session_state["active_history_key"] = history_key  # heatmap view reads this
     ensemble_key  = f"ctpp_ensemble_{selected_path}"
 
     if run_clicked:
@@ -3680,6 +3685,7 @@ elif scenario["type"] == "critical_infra":
         select_network_view(key="network_view_mode")
     selected_path = path_options[selected_label]
     history_key   = f"critical_infra_history_{selected_path}"
+    st.session_state["active_history_key"] = history_key  # heatmap view reads this
     ensemble_key  = f"critical_infra_ensemble_{selected_path}"
 
     if run_clicked:
@@ -4193,6 +4199,7 @@ elif scenario["type"] == "banking_pipeline":
         select_network_view(key="network_view_mode")
     selected_path = path_options[selected_label]
     history_key   = f"banking_history_{selected_path}"
+    st.session_state["active_history_key"] = history_key  # heatmap view reads this
     ensemble_key  = f"banking_ensemble_{selected_path}"
 
     if run_clicked:
