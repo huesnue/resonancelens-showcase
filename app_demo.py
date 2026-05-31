@@ -909,25 +909,27 @@ elif scenario["type"] == "energy":
             if current_step_idx - last[1] <= 6:
                 display_pair, display_open = last, False
 
+        # Fixed-height banner box — constant Y for the charts below.
+        _banner_box = st.container(height=150, border=False)
         if display_pair:
             r_spike = display_pair[0]
             r_month_spike = MONTHS[r_spike] if r_spike < len(MONTHS) else ""
             if display_open:
                 steps_since = current_step_idx - r_spike
-                st.markdown(
+                _banner_box.markdown(
                     f"<div style='background:rgba(244,162,97,0.15);border-left:3px solid #f4a261;"
                     f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;color:var(--color-text-primary);margin-bottom:8px;'>"
                     f"⚠️ <strong>Early Warning active</strong> since {r_month_spike} "
                     f"— structural weakening detected <strong>{steps_since} month{'s' if steps_since!=1 else ''} ago</strong>. "
                     f"Stability drop not yet confirmed.</div>", unsafe_allow_html=True)
             else:
-                st.markdown(
+                _banner_box.markdown(
                     f"<div style='background:rgba(244,162,97,0.12);border-left:3px solid #f4a261;"
                     f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;color:var(--color-text-primary);margin-bottom:8px;'>"
                     f"💡 <strong>Early Warning</strong> ({r_month_spike}) signaled structural weakening "
                     f"<strong>{display_pair[2]} months</strong> before Stability visibly dropped.</div>", unsafe_allow_html=True)
 
-        _state_banner_ph = st.empty()
+        _state_banner_ph = _banner_box.empty()
         col_left, col_mid, col_right = st.columns([4, 4, 2])
 
         with col_left:
@@ -1398,18 +1400,20 @@ elif scenario["type"] == "pandemic":
             if current_idx - last[1] <= 8:
                 display_pair, display_open = last, False
 
+        # Fixed-height banner box — constant Y for the charts below.
+        _banner_box = st.container(height=150, border=False)
         if display_pair:
             spike_m = PANDEMIC_MONTHS[display_pair[0]] if display_pair[0] < len(PANDEMIC_MONTHS) else ""
             if display_open:
                 steps_since = current_idx - display_pair[0]
-                st.markdown(
+                _banner_box.markdown(
                     f"<div style='background:rgba(244,162,97,0.15);border-left:3px solid #f4a261;"
                     f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;margin-bottom:8px;'>"
                     f"⚠️ <strong>Early Warning active</strong> since {spike_m} "
                     f"— structural weakening detected <strong>{steps_since} month{'s' if steps_since!=1 else ''} ago</strong>. "
                     f"Stability drop not yet confirmed.</div>", unsafe_allow_html=True)
             else:
-                st.markdown(
+                _banner_box.markdown(
                     f"<div style='background:rgba(244,162,97,0.12);border-left:3px solid #f4a261;"
                     f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;margin-bottom:8px;'>"
                     f"💡 <strong>Early Warning</strong> ({spike_m}) signaled structural weakening "
@@ -1419,7 +1423,7 @@ elif scenario["type"] == "pandemic":
         # ------------------------------------------
         # Chart | Network | Events
         # ------------------------------------------
-        _state_banner_ph = st.empty()
+        _state_banner_ph = _banner_box.empty()
         col_left, col_mid, col_right = st.columns([4, 4, 2])
 
         with col_left:
@@ -1977,18 +1981,20 @@ elif scenario["type"] == "financial":
             if current_idx - last[1] <= 8:
                 display_pair, display_open = last, False
 
+        # Fixed-height banner box — constant Y for the charts below.
+        _banner_box = st.container(height=150, border=False)
         if display_pair:
             spike_m = FINANCIAL_MONTHS[display_pair[0]] if display_pair[0] < len(FINANCIAL_MONTHS) else ""
             if display_open:
                 steps_since = current_idx - display_pair[0]
-                st.markdown(
+                _banner_box.markdown(
                     f"<div style='background:rgba(244,162,97,0.15);border-left:3px solid #f4a261;"
                     f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;margin-bottom:8px;'>"
                     f"⚠️ <strong>Early Warning active</strong> since {spike_m} "
                     f"— structural weakening detected <strong>{steps_since} month{'s' if steps_since!=1 else ''} ago</strong>. "
                     f"Stability drop not yet confirmed.</div>", unsafe_allow_html=True)
             else:
-                st.markdown(
+                _banner_box.markdown(
                     f"<div style='background:rgba(244,162,97,0.12);border-left:3px solid #f4a261;"
                     f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;margin-bottom:8px;'>"
                     f"💡 <strong>Early Warning</strong> ({spike_m}) signaled structural weakening "
@@ -1998,7 +2004,7 @@ elif scenario["type"] == "financial":
         # ------------------------------------------
         # Chart | Network | Events
         # ------------------------------------------
-        _state_banner_ph = st.empty()
+        _state_banner_ph = _banner_box.empty()
         col_left, col_mid, col_right = st.columns([4, 4, 2])
 
         with col_left:
@@ -2476,13 +2482,15 @@ elif scenario["type"] == "cyber_cloud":
         # ------------------------------------------
         # Active Attack Banner — driven by snapshot active_attack
         # ------------------------------------------
+        # Fixed-height banner box — constant Y for the charts below.
+        _banner_box = st.container(height=150, border=False)
         active_attack = current.get("active_attack")
         if active_attack:
             atype  = active_attack.get("type", "unknown")
             actor  = active_attack.get("actor", "unknown")
             inten  = active_attack.get("intensity", 0.0)
             target = active_attack.get("target_cluster") or "system-wide"
-            st.markdown(
+            _banner_box.markdown(
                 f"<div style='background:rgba(167,71,71,0.12);border-left:3px solid #c66767;"
                 f"border-radius:0 6px 6px 0;padding:6px 14px;font-size:12px;margin-bottom:8px;"
                 f"display:flex;flex-wrap:wrap;gap:14px;align-items:center;'>"
@@ -2644,14 +2652,14 @@ elif scenario["type"] == "cyber_cloud":
             spike_m = CYBER_MONTHS[display_pair[0]] if display_pair[0] < len(CYBER_MONTHS) else ""
             if display_open:
                 steps_since = current_idx - display_pair[0]
-                st.markdown(
+                _banner_box.markdown(
                     f"<div style='background:rgba(244,162,97,0.15);border-left:3px solid #f4a261;"
                     f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;margin-bottom:8px;'>"
                     f"⚠️ <strong>Early Warning active</strong> since {spike_m} "
                     f"— structural weakening detected <strong>{steps_since} month{'s' if steps_since!=1 else ''} ago</strong>. "
                     f"Stability drop not yet confirmed.</div>", unsafe_allow_html=True)
             else:
-                st.markdown(
+                _banner_box.markdown(
                     f"<div style='background:rgba(244,162,97,0.12);border-left:3px solid #f4a261;"
                     f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;margin-bottom:8px;'>"
                     f"💡 <strong>Early Warning</strong> ({spike_m}) signaled structural weakening "
@@ -2661,7 +2669,7 @@ elif scenario["type"] == "cyber_cloud":
         # ------------------------------------------
         # Chart | Network | Events
         # ------------------------------------------
-        _state_banner_ph = st.empty()
+        _state_banner_ph = _banner_box.empty()
         col_left, col_mid, col_right = st.columns([4, 4, 2])
 
         with col_left:
@@ -3157,13 +3165,16 @@ elif scenario["type"] == "ctpp_concentration":
         # ------------------------------------------
         # Active Attack Banner — driven by snapshot active_attack
         # ------------------------------------------
+        # Fixed-height banner box — constant Y for the charts below regardless
+        # of how many banners (0–3) show this step; overflow scrolls internally.
+        _banner_box = st.container(height=150, border=False)
         active_attack = current.get("active_attack")
         if active_attack:
             atype  = active_attack.get("type", "unknown")
             actor  = active_attack.get("actor", "unknown")
             inten  = active_attack.get("intensity", 0.0)
             target = active_attack.get("target_cluster") or "system-wide"
-            st.markdown(
+            _banner_box.markdown(
                 f"<div style='background:rgba(167,71,71,0.12);border-left:3px solid #c66767;"
                 f"border-radius:0 6px 6px 0;padding:6px 14px;font-size:12px;margin-bottom:8px;"
                 f"display:flex;flex-wrap:wrap;gap:14px;align-items:center;'>"
@@ -3325,14 +3336,14 @@ elif scenario["type"] == "ctpp_concentration":
             spike_m = CYBER_MONTHS[display_pair[0]] if display_pair[0] < len(CYBER_MONTHS) else ""
             if display_open:
                 steps_since = current_idx - display_pair[0]
-                st.markdown(
+                _banner_box.markdown(
                     f"<div style='background:rgba(244,162,97,0.15);border-left:3px solid #f4a261;"
                     f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;margin-bottom:8px;'>"
                     f"⚠️ <strong>Early Warning active</strong> since {spike_m} "
                     f"— structural weakening detected <strong>{steps_since} month{'s' if steps_since!=1 else ''} ago</strong>. "
                     f"Stability drop not yet confirmed.</div>", unsafe_allow_html=True)
             else:
-                st.markdown(
+                _banner_box.markdown(
                     f"<div style='background:rgba(244,162,97,0.12);border-left:3px solid #f4a261;"
                     f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;margin-bottom:8px;'>"
                     f"💡 <strong>Early Warning</strong> ({spike_m}) signaled structural weakening "
@@ -3342,7 +3353,7 @@ elif scenario["type"] == "ctpp_concentration":
         # ------------------------------------------
         # Chart | Network | Events
         # ------------------------------------------
-        _state_banner_ph = st.empty()
+        _state_banner_ph = _banner_box.empty()
         col_left, col_mid, col_right = st.columns([4, 4, 2])
 
         with col_left:
@@ -3861,13 +3872,15 @@ elif scenario["type"] == "critical_infra":
         )
         
         # Active-Event-Banner (analog cyber_cloud, mit active_event statt active_attack)
+        # Fixed-height banner box — constant Y for the charts below.
+        _banner_box = st.container(height=150, border=False)
         active_event = current.get("active_event")
         if active_event:
             etype  = active_event.get("type", "unknown")
             actor  = active_event.get("actor", "unknown")
             inten  = active_event.get("intensity", 0.0)
             target = active_event.get("target_cluster") or "system-wide"
-            st.markdown(
+            _banner_box.markdown(
                 f"<div style='background:rgba(167,71,71,0.12);border-left:3px solid #c66767;"
                 f"border-radius:0 6px 6px 0;padding:6px 14px;font-size:12px;margin-bottom:8px;"
                 f"display:flex;flex-wrap:wrap;gap:14px;align-items:center;'>"
@@ -3882,7 +3895,7 @@ elif scenario["type"] == "critical_infra":
         rail_share = current.get("rail_share", 1.0)
         trust_rail = current.get("trust_rail", 0.6)
         if rail_share < 0.85:
-            st.markdown(
+            _banner_box.markdown(
                 f"<div style='background:rgba(255,170,102,0.12);border-left:3px solid #ffaa66;"
                 f"border-radius:0 6px 6px 0;padding:6px 14px;font-size:12px;margin-bottom:8px;"
                 f"display:flex;flex-wrap:wrap;gap:14px;align-items:center;'>"
@@ -3913,7 +3926,7 @@ elif scenario["type"] == "critical_infra":
                        if display_pair[0] < len(CRITICAL_INFRA_MONTHS) else "")
             if display_open:
                 steps_since = current_idx - display_pair[0]
-                st.markdown(
+                _banner_box.markdown(
                     f"<div style='background:rgba(244,162,97,0.15);"
                     f"border-left:3px solid #f4a261;"
                     f"border-radius:0 6px 6px 0;padding:8px 14px;"
@@ -3924,7 +3937,7 @@ elif scenario["type"] == "critical_infra":
                     f"Migration not yet confirmed.</div>",
                     unsafe_allow_html=True)
             else:
-                st.markdown(
+                _banner_box.markdown(
                     f"<div style='background:rgba(244,162,97,0.12);"
                     f"border-left:3px solid #f4a261;"
                     f"border-radius:0 6px 6px 0;padding:8px 14px;"
@@ -3935,7 +3948,7 @@ elif scenario["type"] == "critical_infra":
                     unsafe_allow_html=True)
                 
         # --- Chart | Network | Events ---
-        _state_banner_ph = st.empty()
+        _state_banner_ph = _banner_box.empty()
         col_left, col_mid, col_right = st.columns([4, 4, 2])
 
         with col_left:
@@ -4530,13 +4543,15 @@ elif scenario["type"] == "banking_pipeline":
         # Unterscheidung zwischen permanenter Strukturschwäche (Fragile-Norm)
         # und akuten Lead-Pair-Signalen (Resilient/Hybrid bei Schocks)
         # ------------------------------------------
+        # Fixed-height banner box — constant Y for the charts below.
+        _banner_box = st.container(height=150, border=False)
         if ew_now >= EW_HIGH_BK:
             # Strukturell-kritischer Zustand (typisch Fragile)
             stress_now = stress_acc_series[current_idx]
             margin_now = stab_margin_series[current_idx]
             margin_text = ("buffer below stress floor" if margin_now < 0
                            else "structural drift accumulating")
-            st.markdown(
+            _banner_box.markdown(
                 f"<div style='background:rgba(248,113,113,0.15);border-left:3px solid #f87171;"
                 f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;color:var(--color-text-primary);margin:8px 0;'>"
                 f"🔴 <strong>Critical structural exposure</strong> — "
@@ -4547,7 +4562,7 @@ elif scenario["type"] == "banking_pipeline":
             # Akute Vorwarnung: EW-Spike ohne nachfolgenden Stab-Drop
             r_month_spike = BANKING_MONTHS[open_pair_chart[0]]
             elapsed = current_idx - open_pair_chart[0]
-            st.markdown(
+            _banner_box.markdown(
                 f"<div style='background:rgba(244,162,97,0.12);border-left:3px solid #f4a261;"
                 f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;color:var(--color-text-primary);margin:8px 0;'>"
                 f"⚠️ <strong>Early Warning active</strong> since {r_month_spike} — "
@@ -4558,7 +4573,7 @@ elif scenario["type"] == "banking_pipeline":
             last_spike, last_drop, last_lead = all_pairs_chart[-1]
             if last_lead > 0 and current_idx - last_drop <= 6:
                 r_month_spike = BANKING_MONTHS[last_spike]
-                st.markdown(
+                _banner_box.markdown(
                     f"<div style='background:rgba(34,197,94,0.10);border-left:3px solid #22c55e;"
                     f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;color:var(--color-text-primary);margin:8px 0;'>"
                     f"💡 <strong>Early Warning</strong> ({r_month_spike}) signaled structural weakening "
@@ -4568,7 +4583,7 @@ elif scenario["type"] == "banking_pipeline":
         # ------------------------------------------
         # Chart | Network | Events
         # ------------------------------------------
-        _state_banner_ph = st.empty()
+        _state_banner_ph = _banner_box.empty()
         col_left, col_mid, col_right = st.columns([4, 4, 2])
 
         with col_left:
