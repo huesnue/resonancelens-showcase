@@ -569,3 +569,156 @@ def get_info_by_label(label: str, lang: str = "en") -> dict:
     if not key:
         return {}
     return get_info(key, lang=lang)
+
+
+# ======================================================================
+# ICT THIRD-PARTY CONCENTRATION (DORA) — Info-Bundle
+# Ans Ende von scenarios/scenario_info.py anhaengen.
+# Selbststaendig: definiert _CTPP und registriert es in den drei Maps.
+# ======================================================================
+
+_CTPP = {
+    "en": {
+        "tagline": "ICT third-party concentration risk across provider, financial and economic spaces (DORA).",
+        "topic": (
+            "A DORA ICT third-party concentration demonstrator across three "
+            "coupled spaces: digital (CTPPs — a dominant hyperscaler hosting "
+            "core-banking, payment processing, identity and analytics, plus a "
+            "secondary cloud), financial (critical-or-important functions: "
+            "Tier-1 banks, payments, securities settlement, custody, insurance, "
+            "retail) and economic (DE/FR economies, households, SMEs, public "
+            "services). Nine cross-space bridges connect the layers; the "
+            "provider→financial bridges are the systemic concentration channel."
+        ),
+        "problem": (
+            "The whole sector depends on a handful of designated critical ICT "
+            "providers, yet third-party risk is still managed register-by-"
+            "register, entity-by-entity. The systemic exposure — one provider "
+            "degradation cascading across many institutions into the real "
+            "economy — stays invisible until an outage proves it."
+        ),
+        "goal": (
+            "Show how three pathways (Resilient / Hybrid / Fragile — framed as "
+            "exit-strategy and substitutability maturity) diverge under the "
+            "SAME concentration and the SAME documented shocks (AWS 2021, "
+            "MOVEit, Storm-0558, CrowdStrike 2024, DORA in force, RoI "
+            "submission, ESAs CTPP designation). Different outcomes come from "
+            "resilience posture, not from different shocks."
+        ),
+        "read_network": (
+            "Three resonance spaces with distinct shapes. Circles = ICT "
+            "providers/CTPPs, squares = financial functions, diamonds = "
+            "economic. Dashed purple lines are cross-space bridges — the "
+            "provider→financial channel is where concentration risk crosses "
+            "domains. The dominant hyperscaler hub lights up as stress "
+            "propagates outward."
+        ),
+        "read_signals": (
+            "System Health is the headline. Three layer lines run alongside: "
+            "Provider/Digital Resilience, Financial Stability and Economic "
+            "Output. The header surfaces the DORA concentration KPIs live — "
+            "ICT Concentration (HHI), SPoF Exposure and CIF at Risk — plus the "
+            "orange Early Warning that rises before the visible impact. Phase 2 "
+            "adds ensemble bands; markers show the DORA in-force date and phase "
+            "transitions."
+        ),
+        "read_spaces": (
+            "Providers supply capacity; financial functions consume it as "
+            "critical-or-important services; the economy is the consequence. "
+            "Combined Stability is weighted 30 % provider · 40 % financial · "
+            "30 % economic — financial is the load-bearing space (DORA logic). "
+            "The cross-space bridges are where the concentration cascade "
+            "originates."
+        ),
+        "key_takeaways": [
+            "Concentration is the shared condition — the whole sector sits on the same few CTPPs. Designation doesn't discharge the entity's own governance (DORA Art. 28).",
+            "Resilience posture — tested exit strategies and substitutability — not the shock, determines the outcome.",
+            "The provider→financial bridge is the DORA concentration fault line; Early Warning moves before the visible outage.",
+        ],
+        "metric_help": {
+            "System Health": "Weighted combined health of all three spaces. Slow headline signal.",
+            "Digital Resilience": "Operational availability of the ICT providers / CTPPs.",
+            "Financial Stability": "Service to critical-or-important functions (banks, payments, settlement).",
+            "Economic Output": "Country economies, households, SMEs and public services under stress.",
+            "Early Warning": "Structural drift; rises before the visible provider impact (lead time).",
+            "ICT Concentration (HHI)": "Herfindahl-style index of how dependent critical functions are on single providers (DORA Art. 29). >25 % = highly concentrated.",
+            "SPoF Exposure": "Share of critical functions exposed to a non-substitutable single provider (Art. 31 substitutability).",
+            "CIF at Risk": "Critical-or-important functions currently impacted or provider-degraded (Art. 31 systemic impact).",
+        },
+    },
+    "de": {
+        "tagline": "ICT-Drittparteien-Konzentrationsrisiko über Provider-, Finanz- und Wirtschaftsraum (DORA).",
+        "topic": (
+            "Ein DORA-Demonstrator für ICT-Drittparteien-Konzentration über "
+            "drei gekoppelte Räume: digital (CTPPs — ein dominanter Hyperscaler, "
+            "der Core-Banking, Payment-Processing, Identity und Analytics "
+            "hostet, plus eine Secondary-Cloud), finanziell (critical-or-"
+            "important functions: Tier-1-Banken, Payment, Wertpapier-"
+            "Settlement, Custody, Versicherung, Retail) und wirtschaftlich "
+            "(DE/FR, Haushalte, KMU, öffentliche Dienste). Neun Cross-Space-"
+            "Brücken verbinden die Schichten; die Provider→Financial-Brücken "
+            "sind der systemische Konzentrationskanal."
+        ),
+        "problem": (
+            "Der gesamte Sektor hängt von wenigen designierten kritischen "
+            "ICT-Providern ab, doch Drittparteienrisiko wird weiterhin "
+            "register- und institutsweise gemanagt. Die systemische "
+            "Exposition — eine Provider-Degradation, die über viele Institute "
+            "in die Realwirtschaft kaskadiert — bleibt unsichtbar, bis ein "
+            "Ausfall sie belegt."
+        ),
+        "goal": (
+            "Zeigen, wie drei Pfade (Resilient / Hybrid / Fragile — gerahmt als "
+            "Exit-Strategie- und Substituierbarkeits-Reife) unter DERSELBEN "
+            "Konzentration und DENSELBEN dokumentierten Schocks (AWS 2021, "
+            "MOVEit, Storm-0558, CrowdStrike 2024, DORA-Geltung, RoI-Meldung, "
+            "ESAs-CTPP-Designation) divergieren. Unterschiedliche Outcomes "
+            "kommen aus der Resilienz-Posture, nicht aus anderen Schocks."
+        ),
+        "read_network": (
+            "Drei Resonanzräume mit eigenen Symbolen. Kreise = ICT-Provider/"
+            "CTPPs, Quadrate = Finanzfunktionen, Rauten = wirtschaftlich. "
+            "Gestrichelte lila Kanten sind Cross-Space-Brücken — der "
+            "Provider→Financial-Kanal ist die Stelle, an der das "
+            "Konzentrationsrisiko die Domänen überquert. Der dominante "
+            "Hyperscaler-Hub glüht auf, wenn Stress nach außen propagiert."
+        ),
+        "read_signals": (
+            "System Health ist die Headline. Drei Layer-Linien daneben: "
+            "Provider/Digital Resilience, Financial Stability und Economic "
+            "Output. Der Header zeigt die DORA-Konzentrations-KPIs live — "
+            "ICT Concentration (HHI), SPoF Exposure und CIF at Risk — plus die "
+            "orange Frühwarn-Linie, die vor dem sichtbaren Impact steigt. "
+            "Phase 2 ergänzt Ensemble-Bänder; Marker zeigen das DORA-Geltungs-"
+            "datum und die Phasenübergänge."
+        ),
+        "read_spaces": (
+            "Provider liefern Kapazität; Finanzfunktionen verbrauchen sie als "
+            "critical-or-important services; die Wirtschaft ist die Konsequenz. "
+            "Combined Stability gewichtet 30 % Provider · 40 % Financial · "
+            "30 % Economic — Financial ist der tragende Raum (DORA-Logik). Die "
+            "Cross-Space-Brücken sind dort, wo die Konzentrationskaskade "
+            "entsteht."
+        ),
+        "key_takeaways": [
+            "Konzentration ist die geteilte Bedingung — der ganze Sektor sitzt auf denselben wenigen CTPPs. Die Designation entbindet die Entity nicht von eigener Governance (DORA Art. 28).",
+            "Die Resilienz-Posture — getestete Exit-Strategien und Substituierbarkeit — bestimmt das Outcome, nicht der Schock.",
+            "Die Provider→Financial-Brücke ist die DORA-Konzentrations-Bruchlinie; die Frühwarnung läuft dem sichtbaren Ausfall voraus.",
+        ],
+        "metric_help": {
+            "System Health": "Gewichtete kombinierte Health aller drei Räume. Langsames Headline-Signal.",
+            "Digital Resilience": "Operative Verfügbarkeit der ICT-Provider / CTPPs.",
+            "Financial Stability": "Versorgung der critical-or-important functions (Banken, Payment, Settlement).",
+            "Economic Output": "Volkswirtschaften, Haushalte, KMU und öffentliche Dienste unter Stress.",
+            "Early Warning": "Struktureller Drift; steigt vor dem sichtbaren Provider-Impact (Vorlaufzeit).",
+            "ICT Concentration (HHI)": "Herfindahl-artiger Index, wie stark kritische Funktionen von einzelnen Providern abhängen (DORA Art. 29). >25 % = hoch konzentriert.",
+            "SPoF Exposure": "Anteil kritischer Funktionen mit nicht-ersetzbarem Single-Provider (Art. 31 Substituierbarkeit).",
+            "CIF at Risk": "Aktuell betroffene oder provider-degradierte critical-or-important functions (Art. 31 systemischer Impact).",
+        },
+    },
+}
+
+# --- Registrierung in den drei Maps (Assignment statt Literal-Surgery) ---
+_REGISTRY["ctpp_concentration"] = _CTPP
+SCENARIO_KEY_BY_LABEL["ICT Third-Party Concentration"] = "ctpp_concentration"
+SCENARIO_ICON["ctpp_concentration"] = "ti-building-bank"
