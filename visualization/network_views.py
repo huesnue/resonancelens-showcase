@@ -237,6 +237,12 @@ def select_stakeholder_profile(key: str = "profile_mode",
     if st.session_state.get(applied_key) != chosen:
         st.session_state[applied_key] = chosen
         preset = _PROFILE_DEFAULT_VIEW.get(chosen)
+        # Note: if this presets the Sankey/flow view in a scenario without flow
+        # data, select_network_view() corrects it to 2D Flat (it gets the
+        # authoritative flows_available flag from the panel). We intentionally
+        # don't probe the history here — at profile-switch time (sidebar, before
+        # any panel renders) the history mirror isn't reliably pointed at the
+        # scenario yet.
         if preset in _IMPLEMENTED:
             st.session_state[view_key] = preset
         # Preset the sub-toggles too (heatmap rows / sankey grouping).
@@ -252,7 +258,8 @@ def select_stakeholder_profile(key: str = "profile_mode",
 
 
 def select_network_view(key: str = "network_view_mode",
-                        default: str = VIEW_2D_FLAT) -> str:
+                        default: str = VIEW_2D_FLAT,
+                        flows_available: bool = False) -> str:
     """Render the view selector and persist the choice in an explicit
     session_state mirror (``st.session_state[key]``). The mirror is a plain
     entry — not the widget key — so it survives full reruns even when this
@@ -276,12 +283,42 @@ def select_network_view(key: str = "network_view_mode",
     # fall back to the first allowed option so the radio index stays valid.
     if st.session_state[key] not in options:
         st.session_state[key] = options[0]
+
+    # Sankey availability is passed in explicitly by the panel (flows_available)
+    # — the panel knows whether its engine emits flow data, and that fact is
+    # stable across reruns, unlike the live history mirror which isn't yet
+    # populated/pointed at this scenario when the selector renders. If Sankey is
+    # the current view but this scenario has no flow data (e.g. the "Flüsse"
+    # profile preset it elsewhere), fall back to 2D Flat. Sankey stays in the
+    # list (labelled unavailable via _fmt) rather than disappearing.
+    flows_ok = flows_available
+    if st.session_state[key] == VIEW_SANKEY and not flows_ok:
+        st.session_state[key] = VIEW_2D_FLAT if VIEW_2D_FLAT in options else options[0]
     current = st.session_state[key]
 
     def _fmt(mode):
+        if mode == VIEW_SANKEY and not flows_ok:
+            return f"{mode}  ·  keine Flussdaten"
         return mode if mode in _IMPLEMENTED else f"{mode}  ·  coming soon"
 
-    chosen = st.radio(
+    # When Sankey is offered but this scenario has no flow data, render it as a
+    # genuinely disabled option (greyed out, not clickable) rather than just a
+    # relabelled-but-selectable one. st.radio can't disable a single option, so
+    # we scope a CSS rule to this radio's container and target the Sankey option
+    # by its position in the current options list (label is collapsed, so the
+    # Nth option label == options index + 1). The 2D-Flat fallback above stays
+    # as a safety net in case the option is reached programmatically.
+    _radio_box = st.container(key=f"{key}__viewbox")
+    if (VIEW_SANKEY in options) and (not flows_ok):
+        _sankey_pos = options.index(VIEW_SANKEY) + 1
+        _radio_box.markdown(
+            f"<style>div[class*='st-key-{key}__viewbox'] "
+            f"div[role='radiogroup'] label:nth-of-type({_sankey_pos})"
+            f"{{opacity:0.4;pointer-events:none;cursor:not-allowed;}}</style>",
+            unsafe_allow_html=True,
+        )
+
+    chosen = _radio_box.radio(
         "Network view", options,
         index=options.index(current),
         horizontal=True, format_func=_fmt,
@@ -945,6 +982,7 @@ def _get_history():
         return []
     hist = st.session_state.get(key)
     return hist if isinstance(hist, list) else []
+
 
 
 def plot_network_heatmap(G, node_load, edge_state,

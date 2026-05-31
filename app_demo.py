@@ -732,7 +732,7 @@ elif scenario["type"] == "energy":
             key="energy_path"
         )
     with _view_col:
-        select_network_view(key="network_view_mode")
+        select_network_view(key="network_view_mode", flows_available=False)
 
     history_key  = f"energy_history_{selected_path}"
     st.session_state["active_history_key"] = history_key  # heatmap view reads this
@@ -1167,7 +1167,7 @@ elif scenario["type"] == "pandemic":
         )
 
     with _view_col:
-        select_network_view(key="network_view_mode")
+        select_network_view(key="network_view_mode", flows_available=False)
 
     # ------------------------------------------
     # Run simulation for selected path
@@ -1769,7 +1769,7 @@ elif scenario["type"] == "financial":
             key="financial_path_radio"
         )
     with _view_col:
-        select_network_view(key="network_view_mode")
+        select_network_view(key="network_view_mode", flows_available=False)
     selected_path  = path_options[selected_label]
     history_key    = f"financial_history_{selected_path}"
     st.session_state["active_history_key"] = history_key  # heatmap view reads this
@@ -2368,7 +2368,7 @@ elif scenario["type"] == "cyber_cloud":
             key="cyber_cloud_path_radio"
         )
     with _view_col:
-        select_network_view(key="network_view_mode")
+        select_network_view(key="network_view_mode", flows_available=True)
     selected_path = path_options[selected_label]
     history_key   = f"cyber_cloud_history_{selected_path}"
     st.session_state["active_history_key"] = history_key  # heatmap view reads this
@@ -3042,7 +3042,7 @@ elif scenario["type"] == "ctpp_concentration":
             key="ctpp_path_radio"
         )
     with _view_col:
-        select_network_view(key="network_view_mode")
+        select_network_view(key="network_view_mode", flows_available=True)
     selected_path = path_options[selected_label]
     history_key   = f"ctpp_history_{selected_path}"
     st.session_state["active_history_key"] = history_key  # heatmap view reads this
@@ -3727,7 +3727,7 @@ elif scenario["type"] == "critical_infra":
             key="critical_infra_path_radio"
         )
     with _view_col:
-        select_network_view(key="network_view_mode")
+        select_network_view(key="network_view_mode", flows_available=False)
     selected_path = path_options[selected_label]
     history_key   = f"critical_infra_history_{selected_path}"
     st.session_state["active_history_key"] = history_key  # heatmap view reads this
@@ -4243,7 +4243,7 @@ elif scenario["type"] == "banking_pipeline":
                  "Fragile = legacy mid-tier (On-Prem Jenkins, manual audit, no Falco).",
         )
     with _view_col:
-        select_network_view(key="network_view_mode")
+        select_network_view(key="network_view_mode", flows_available=False)
     selected_path = path_options[selected_label]
     history_key   = f"banking_history_{selected_path}"
     st.session_state["active_history_key"] = history_key  # heatmap view reads this
