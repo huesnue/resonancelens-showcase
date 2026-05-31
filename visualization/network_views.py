@@ -110,6 +110,45 @@ _PROFILE_SANKEY_RES = {
     PROFILE_DETAIL:    "nodes",
 }
 
+# --- Stage 2: KPI focus per profile -----------------------------------------
+# Functional KPI groups present (in some form) across scenarios. A profile
+# focuses certain groups; the rest are visually de-emphasised (dimmed), never
+# hidden — no layout shift, no information loss. Panels call kpi_dim(group) to
+# get the opacity for a metric. With no profile ("—") or PROFILE_DETAIL, all
+# groups are focused (opacity 1.0).
+KPI_HEALTH     = "health"       # System Health
+KPI_ECONOMIC   = "economic"     # Economic Output
+KPI_DIGITAL    = "digital"      # Digital / technical resilience
+KPI_FINANCIAL  = "financial"    # Financial stability
+KPI_STRUCTURAL = "structural"   # HHI / SPoF / CIF (concentration & coupling)
+KPI_EARLYWARN  = "earlywarning" # Early Warning
+KPI_CAPACITY   = "capacity"     # Health/sector capacity headroom
+KPI_OPERATIONS = "operations"   # Operational throughput (rail, supply, undersupply)
+KPI_SOCIAL     = "social"       # Social mobility / human impact
+
+_PROFILE_KPI_FOCUS = {
+    PROFILE_OVERVIEW:  {KPI_HEALTH, KPI_ECONOMIC, KPI_SOCIAL},
+    PROFILE_STRUCTURE: {KPI_STRUCTURAL, KPI_CAPACITY},
+    PROFILE_FLOWS:     {KPI_DIGITAL, KPI_FINANCIAL, KPI_OPERATIONS},
+    PROFILE_TIMELINE:  {KPI_HEALTH, KPI_EARLYWARN},
+    # PROFILE_DETAIL / PROFILE_NONE: no entry -> all groups focused.
+}
+
+_KPI_DIM_OPACITY = 0.45   # opacity for non-focused KPI groups
+
+
+def kpi_dim(group: str, key: str = "profile_mode") -> float:
+    """Return the display opacity for a KPI group under the active profile:
+    1.0 if the group is focused (or no profile is active), else a dimmed value.
+    Pure lookup, no per-step cost. Panels wrap their metrics accordingly.
+    """
+    profile = st.session_state.get(key, PROFILE_NONE)
+    focus = _PROFILE_KPI_FOCUS.get(profile)
+    if not focus:           # "—", Detail, or unknown -> everything focused
+        return 1.0
+    return 1.0 if group in focus else _KPI_DIM_OPACITY
+
+
 # Hint shown under the selector — view + scenario-neutral role examples.
 _PROFILE_PURPOSE = {
     PROFILE_OVERVIEW:  "Cluster-Überblick — z.B. Executives, Vorstand.",

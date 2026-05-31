@@ -22,7 +22,10 @@ from core_lite.pandemic_simulation import run_pandemic_simulation
 from core_lite.financial_simulation import run_financial_simulation
 from core_lite.cyber_cloud_simulation import run_cyber_cloud_simulation
 from visualization.network_plot import plot_network, network_legend_html
-from visualization.network_views import render_network, select_network_view, select_stakeholder_profile
+from visualization.network_views import render_network, select_network_view, select_stakeholder_profile, kpi_dim
+from visualization.network_views import (KPI_HEALTH, KPI_ECONOMIC, KPI_DIGITAL,
+                                         KPI_FINANCIAL, KPI_STRUCTURAL, KPI_EARLYWARN,
+                                         KPI_CAPACITY, KPI_OPERATIONS, KPI_SOCIAL)
 
 # Live/Streaming-Familie (Kafka-Ingest) — Szenarien mit Echtzeit-Input
 from streaming.live_dashboard import render_live_dashboard, SCENARIOS as LIVE_SCENARIOS
@@ -63,6 +66,14 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import math
 
+
+def kpi_box(group: str, name: str):
+    """Return a container whose CSS key encodes whether this KPI group is
+    focused or dimmed under the active stakeholder profile (Stage 2). The
+    global stylesheet dims `st-key-kpidim-dim-*` containers; focused ones stay
+    full opacity. `name` only needs to be unique within the panel."""
+    state = "foc" if kpi_dim(group) >= 1.0 else "dim"
+    return st.container(key=f"kpidim-{state}-{name}")
 
 # ------------------------------------------
 # Month label generators
@@ -353,6 +364,7 @@ st.markdown(
     "[data-testid='stSidebarHeader']{height:1.5rem !important;min-height:1.5rem !important;"
     "padding-top:0 !important;margin-bottom:0 !important;}"
     "section[data-testid='stSidebar'] img:first-of-type{margin-top:-0.25rem;}"
+    "div[class*='st-key-kpidim-dim']{opacity:0.45;transition:opacity 0.2s;}"
     "</style>",
     unsafe_allow_html=True,
 )
@@ -825,9 +837,9 @@ elif scenario["type"] == "energy":
         m1, m2, m3, m4 = st.columns(4)
         with m1:
             st.metric("📅 Month", current_month)
-        with m2:
+        with m2, kpi_box(KPI_HEALTH, "energy_health"):
             st.metric("System Health", f"{current['system_health']:.0%}")
-        with m3:
+        with m3, kpi_box(KPI_OPERATIONS, "energy_under"):
             ms = current.get("market_stress", {})
             if ms:
                 top_stressed = max(ms, key=ms.get)
@@ -1275,9 +1287,9 @@ elif scenario["type"] == "pandemic":
 
         _phase_label = "📡 Projection" if is_proj else "📂 Historical"
         m1.metric(_phase_label, current_month)
-        m2.metric("System Health", f"{health_val:.0%}")
-        m3.metric("🏥 Health Capacity", f"{avg_health:.0%}")
-        m4.metric("📈 Econ Output", f"{avg_econ:.0%}")
+        with m2: kpi_box(KPI_HEALTH, "pand_health").metric("System Health", f"{health_val:.0%}")
+        with m3: kpi_box(KPI_CAPACITY, "pand_cap").metric("🏥 Health Capacity", f"{avg_health:.0%}")
+        with m4: kpi_box(KPI_ECONOMIC, "pand_econ").metric("📈 Econ Output", f"{avg_econ:.0%}")
         _ew_placeholder = m5.empty()
 
         # ------------------------------------------
@@ -1873,9 +1885,9 @@ elif scenario["type"] == "financial":
 
         _phase_label = "📡 Projection" if is_proj else "📂 Historical"
         m1.metric(_phase_label, current_month)
-        m2.metric("System Health", f"{health_val:.0%}")
-        m3.metric("🏦 Financial System Capacity", f"{avg_sec:.0%}")
-        m4.metric("🌍 Economic Resilience", f"{avg_reg:.0%}")
+        with m2: kpi_box(KPI_HEALTH, "fin_health").metric("System Health", f"{health_val:.0%}")
+        with m3: kpi_box(KPI_FINANCIAL, "fin_cap").metric("🏦 Financial System Capacity", f"{avg_sec:.0%}")
+        with m4: kpi_box(KPI_ECONOMIC, "fin_econ").metric("🌍 Economic Resilience", f"{avg_reg:.0%}")
         # m5: EW-Level Gauge — live aus ew_norm bei current_idx
         # (ew_norm wird weiter unten berechnet — Vorauswert hier schätzen)
         _ew_placeholder = m5.empty()
@@ -2473,10 +2485,10 @@ elif scenario["type"] == "cyber_cloud":
 
         _phase_label = "📡 Projection" if is_proj else "📂 Historical"
         m1.metric(_phase_label, current_month)
-        m2.metric("System Health", f"{health_val:.0%}")
-        m3.metric("☁️ Digital Resilience", f"{avg_dig:.0%}")
-        m4.metric("🏦 Financial Stability", f"{avg_fin:.0%}")
-        m5.metric("🌍 Economic Output", f"{avg_eco:.0%}")
+        with m2: kpi_box(KPI_HEALTH, "cyber_health").metric("System Health", f"{health_val:.0%}")
+        with m3: kpi_box(KPI_DIGITAL, "cyber_dig").metric("☁️ Digital Resilience", f"{avg_dig:.0%}")
+        with m4: kpi_box(KPI_FINANCIAL, "cyber_fin").metric("🏦 Financial Stability", f"{avg_fin:.0%}")
+        with m5: kpi_box(KPI_ECONOMIC, "cyber_eco").metric("🌍 Economic Output", f"{avg_eco:.0%}")
         _ew_placeholder = m6.empty()
 
         # ------------------------------------------
@@ -3147,10 +3159,10 @@ elif scenario["type"] == "ctpp_concentration":
 
         _phase_label = "📡 Projection" if is_proj else "📂 Historical"
         m1.metric(_phase_label, current_month)
-        m2.metric("System Health", f"{health_val:.0%}")
-        m3.metric("☁️ Digital Resilience", f"{avg_dig:.0%}")
-        m4.metric("🏦 Financial Stability", f"{avg_fin:.0%}")
-        m5.metric("🌍 Economic Output", f"{avg_eco:.0%}")
+        with m2: kpi_box(KPI_HEALTH, "ctpp_health").metric("System Health", f"{health_val:.0%}")
+        with m3: kpi_box(KPI_DIGITAL, "ctpp_dig").metric("☁️ Digital Resilience", f"{avg_dig:.0%}")
+        with m4: kpi_box(KPI_FINANCIAL, "ctpp_fin").metric("🏦 Financial Stability", f"{avg_fin:.0%}")
+        with m5: kpi_box(KPI_ECONOMIC, "ctpp_eco").metric("🌍 Economic Output", f"{avg_eco:.0%}")
         _ew_placeholder = m6.empty()
 
         # --- DORA header tiles (ICT third-party concentration risk) ---
@@ -3158,9 +3170,9 @@ elif scenario["type"] == "ctpp_concentration":
         _kpis = compute_ctpp_kpis(current, _ctpp_edges, path=selected_path)
         _ci, _sp, _cr = _kpis["concentration_index"], _kpis["spof_exposure"], _kpis["cif_at_risk"]
         _kc1, _kc2, _kc3 = st.columns(3)
-        _kc1.metric(f"{_ci['icon']} ICT Concentration (HHI)", f"{_ci['value']:.0%}", _ci['label'])
-        _kc2.metric(f"{_sp['icon']} SPoF Exposure", f"{_sp['value']:.0%}", _sp['label'])
-        _kc3.metric(f"{_cr['icon']} CIF at Risk", f"{_cr['count']}/{_cr['total']}", _cr['label'])
+        with _kc1: kpi_box(KPI_STRUCTURAL, "ctpp_hhi").metric(f"{_ci['icon']} ICT Concentration (HHI)", f"{_ci['value']:.0%}", _ci['label'])
+        with _kc2: kpi_box(KPI_STRUCTURAL, "ctpp_spof").metric(f"{_sp['icon']} SPoF Exposure", f"{_sp['value']:.0%}", _sp['label'])
+        with _kc3: kpi_box(KPI_STRUCTURAL, "ctpp_cif").metric(f"{_cr['icon']} CIF at Risk", f"{_cr['count']}/{_cr['total']}", _cr['label'])
 
         # ------------------------------------------
         # Active Attack Banner — driven by snapshot active_attack
@@ -3840,11 +3852,11 @@ elif scenario["type"] == "critical_infra":
 
         phase_label = "📡 Projection" if is_proj else "📂 Historical"
         m1.metric(phase_label, current_month)
-        m2.metric("System Health",        f"{health_val:.0%}")
-        m3.metric("☁️ Digital Resilience", f"{avg_dig:.0%}")
-        m4.metric("🚆 Rail Operability",   f"{avg_rail:.0%}")
-        m5.metric("🏭 Economic Output",    f"{avg_eco:.0%}")
-        m6.metric("👥 Social Mobility",    f"{avg_soc:.0%}")
+        with m2: kpi_box(KPI_HEALTH, "ci_health").metric("System Health",        f"{health_val:.0%}")
+        with m3: kpi_box(KPI_DIGITAL, "ci_dig").metric("☁️ Digital Resilience", f"{avg_dig:.0%}")
+        with m4: kpi_box(KPI_OPERATIONS, "ci_rail").metric("🚆 Rail Operability",   f"{avg_rail:.0%}")
+        with m5: kpi_box(KPI_ECONOMIC, "ci_eco").metric("🏭 Economic Output",    f"{avg_eco:.0%}")
+        with m6: kpi_box(KPI_SOCIAL, "ci_soc").metric("👥 Social Mobility",    f"{avg_soc:.0%}")
 
         # ------------------------------------------
         # EARLY WARNING — strukturelle Drift
