@@ -22,6 +22,7 @@ from core_lite.pandemic_simulation import run_pandemic_simulation
 from core_lite.financial_simulation import run_financial_simulation
 from core_lite.cyber_cloud_simulation import run_cyber_cloud_simulation
 from visualization.network_plot import plot_network, network_legend_html
+from visualization.network_views import render_network, select_network_view
 
 # Live/Streaming-Familie (Kafka-Ingest) — Szenarien mit Echtzeit-Input
 from streaming.live_dashboard import render_live_dashboard, SCENARIOS as LIVE_SCENARIOS
@@ -683,17 +684,21 @@ elif scenario["type"] == "energy":
     st.subheader("Energy Network Simulation 2020–2030")
 
     # Pfad-Auswahl
-    selected_path = st.radio(
-        "Structural pathway",
-        options=["resilient", "hybrid", "fragile"],
-        format_func=lambda x: {
-            "resilient": "🟢 Resilient",
-            "hybrid":    "🟡 Hybrid (IST)",
-            "fragile":   "🔴 Fragile",
-        }[x],
-        horizontal=True,
-        key="energy_path"
-    )
+    _path_col, _view_col = st.columns([3, 2])
+    with _path_col:
+        selected_path = st.radio(
+            "Structural pathway",
+            options=["resilient", "hybrid", "fragile"],
+            format_func=lambda x: {
+                "resilient": "🟢 Resilient",
+                "hybrid":    "🟡 Hybrid (IST)",
+                "fragile":   "🔴 Fragile",
+            }[x],
+            horizontal=True,
+            key="energy_path"
+        )
+    with _view_col:
+        select_network_view(key="network_view_mode")
 
     history_key  = f"energy_history_{selected_path}"
     ensemble_key = f"energy_ensemble_{selected_path}"
@@ -1056,7 +1061,7 @@ elif scenario["type"] == "energy":
             )
 
 
-            st.plotly_chart(plot_network(current["graph"], current["load"], current["edges"],
+            st.plotly_chart(render_network(current["graph"], current["load"], current["edges"],
                                          highlight_nodes=highlight_nodes, highlight_edges=highlight_edges,
                                          pos=current.get("pos"), cluster_anchors=current.get("cluster_anchors")),
                             width='stretch')
@@ -1110,7 +1115,7 @@ elif scenario["type"] == "pandemic":
     # ------------------------------------------
     # Path selector
     # ------------------------------------------
-    path_col, _, _ = st.columns([2, 2, 2])
+    path_col, _, _view_col = st.columns([2, 2, 2])
     with path_col:
         selected_path = st.radio(
             "Projection pathway (2025–2030)",
@@ -1123,6 +1128,9 @@ elif scenario["type"] == "pandemic":
             horizontal=True,
             key="pandemic_path"
         )
+
+    with _view_col:
+        select_network_view(key="network_view_mode")
 
     # ------------------------------------------
     # Run simulation for selected path
@@ -1651,7 +1659,7 @@ elif scenario["type"] == "pandemic":
 
 
             st.plotly_chart(
-                plot_network(current["graph"], current["load"], current["edges"],
+                render_network(current["graph"], current["load"], current["edges"],
                              highlight_nodes=highlight_nodes, highlight_edges=highlight_edges,
                              pos=current.get("pos"), cluster_anchors=current.get("cluster_anchors")),
                 width='stretch')
@@ -1712,12 +1720,16 @@ elif scenario["type"] == "financial":
         "🟡 Hybrid":     "hybrid",
         "🔴 Fragile":    "fragile",
     }
-    selected_label = st.radio(
-        "Structural path",
-        options=list(path_options.keys()),
-        horizontal=True,
-        key="financial_path_radio"
-    )
+    _path_col, _view_col = st.columns([3, 2])
+    with _path_col:
+        selected_label = st.radio(
+            "Structural path",
+            options=list(path_options.keys()),
+            horizontal=True,
+            key="financial_path_radio"
+        )
+    with _view_col:
+        select_network_view(key="network_view_mode")
     selected_path  = path_options[selected_label]
     history_key    = f"financial_history_{selected_path}"
 
@@ -2228,7 +2240,7 @@ elif scenario["type"] == "financial":
 
 
             st.plotly_chart(
-                plot_network(current["graph"], current["load"], current["edges"],
+                render_network(current["graph"], current["load"], current["edges"],
                              highlight_nodes=highlight_nodes, highlight_edges=highlight_edges,
                              pos=current.get("pos"), cluster_anchors=current.get("cluster_anchors")),
                 width='stretch')
@@ -2304,12 +2316,16 @@ elif scenario["type"] == "cyber_cloud":
         "🟡 Hybrid":    "hybrid",
         "🔴 Fragile":   "fragile",
     }
-    selected_label = st.radio(
-        "Structural path",
-        options=list(path_options.keys()),
-        horizontal=True,
-        key="cyber_cloud_path_radio"
-    )
+    _path_col, _view_col = st.columns([3, 2])
+    with _path_col:
+        selected_label = st.radio(
+            "Structural path",
+            options=list(path_options.keys()),
+            horizontal=True,
+            key="cyber_cloud_path_radio"
+        )
+    with _view_col:
+        select_network_view(key="network_view_mode")
     selected_path = path_options[selected_label]
     history_key   = f"cyber_cloud_history_{selected_path}"
     ensemble_key  = f"cyber_cloud_ensemble_{selected_path}"
@@ -2893,7 +2909,7 @@ elif scenario["type"] == "cyber_cloud":
 
 
             st.plotly_chart(
-                plot_network(current["graph"], current["load"], current["edges"],
+                render_network(current["graph"], current["load"], current["edges"],
                              highlight_nodes=highlight_nodes, highlight_edges=highlight_edges,
                              pos=current.get("pos"), cluster_anchors=current.get("cluster_anchors")),
                 width='stretch')
@@ -2960,10 +2976,10 @@ elif scenario["type"] == "cyber_cloud":
 # ==========================================
 elif scenario["type"] == "ctpp_concentration":
     st.divider()
-    st.subheader("ICT Third-Party Concentration Risk — DORA Stress-Test Demonstrator")
+    st.subheader("DORA ICT Third-Party Concentration Stress Scenario 2020–2030")
     st.caption(
         "This scenario is not a forecast. It is a structural stress-test demonstrator "
-        "showing how concentration on a few critical ICT third-party providers propagates across the financial sector and the real economy."
+        "showing how digital, financial and economic layers interact under ICT third-party concentration stress."
     )
 
     path_options = {
@@ -2971,18 +2987,22 @@ elif scenario["type"] == "ctpp_concentration":
         "🟡 Hybrid":    "hybrid",
         "🔴 Fragile":   "fragile",
     }
-    selected_label = st.radio(
-        "Structural path",
-        options=list(path_options.keys()),
-        horizontal=True,
-        key="ctpp_path_radio"
-    )
+    _path_col, _view_col = st.columns([3, 2])
+    with _path_col:
+        selected_label = st.radio(
+            "Structural path",
+            options=list(path_options.keys()),
+            horizontal=True,
+            key="ctpp_path_radio"
+        )
+    with _view_col:
+        select_network_view(key="network_view_mode")
     selected_path = path_options[selected_label]
     history_key   = f"ctpp_history_{selected_path}"
     ensemble_key  = f"ctpp_ensemble_{selected_path}"
 
     if run_clicked:
-        params = CTPP_STOCHASTIC_PARAMS[selected_path]
+        params = CYBER_STOCHASTIC_PARAMS[selected_path]
 
         def _load_cy_nodes():
             return load_ctpp_concentration(path=selected_path)["nodes"]
@@ -3038,7 +3058,7 @@ elif scenario["type"] == "ctpp_concentration":
     run_every_c = 1.0 if st.session_state["mode"] == "playback" else None
 
     @st.fragment(run_every=run_every_c)
-    def ctpp_panel(history, max_step, proj_step, selected_path, ensemble=None):
+    def cyber_cloud_panel(history, max_step, proj_step, selected_path, ensemble=None):
 
         is_playing = st.session_state["mode"] == "playback"
         if is_playing:
@@ -3063,11 +3083,11 @@ elif scenario["type"] == "ctpp_concentration":
                 st.session_state["mode"] = "manual"
                 st.rerun()
         with ctrl3:
-            if "ctpp_sim_step" not in st.session_state:
-                st.session_state["ctpp_sim_step"] = st.session_state["step"]
+            if "cyber_sim_step" not in st.session_state:
+                st.session_state["cyber_sim_step"] = st.session_state["step"]
             if is_playing:
-                st.session_state["ctpp_sim_step"] = st.session_state["step"]
-            step = st.slider("Month", 0, max_step, key="ctpp_sim_step",
+                st.session_state["cyber_sim_step"] = st.session_state["step"]
+            step = st.slider("Month", 0, max_step, key="cyber_sim_step",
                              disabled=is_playing, label_visibility="collapsed")
             if not is_playing:
                 st.session_state["step"] = step
@@ -3098,9 +3118,9 @@ elif scenario["type"] == "ctpp_concentration":
         m5.metric("🌍 Economic Output", f"{avg_eco:.0%}")
         _ew_placeholder = m6.empty()
 
-        # --- DORA-Header-Kacheln (ICT-Konzentrationsrisiko) ---
+        # --- DORA header tiles (ICT third-party concentration risk) ---
         _ctpp_edges = load_ctpp_concentration(path=selected_path)["edges"]
-        _kpis = compute_ctpp_kpis(current, _ctpp_edges)
+        _kpis = compute_ctpp_kpis(current, _ctpp_edges, path=selected_path)
         _ci, _sp, _cr = _kpis["concentration_index"], _kpis["spof_exposure"], _kpis["cif_at_risk"]
         _kc1, _kc2, _kc3 = st.columns(3)
         _kc1.metric(f"{_ci['icon']} ICT Concentration (HHI)", f"{_ci['value']:.0%}", _ci['label'])
@@ -3569,7 +3589,7 @@ elif scenario["type"] == "ctpp_concentration":
 
 
             st.plotly_chart(
-                plot_network(current["graph"], current["load"], current["edges"],
+                render_network(current["graph"], current["load"], current["edges"],
                              highlight_nodes=highlight_nodes, highlight_edges=highlight_edges,
                              pos=current.get("pos"), cluster_anchors=current.get("cluster_anchors")),
                 width='stretch')
@@ -3629,7 +3649,7 @@ elif scenario["type"] == "ctpp_concentration":
                 st.markdown("<div style='color:var(--color-text-secondary);font-size:11px;font-style:italic;'>"
                             "No active events at this step.</div>", unsafe_allow_html=True)
 
-    ctpp_panel(history, max_step, proj_step, selected_path, ensemble=ensemble)
+    cyber_cloud_panel(history, max_step, proj_step, selected_path, ensemble=ensemble)
     
 # ==========================================
 # CRITICAL INFRASTRUCTURE SCENARIO
@@ -3648,12 +3668,16 @@ elif scenario["type"] == "critical_infra":
         "🟡 Hybrid":    "hybrid",
         "🔴 Fragile":   "fragile",
     }
-    selected_label = st.radio(
-        "Structural path",
-        options=list(path_options.keys()),
-        horizontal=True,
-        key="critical_infra_path_radio"
-    )
+    _path_col, _view_col = st.columns([3, 2])
+    with _path_col:
+        selected_label = st.radio(
+            "Structural path",
+            options=list(path_options.keys()),
+            horizontal=True,
+            key="critical_infra_path_radio"
+        )
+    with _view_col:
+        select_network_view(key="network_view_mode")
     selected_path = path_options[selected_label]
     history_key   = f"critical_infra_history_{selected_path}"
     ensemble_key  = f"critical_infra_ensemble_{selected_path}"
@@ -4066,7 +4090,7 @@ elif scenario["type"] == "critical_infra":
 
 
             st.plotly_chart(
-                plot_network(current["graph"], current["load"], current["edges"],
+                render_network(current["graph"], current["load"], current["edges"],
                              highlight_nodes=highlight_nodes, highlight_edges=highlight_edges,
                              pos=current.get("pos"), cluster_anchors=current.get("cluster_anchors")),
                 width="stretch")
@@ -4154,15 +4178,19 @@ elif scenario["type"] == "banking_pipeline":
         "🟡 Hybrid":    "hybrid",
         "🔴 Fragile":   "fragile",
     }
-    selected_label = st.radio(
-        "Structural path",
-        options=list(path_options.keys()),
-        horizontal=True,
-        key="banking_path_radio",
-        help="Resilient = DORA-mature Tier-1 (Active-Active GitOps, Cosign, Policy-as-Code). "
-             "Hybrid = realistic DACH IST (Cloud-First, legacy islands, partial automation). "
-             "Fragile = legacy mid-tier (On-Prem Jenkins, manual audit, no Falco).",
-    )
+    _path_col, _view_col = st.columns([3, 2])
+    with _path_col:
+        selected_label = st.radio(
+            "Structural path",
+            options=list(path_options.keys()),
+            horizontal=True,
+            key="banking_path_radio",
+            help="Resilient = DORA-mature Tier-1 (Active-Active GitOps, Cosign, Policy-as-Code). "
+                 "Hybrid = realistic DACH IST (Cloud-First, legacy islands, partial automation). "
+                 "Fragile = legacy mid-tier (On-Prem Jenkins, manual audit, no Falco).",
+        )
+    with _view_col:
+        select_network_view(key="network_view_mode")
     selected_path = path_options[selected_label]
     history_key   = f"banking_history_{selected_path}"
     ensemble_key  = f"banking_ensemble_{selected_path}"
@@ -4673,7 +4701,7 @@ elif scenario["type"] == "banking_pipeline":
 
 
             st.plotly_chart(
-                plot_network(current["graph"], current["load"], current["edges"],
+                render_network(current["graph"], current["load"], current["edges"],
                              highlight_nodes=highlight_nodes, highlight_edges=highlight_edges,
                              pos=current.get("pos"), cluster_anchors=current.get("cluster_anchors")),
                 width='stretch')

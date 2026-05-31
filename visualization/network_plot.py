@@ -194,23 +194,17 @@ def plot_network(G, node_load, edge_state, highlight_nodes=None, highlight_edges
         elif is_isolated:
             node_colors.append("#aaaaaa")
             node_sizes.append(max(4, min(8, size * 0.45)))
-        elif is_anchor:
-            if normalized_load > 0.7:
-                node_colors.append("#ff3b3b")
-            elif normalized_load > 0.4:
-                node_colors.append("#ff9c3b")
-            else:
-                node_colors.append("#4fc3f7")
-            node_sizes.append(size)
         else:
-            # space-abhängige Basisfarbe (rückwärtskompatibel)
-            low_stress_color = _node_low_stress_color(node_space)
+            # Variante A: Farbe kodiert ausschliesslich den Stress.
+            # Der Resonanzraum wird ueber Form (_node_symbol) und Position
+            # getragen; Hubs/Anker bleiben ueber die groessere `size` (oben
+            # berechnet) erkennbar — daher keine eigene Anker-Farbe mehr.
             if normalized_load > 0.7:
-                node_colors.append("#ff3b3b")
+                node_colors.append("#ff3b3b")      # hoher Stress / failed
             elif normalized_load > 0.4:
-                node_colors.append("#ff9c3b")
+                node_colors.append("#ff9c3b")      # mittlerer Stress
             else:
-                node_colors.append(low_stress_color)
+                node_colors.append("#6bd96b")      # niedriger Stress / gesund
             node_sizes.append(size)
 
         node_text.append(hover)
@@ -277,29 +271,31 @@ def network_legend_html(spaces=None, has_bridge=False, metrics=None):
     has_economic  = "economic"  in spaces_set
     any_explicit  = bool(spaces_set)
 
-    node_items = []
-    # Financial-Konvention (sector/regional) — Bestandstexte unverändert
-    if has_sector:
-        node_items.append(("#4fc3f7", "● Sector node — low stress"))
-    if has_regional:
-        node_items.append(("#6bd96b", "■ Regional node — low stress"))
-    # Cyber-Konvention (digital/financial/economic)
-    if has_digital:
-        node_items.append(("#4fc3f7", "● Digital infrastructure node — low stress"))
-    if has_financial:
-        node_items.append(("#6bd96b", "■ Financial system node — low stress"))
-    if has_economic:
-        node_items.append(("#c084fc", "◆ Economic resilience node — low stress"))
-    # Generischer Fallback (Energy/Pandemic/Basic, kein space-Attribut)
-    if not any_explicit:
-        node_items.append(("#4fc3f7", "Hub / Anchor — low stress"))
-        node_items.append(("#6bd96b", "Node — low stress"))
-    node_items += [
-        ("#ff9c3b", "Node — medium stress"),
-        ("#ff3b3b", "Node — high stress / failed"),
-        ("#e879f9", "Node — event active"),
-        ("#aaaaaa", "Node — isolated"),
+    # --- Variante A: Farbe = Stress, Form = Resonanzraum --------------------
+    # Stress-Stufen (Farbe). Event/Isolated sind kategorisch, kein Stresslevel.
+    stress_items = [
+        ("#6bd96b", "Low stress / healthy"),
+        ("#ff9c3b", "Medium stress"),
+        ("#ff3b3b", "High stress / failed"),
+        ("#e879f9", "Event active"),
+        ("#aaaaaa", "Isolated"),
     ]
+
+    # Resonanzraum (Form). Glyphen spiegeln _node_symbol: ●Kreis ■Quadrat ◆Raute ⬡Hexagon
+    SPACE_GLYPH = {
+        "sector":     ("\u25cf", "Sector"),
+        "regional":   ("\u25a0", "Regional"),
+        "digital":    ("\u25cf", "Digital infrastructure"),
+        "financial":  ("\u25a0", "Financial system"),
+        "economic":   ("\u25c6", "Economic"),
+        "technical":  ("\u25cf", "Technical / platform"),
+        "pipeline":   ("\u25a0", "Pipeline / delivery"),
+        "regulatory": ("\u25c6", "Regulatory / compliance"),
+        "business":   ("\u2b22", "Business outcomes"),
+    }
+    space_order = ["sector", "regional", "digital", "financial", "economic",
+                   "technical", "pipeline", "regulatory", "business"]
+    space_items = [SPACE_GLYPH[s] for s in space_order if s in spaces_set]
 
     # Edge-Einträge: Bridge nur wenn vorhanden
     edge_items = [
@@ -330,15 +326,29 @@ def network_legend_html(spaces=None, has_bridge=False, metrics=None):
                 f"{sym_fn(color)}"
                 f"<span style='font-size:12px;color:#444;'>{label}</span></div>")
 
+    def glyph(sym):
+        return (f"<span style='display:inline-block;width:12px;text-align:center;"
+                f"color:#888;margin-right:7px;flex-shrink:0;font-size:13px;"
+                f"line-height:1;'>{sym}</span>")
+
+    def row_glyph(sym, label):
+        return (f"<div style='display:flex;align-items:center;margin-bottom:5px;'>"
+                f"{glyph(sym)}"
+                f"<span style='font-size:12px;color:#444;'>{label}</span></div>")
+
     def header(text):
         return (f"<div style='font-size:11px;font-weight:700;color:#666;"
                 f"text-transform:uppercase;letter-spacing:0.06em;"
                 f"margin-bottom:7px;margin-top:2px;'>{text}</div>")
 
-    nodes_html = header("Nodes")       + "".join(row(dot,  c, l) for c, l in node_items)
-    edges_html = header("Connections") + "".join(row(dash, c, l) for c, l in edge_items)
+    stress_html = header("Stress") + "".join(row(dot, c, l) for c, l in stress_items)
+    space_html  = header("Resonance space") + "".join(row_glyph(s, l) for s, l in space_items)
+    edges_html  = header("Connections") + "".join(row(dash, c, l) for c, l in edge_items)
 
-    columns = [nodes_html, edges_html]
+    columns = [stress_html]
+    if space_items:
+        columns.append(space_html)
+    columns.append(edges_html)
 
     # Metrics-Abschnitt: nur wenn Daten übergeben
     if metrics:
