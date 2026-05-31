@@ -53,6 +53,73 @@ _PURPOSE = {
     VIEW_SANKEY:      "Flow view — coupling throughput along edges between spaces.",
 }
 
+# --- Stakeholder profiles (Stage 1: profile selector + default-view preset) -
+# Profiles are FUNCTIONAL, not role-named, so they apply across every scenario
+# (energy, pandemic, ICT, financial, …): the label describes *how* you look,
+# not *who* is looking. The stakeholder roles from the audience map live on as
+# examples in the help text. Picking a profile presets the default network view
+# for that intent. It writes the view mirror ONLY ON A PROFILE CHANGE, so the
+# user can still switch views freely afterwards without it snapping back on
+# every rerun. Stage 2 (KPI focus / detail depth) is intentionally not here yet.
+# With no profile chosen ("—"), behaviour is identical to before.
+PROFILE_NONE      = "—"
+PROFILE_OVERVIEW  = "Überblick"
+PROFILE_STRUCTURE = "Struktur"
+PROFILE_FLOWS     = "Flüsse"
+PROFILE_TIMELINE  = "Zeitverlauf"
+PROFILE_DETAIL    = "Detail"
+
+STAKEHOLDER_PROFILES = [PROFILE_NONE, PROFILE_OVERVIEW, PROFILE_STRUCTURE,
+                        PROFILE_FLOWS, PROFILE_TIMELINE, PROFILE_DETAIL]
+
+# Functional profile -> default network view.
+_PROFILE_DEFAULT_VIEW = {
+    PROFILE_OVERVIEW:  VIEW_3D_CLUSTER,    # concentration / cluster overview
+    PROFILE_STRUCTURE: VIEW_3D_TOPOLOGY,   # systemic coupling structure
+    PROFILE_FLOWS:     VIEW_SANKEY,         # throughput / coupling flows
+    PROFILE_TIMELINE:  VIEW_HEATMAP,        # shock propagation over time
+    PROFILE_DETAIL:    VIEW_2D_FLAT,        # full per-node detail
+}
+
+# Which views a profile exposes in the selector. The profile hides the views
+# that don't fit its intent (focused, fewer options). PROFILE_NONE and
+# PROFILE_DETAIL expose everything (no filtering / full access). The default
+# view of each profile is always a member of its own set.
+_PROFILE_VIEWS = {
+    PROFILE_OVERVIEW:  [VIEW_3D_CLUSTER, VIEW_2D_FLAT],
+    PROFILE_STRUCTURE: [VIEW_3D_TOPOLOGY, VIEW_3D_LAYERED, VIEW_3D_CLUSTER],
+    PROFILE_FLOWS:     [VIEW_SANKEY, VIEW_2D_FLAT],
+    PROFILE_TIMELINE:  [VIEW_HEATMAP, VIEW_2D_FLAT],
+    # PROFILE_DETAIL and PROFILE_NONE: all views (handled by falling back to
+    # the full NETWORK_VIEW_MODES list when the profile is not in this map).
+}
+
+# Sub-toggle presets per profile (applied on profile change, like the view):
+#   heatmap_resolution in {"nodes","clusters"};  sankey_resolution in
+#   {"spaces","clusters","nodes"}. Overview leans coarse, Detail leans fine.
+_PROFILE_HEATMAP_RES = {
+    PROFILE_OVERVIEW:  "clusters",
+    PROFILE_STRUCTURE: "clusters",
+    PROFILE_TIMELINE:  "clusters",
+    PROFILE_DETAIL:    "nodes",
+}
+_PROFILE_SANKEY_RES = {
+    PROFILE_OVERVIEW:  "spaces",
+    PROFILE_STRUCTURE: "spaces",
+    PROFILE_FLOWS:     "spaces",
+    PROFILE_DETAIL:    "nodes",
+}
+
+# Hint shown under the selector — view + scenario-neutral role examples.
+_PROFILE_PURPOSE = {
+    PROFILE_OVERVIEW:  "Cluster-Überblick — z.B. Executives, Vorstand.",
+    PROFILE_STRUCTURE: "Kopplungsstruktur — z.B. Regulatoren, Auditoren.",
+    PROFILE_FLOWS:     "Fluss-/Kopplungssicht — z.B. ICT-/DevOps-Teams, Netzbetreiber.",
+    PROFILE_TIMELINE:  "Schockausbreitung über Zeit — z.B. Zentralbanken, Ökonomen.",
+    PROFILE_DETAIL:    "Volles Knoten-Detail — z.B. Analysten, Fachteams.",
+}
+
+
 # --- Layer conventions (shared with the chart layer colors) -----------------
 # Vertical order: upstream / infrastructure on top -> real economy at bottom,
 # so structural stress visibly cascades downward.
@@ -93,6 +160,58 @@ def _stress_color(norm_load):
     return "#6bd96b"              # low stress / healthy
 
 
+def select_stakeholder_profile(key: str = "profile_mode",
+                               view_key: str = "network_view_mode") -> str:
+    """Render the stakeholder-profile dropdown in the sidebar and, ON A PROFILE
+    CHANGE, preset the default network view for that perspective (from
+    _PROFILE_DEFAULT_VIEW).
+
+    The profile is GLOBAL (applies across all scenarios), so it lives once in
+    the sidebar — not per panel. Profiles are functional (Überblick / Struktur /
+    Flüsse / Zeitverlauf / Detail), valid in every scenario; stakeholder roles
+    are shown as examples in the caption.
+
+    Stage 1 only: the profile presets the view; it does not yet drive KPI focus
+    or detail depth. The preset is applied only when the chosen profile differs
+    from the previously applied one (tracked in ``{key}__applied``), so once the
+    user switches views manually the profile does not override them on every
+    rerun. PROFILE_NONE leaves the view untouched (fully backward compatible).
+
+    Call this once inside a ``with st.sidebar:`` block.
+    """
+    if key not in st.session_state or st.session_state[key] not in STAKEHOLDER_PROFILES:
+        st.session_state[key] = PROFILE_NONE
+    current = st.session_state[key]
+
+    chosen = st.selectbox(
+        "Stakeholder profile", STAKEHOLDER_PROFILES,
+        index=STAKEHOLDER_PROFILES.index(current),
+        key=f"{key}__select",
+        label_visibility="collapsed",
+        help="Wählt eine Darstellungs-Perspektive und stellt den passenden "
+             "Netzwerk-View voreinstellt. Der View ist danach frei wechselbar.",
+    )
+    st.session_state[key] = chosen
+
+    # Apply the default-view preset only on a genuine profile change.
+    applied_key = f"{key}__applied"
+    if st.session_state.get(applied_key) != chosen:
+        st.session_state[applied_key] = chosen
+        preset = _PROFILE_DEFAULT_VIEW.get(chosen)
+        if preset in _IMPLEMENTED:
+            st.session_state[view_key] = preset
+        # Preset the sub-toggles too (heatmap rows / sankey grouping).
+        if chosen in _PROFILE_HEATMAP_RES:
+            st.session_state["heatmap_resolution"] = _PROFILE_HEATMAP_RES[chosen]
+        if chosen in _PROFILE_SANKEY_RES:
+            st.session_state["sankey_resolution"] = _PROFILE_SANKEY_RES[chosen]
+
+    if chosen != PROFILE_NONE and chosen in _PROFILE_PURPOSE:
+        st.caption(f"↪ {_PROFILE_PURPOSE[chosen]}")
+
+    return chosen
+
+
 def select_network_view(key: str = "network_view_mode",
                         default: str = VIEW_2D_FLAT) -> str:
     """Render the view selector and persist the choice in an explicit
@@ -104,14 +223,28 @@ def select_network_view(key: str = "network_view_mode",
     Place this in the right-hand column of the structural-path row."""
     if key not in st.session_state or st.session_state[key] not in NETWORK_VIEW_MODES:
         st.session_state[key] = default
+
+    # Profile-dependent view filtering: an active profile narrows the selector
+    # to the views that fit its intent. PROFILE_NONE / PROFILE_DETAIL (and any
+    # profile not in _PROFILE_VIEWS) expose the full list. Keep canonical order.
+    profile = st.session_state.get("profile_mode", PROFILE_NONE)
+    allowed = _PROFILE_VIEWS.get(profile)
+    options = [m for m in NETWORK_VIEW_MODES if m in allowed] if allowed else list(NETWORK_VIEW_MODES)
+    if not options:
+        options = list(NETWORK_VIEW_MODES)
+
+    # If the persisted view is no longer offered (e.g. just-switched profile),
+    # fall back to the first allowed option so the radio index stays valid.
+    if st.session_state[key] not in options:
+        st.session_state[key] = options[0]
     current = st.session_state[key]
 
     def _fmt(mode):
         return mode if mode in _IMPLEMENTED else f"{mode}  ·  coming soon"
 
     chosen = st.radio(
-        "Network view", NETWORK_VIEW_MODES,
-        index=NETWORK_VIEW_MODES.index(current),
+        "Network view", options,
+        index=options.index(current),
         horizontal=True, format_func=_fmt,
         key=f"{key}__radio",
         label_visibility="collapsed",

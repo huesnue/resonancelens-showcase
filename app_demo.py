@@ -22,7 +22,7 @@ from core_lite.pandemic_simulation import run_pandemic_simulation
 from core_lite.financial_simulation import run_financial_simulation
 from core_lite.cyber_cloud_simulation import run_cyber_cloud_simulation
 from visualization.network_plot import plot_network, network_legend_html
-from visualization.network_views import render_network, select_network_view
+from visualization.network_views import render_network, select_network_view, select_stakeholder_profile
 
 # Live/Streaming-Familie (Kafka-Ingest) — Szenarien mit Echtzeit-Input
 from streaming.live_dashboard import render_live_dashboard, SCENARIOS as LIVE_SCENARIOS
@@ -62,6 +62,7 @@ from scenarios.banking_pipeline_events import (
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import math
+
 
 # ------------------------------------------
 # Month label generators
@@ -338,6 +339,24 @@ st.set_page_config(
     page_icon="assets/ResonanceLens.png",
 )
 
+# Reduce Streamlit's large default top padding on BOTH the main area and the
+# sidebar. This is the app-wide block-container top padding (~6rem in wide
+# layout) that pushes the title and the logo down. Injected at app level (not
+# inside st.sidebar) so the selectors actually reach the main block-container.
+st.markdown(
+    "<style>"
+    "[data-testid='stMainBlockContainer'],"
+    "section[data-testid='stMain'] .block-container,"
+    ".main .block-container{padding-top:1.5rem !important;}"
+    "section[data-testid='stSidebar'] .block-container,"
+    "[data-testid='stSidebarUserContent']{padding-top:0.25rem !important;}"
+    "[data-testid='stSidebarHeader']{height:1.5rem !important;min-height:1.5rem !important;"
+    "padding-top:0 !important;margin-bottom:0 !important;}"
+    "section[data-testid='stSidebar'] img:first-of-type{margin-top:-0.25rem;}"
+    "</style>",
+    unsafe_allow_html=True,
+)
+
 # ------------------------------------------
 # SIDEBAR — Logo + Navigation
 # ------------------------------------------
@@ -385,6 +404,9 @@ if "step" not in st.session_state:
 # SCENARIO SELECTION
 # ------------------------------------------
 with st.sidebar:
+    st.markdown("**Perspektive**")
+    select_stakeholder_profile(key="profile_mode", view_key="network_view_mode")
+    st.divider()
     st.markdown("**Scenario family**")
     scenario_family = st.radio(
         "Scenario family",
