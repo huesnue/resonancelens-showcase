@@ -101,9 +101,12 @@ notebooks/
 scripts/
 
 # --------------------------------------
-# Tests
+# Tests are versioned (see tests/) — intentionally NOT ignored
 # --------------------------------------
-tests/
+
+# --------------------------------------
+# Scenario module kept out of the public showcase
+# --------------------------------------
 critical_infra/
 
 # --------------------------------------
