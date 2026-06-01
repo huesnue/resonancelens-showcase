@@ -22,7 +22,7 @@ from core_lite.pandemic_simulation import run_pandemic_simulation
 from core_lite.financial_simulation import run_financial_simulation
 from core_lite.cyber_cloud_simulation import run_cyber_cloud_simulation
 from visualization.network_plot import plot_network, network_legend_html
-from visualization.network_views import render_network, select_network_view, select_stakeholder_profile, kpi_dim
+from visualization.network_views import render_network, select_network_view, select_stakeholder_profile, kpi_dim, show_intro_expander
 from visualization.network_views import (KPI_HEALTH, KPI_ECONOMIC, KPI_DIGITAL,
                                          KPI_FINANCIAL, KPI_STRUCTURAL, KPI_EARLYWARN,
                                          KPI_CAPACITY, KPI_OPERATIONS, KPI_SOCIAL)
@@ -876,7 +876,8 @@ elif scenario["type"] == "energy":
     history = st.session_state[history_key]
     max_step = len(history) - 1
 
-    render_intro_expander("Energy Crisis") 
+    if show_intro_expander():
+        render_intro_expander("Energy Crisis")
 
     run_every = playback_interval()
 
@@ -1280,7 +1281,8 @@ elif scenario["type"] == "pandemic":
         st.stop()
 
     # Live-Dashboard: compact info expander above the controls
-    render_intro_expander("Pandemic 2020–2030")
+    if show_intro_expander():
+        render_intro_expander("Pandemic 2020–2030")
 
     ensemble = st.session_state.get(ensemble_key)
 
@@ -1852,7 +1854,8 @@ elif scenario["type"] == "financial":
         st.stop()
 
     # Live-Dashboard: compact info expander above the controls
-    render_intro_expander("Eurozone Financial Stability")
+    if show_intro_expander():
+        render_intro_expander("Eurozone Financial Stability")
 
     ensemble  = st.session_state.get(ensemble_key)
     history   = st.session_state[history_key]
@@ -2422,7 +2425,8 @@ elif scenario["type"] == "cyber_cloud":
         st.stop()
 
     # Live-Dashboard: compact info expander above the controls
-    render_intro_expander("Cloud & Cyber Resilience")
+    if show_intro_expander():
+        render_intro_expander("Cloud & Cyber Resilience")
 
     ensemble  = st.session_state.get(ensemble_key)
     history   = st.session_state[history_key]
@@ -3068,7 +3072,8 @@ elif scenario["type"] == "ctpp_concentration":
         st.stop()
 
     # Live-Dashboard: compact info expander above the controls
-    render_intro_expander("ICT Third-Party Concentration")
+    if show_intro_expander():
+        render_intro_expander("ICT Third-Party Concentration")
 
     ensemble  = st.session_state.get(ensemble_key)
     history   = st.session_state[history_key]

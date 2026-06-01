@@ -149,6 +149,16 @@ def kpi_dim(group: str, key: str = "profile_mode") -> float:
     return 1.0 if group in focus else _KPI_DIM_OPACITY
 
 
+def show_intro_expander(key: str = "profile_mode") -> bool:
+    """Stage 2c — detail depth: whether the scenario's 'About this scenario'
+    expander should be shown for the active profile. Hidden for the Overview
+    profile (which aims at quick orientation, not background reading); shown for
+    every other profile and when no profile is active. Pure lookup; panels
+    guard their render_intro_expander(...) call with this."""
+    return st.session_state.get(key, PROFILE_NONE) != PROFILE_OVERVIEW
+
+
+
 # Hint shown under the selector — view + scenario-neutral role examples.
 _PROFILE_PURPOSE = {
     PROFILE_OVERVIEW:  "Cluster-Überblick — z.B. Executives, Vorstand.",
