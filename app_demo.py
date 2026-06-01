@@ -75,6 +75,104 @@ def kpi_box(group: str, name: str):
     state = "foc" if kpi_dim(group) >= 1.0 else "dim"
     return st.container(key=f"kpidim-{state}-{name}")
 
+
+# --- Shared timeline playback controls -------------------------------------
+# All scenario panels share one playback model: a global "mode" (manual /
+# playback), a global "step", and a "speed" multiplier. The animation is driven
+# by @st.fragment(run_every=...), NOT by the slider — the slider only mirrors
+# the current step and, when moved in manual mode, takes over control. This
+# keeps playback smooth and flicker-free.
+_SPEED_OPTIONS = [0.25, 0.5, 1.0, 2.0, 4.0]
+
+
+def playback_interval():
+    """run_every value for @st.fragment: the per-step interval in seconds,
+    scaled by the speed multiplier, or None when not playing (no auto-rerun).
+    Computed before the fragment is defined, since run_every is a decorator
+    argument evaluated at definition time."""
+    if st.session_state.get("mode") != "playback":
+        return None
+    speed = st.session_state.get("speed", 1.0) or 1.0
+    return 1.0 / speed
+
+
+def render_timeline_controls(max_step: int, prefix: str, label: str = "Step"):
+    """Render the shared Play / Step / Back / Reset / Speed / Slider row and
+    advance the animation by one step when in playback mode. `prefix` keeps the
+    widget keys unique per panel; `label` is the (collapsed) slider label.
+
+    Must be called inside the panel's @st.fragment so the playback tick reruns
+    only the fragment. Returns the resolved current step (also in
+    st.session_state["step"]).
+    """
+    is_playing = st.session_state["mode"] == "playback"
+
+    # Playback tick: advance one step, or stop at the end.
+    if is_playing:
+        cur = st.session_state["step"]
+        if cur < max_step:
+            st.session_state["step"] = cur + 1
+        else:
+            st.session_state["mode"] = "manual"
+            st.rerun()
+
+    slider_key = f"{prefix}_sim_step"
+    c_play, c_step, c_back, c_reset, c_speed, c_slider = st.columns([1, 1, 1, 1, 1.4, 4])
+
+    with c_play:
+        if st.button("▶ Play", key=f"{prefix}_play", disabled=is_playing, width="stretch"):
+            st.session_state["mode"] = "playback"
+            st.rerun()
+    with c_step:
+        # In playback this acts as Pause; in manual it steps one frame forward.
+        if is_playing:
+            if st.button("⏸ Stop", key=f"{prefix}_stop", width="stretch"):
+                st.session_state["mode"] = "manual"
+                st.rerun()
+        else:
+            if st.button("⏭", key=f"{prefix}_fwd", width="stretch",
+                         help="Ein Bild vorwärts", disabled=st.session_state["step"] >= max_step):
+                st.session_state["step"] = min(max_step, st.session_state["step"] + 1)
+                st.session_state[slider_key] = st.session_state["step"]
+                st.rerun()
+    with c_back:
+        if st.button("⏮", key=f"{prefix}_back", width="stretch",
+                     help="Ein Bild zurück (stoppt Animation)",
+                     disabled=(not is_playing) and st.session_state["step"] <= 0):
+            st.session_state["mode"] = "manual"
+            st.session_state["step"] = max(0, st.session_state["step"] - 1)
+            st.session_state[slider_key] = st.session_state["step"]
+            st.rerun()
+    with c_reset:
+        if st.button("⏮⏮", key=f"{prefix}_reset", width="stretch",
+                     help="Zurück zum Anfang (stoppt Animation)",
+                     disabled=(not is_playing) and st.session_state["step"] <= 0):
+            st.session_state["mode"] = "manual"
+            st.session_state["step"] = 0
+            st.session_state[slider_key] = 0
+            st.rerun()
+    with c_speed:
+        sp = st.selectbox("Speed", _SPEED_OPTIONS,
+                          index=_SPEED_OPTIONS.index(st.session_state.get("speed", 1.0))
+                          if st.session_state.get("speed", 1.0) in _SPEED_OPTIONS else 2,
+                          key=f"{prefix}_speed", label_visibility="collapsed",
+                          format_func=lambda s: f"{s:g}×")
+        if sp != st.session_state["speed"]:
+            st.session_state["speed"] = sp
+            if is_playing:
+                st.rerun()   # apply new interval immediately
+    with c_slider:
+        if slider_key not in st.session_state:
+            st.session_state[slider_key] = st.session_state["step"]
+        if is_playing:
+            st.session_state[slider_key] = st.session_state["step"]
+        step = st.slider(label, 0, max_step, key=slider_key,
+                         disabled=is_playing, label_visibility="collapsed")
+        if not is_playing:
+            st.session_state["step"] = step
+
+    return st.session_state["step"]
+
 # ------------------------------------------
 # Month label generators
 # ------------------------------------------
@@ -411,6 +509,8 @@ if "mode" not in st.session_state:
     st.session_state["mode"] = "manual"
 if "step" not in st.session_state:
     st.session_state["step"] = 0
+if "speed" not in st.session_state:
+    st.session_state["speed"] = 1.0   # playback multiplier (0.25×–4×)
 
 # ------------------------------------------
 # SCENARIO SELECTION
@@ -778,57 +878,14 @@ elif scenario["type"] == "energy":
 
     render_intro_expander("Energy Crisis") 
 
-    run_every = 1.0 if st.session_state["mode"] == "playback" else None
+    run_every = playback_interval()
 
     @st.fragment(run_every=run_every)
     def playback_panel(history, max_step, ensemble=None):
 
-        is_playing = st.session_state["mode"] == "playback"
-        if is_playing:
-            current_step = st.session_state["step"]
-            if current_step < max_step:
-                st.session_state["step"] = current_step + 1
-            else:
-                st.session_state["mode"] = "manual"
-                st.rerun()
-
-        event_intensity_series = []
-        for step_idx in range(len(history)):
-            total_intensity = 0.0
-            for event in ENERGY_EVENTS:
-                if "month" not in event or event["month"] not in MONTH_TO_STEP:
-                    continue
-                event_step = MONTH_TO_STEP[event["month"]]
-                duration = event.get("duration", 1)
-                plateau  = event.get("plateau", 0)
-                decay_rate = event.get("decay", 0.5)
-                if step_idx < event_step or step_idx >= event_step + duration:
-                    continue
-                relative_t = step_idx - event_step
-                intensity = 1.0 if relative_t < plateau else math.exp(-decay_rate*(relative_t-plateau))
-                total_intensity += intensity
-            event_intensity_series.append(total_intensity)
-
-        # Controls: Play, Step, Slider in eigener Zeile
-        ctrl1, ctrl2, ctrl3 = st.columns([1, 1, 4])
-        with ctrl1:
-            if st.button("▶ Play", disabled=is_playing, width='stretch'):
-                st.session_state["mode"] = "playback"
-                st.session_state["step"] = 0
-                st.rerun()
-        with ctrl2:
-            if st.button("⏸ Step", disabled=not is_playing, width='stretch'):
-                st.session_state["mode"] = "manual"
-                st.rerun()
-        with ctrl3:
-            if "simulation_step" not in st.session_state:
-                st.session_state["simulation_step"] = st.session_state["step"]
-            if is_playing:
-                st.session_state["simulation_step"] = st.session_state["step"]
-            step = st.slider("Step", min_value=0, max_value=max_step,
-                             key="simulation_step", disabled=is_playing, label_visibility="collapsed")
-            if not is_playing:
-                st.session_state["step"] = step
+        # Shared timeline controls (Play / Stop / Step / Back / Reset /
+        # Speed / Slider) + playback tick.
+        render_timeline_controls(max_step, prefix="en", label="Step")
 
         current = history[st.session_state["step"]]
         current_month = MONTHS[st.session_state["step"]]
@@ -858,7 +915,7 @@ elif scenario["type"] == "energy":
             else:
                 st.metric("⚡ Undersupply", "–")
         with m4:
-            _ew_en_placeholder = st.empty()
+            _ew_en_placeholder = st.container(height=110, border=False)  # fixed height: EW delta (Low/Elevated) must not shift the row below
 
         health_series_pre = [h["system_health"] for h in history]
         n_pre = len(health_series_pre)
@@ -1231,42 +1288,14 @@ elif scenario["type"] == "pandemic":
     max_step = len(history) - 1
     proj_step = PANDEMIC_MONTH_TO_STEP.get(PROJECTION_START, max_step)
 
-    run_every_p = 1.0 if st.session_state["mode"] == "playback" else None
+    run_every_p = playback_interval()
 
     @st.fragment(run_every=run_every_p)
     def pandemic_panel(history, max_step, proj_step, selected_path):
 
-        is_playing = st.session_state["mode"] == "playback"
-        if is_playing:
-            cur = st.session_state["step"]
-            if cur < max_step:
-                st.session_state["step"] = cur + 1
-            else:
-                st.session_state["mode"] = "manual"
-                st.rerun()
-
-        # ------------------------------------------
-        # Controls row
-        # ------------------------------------------
-        ctrl1, ctrl2, ctrl3 = st.columns([1, 1, 4])
-        with ctrl1:
-            if st.button("▶ Play", key="pan_play", disabled=is_playing, width='stretch'):
-                st.session_state["mode"] = "playback"
-                st.session_state["step"] = 0
-                st.rerun()
-        with ctrl2:
-            if st.button("⏸ Step", key="pan_pause", disabled=not is_playing, width='stretch'):
-                st.session_state["mode"] = "manual"
-                st.rerun()
-        with ctrl3:
-            if "pandemic_sim_step" not in st.session_state:
-                st.session_state["pandemic_sim_step"] = st.session_state["step"]
-            if is_playing:
-                st.session_state["pandemic_sim_step"] = st.session_state["step"]
-            step = st.slider("Month", 0, max_step, key="pandemic_sim_step",
-                             disabled=is_playing, label_visibility="collapsed")
-            if not is_playing:
-                st.session_state["step"] = step
+        # Shared timeline controls (Play / Stop / Step / Back / Reset /
+        # Speed / Slider) + playback tick.
+        render_timeline_controls(max_step, prefix="pan", label="Step")
 
         current     = history[st.session_state["step"]]
         current_idx = st.session_state["step"]
@@ -1290,7 +1319,7 @@ elif scenario["type"] == "pandemic":
         with m2: kpi_box(KPI_HEALTH, "pand_health").metric("System Health", f"{health_val:.0%}")
         with m3: kpi_box(KPI_CAPACITY, "pand_cap").metric("🏥 Health Capacity", f"{avg_health:.0%}")
         with m4: kpi_box(KPI_ECONOMIC, "pand_econ").metric("📈 Econ Output", f"{avg_econ:.0%}")
-        _ew_placeholder = m5.empty()
+        _ew_placeholder = m5.container(height=110, border=False)  # fixed height: EW delta (Low/Elevated) must not shift the row below
 
         # ------------------------------------------
         # 4-STUFIGE FRÜHWARNARCHITEKTUR (R2M-konform, IP-sicher)
@@ -1830,42 +1859,14 @@ elif scenario["type"] == "financial":
     max_step  = len(history) - 1
     proj_step = FINANCIAL_MONTH_TO_STEP.get(FINANCIAL_PROJECTION_START, max_step)
 
-    run_every_f = 1.0 if st.session_state["mode"] == "playback" else None
+    run_every_f = playback_interval()
 
     @st.fragment(run_every=run_every_f)
     def financial_panel(history, max_step, proj_step, selected_path, ensemble=None):
 
-        is_playing = st.session_state["mode"] == "playback"
-        if is_playing:
-            cur = st.session_state["step"]
-            if cur < max_step:
-                st.session_state["step"] = cur + 1
-            else:
-                st.session_state["mode"] = "manual"
-                st.rerun()
-
-        # ------------------------------------------
-        # Controls
-        # ------------------------------------------
-        ctrl1, ctrl2, ctrl3 = st.columns([1, 1, 4])
-        with ctrl1:
-            if st.button("▶ Play", key="fin_play", disabled=is_playing, width='stretch'):
-                st.session_state["mode"] = "playback"
-                st.session_state["step"] = 0
-                st.rerun()
-        with ctrl2:
-            if st.button("⏸ Step", key="fin_pause", disabled=not is_playing, width='stretch'):
-                st.session_state["mode"] = "manual"
-                st.rerun()
-        with ctrl3:
-            if "financial_sim_step" not in st.session_state:
-                st.session_state["financial_sim_step"] = st.session_state["step"]
-            if is_playing:
-                st.session_state["financial_sim_step"] = st.session_state["step"]
-            step = st.slider("Month", 0, max_step, key="financial_sim_step",
-                             disabled=is_playing, label_visibility="collapsed")
-            if not is_playing:
-                st.session_state["step"] = step
+        # Shared timeline controls (Play / Stop / Step / Back / Reset /
+        # Speed / Slider) + playback tick.
+        render_timeline_controls(max_step, prefix="fin", label="Step")
 
         current     = history[st.session_state["step"]]
         current_idx = st.session_state["step"]
@@ -1890,7 +1891,7 @@ elif scenario["type"] == "financial":
         with m4: kpi_box(KPI_ECONOMIC, "fin_econ").metric("🌍 Economic Resilience", f"{avg_reg:.0%}")
         # m5: EW-Level Gauge — live aus ew_norm bei current_idx
         # (ew_norm wird weiter unten berechnet — Vorauswert hier schätzen)
-        _ew_placeholder = m5.empty()
+        _ew_placeholder = m5.container(height=110, border=False)  # fixed height: EW delta (Low/Elevated) must not shift the row below
 
 
         # ------------------------------------------
@@ -2428,42 +2429,14 @@ elif scenario["type"] == "cyber_cloud":
     max_step  = len(history) - 1
     proj_step = CYBER_MONTH_TO_STEP.get(CYBER_PROJECTION_START, max_step)
 
-    run_every_c = 1.0 if st.session_state["mode"] == "playback" else None
+    run_every_c = playback_interval()
 
     @st.fragment(run_every=run_every_c)
     def cyber_cloud_panel(history, max_step, proj_step, selected_path, ensemble=None):
 
-        is_playing = st.session_state["mode"] == "playback"
-        if is_playing:
-            cur = st.session_state["step"]
-            if cur < max_step:
-                st.session_state["step"] = cur + 1
-            else:
-                st.session_state["mode"] = "manual"
-                st.rerun()
-
-        # ------------------------------------------
-        # Controls
-        # ------------------------------------------
-        ctrl1, ctrl2, ctrl3 = st.columns([1, 1, 4])
-        with ctrl1:
-            if st.button("▶ Play", key="cy_play", disabled=is_playing, width='stretch'):
-                st.session_state["mode"] = "playback"
-                st.session_state["step"] = 0
-                st.rerun()
-        with ctrl2:
-            if st.button("⏸ Step", key="cy_pause", disabled=not is_playing, width='stretch'):
-                st.session_state["mode"] = "manual"
-                st.rerun()
-        with ctrl3:
-            if "cyber_sim_step" not in st.session_state:
-                st.session_state["cyber_sim_step"] = st.session_state["step"]
-            if is_playing:
-                st.session_state["cyber_sim_step"] = st.session_state["step"]
-            step = st.slider("Month", 0, max_step, key="cyber_sim_step",
-                             disabled=is_playing, label_visibility="collapsed")
-            if not is_playing:
-                st.session_state["step"] = step
+        # Shared timeline controls (Play / Stop / Step / Back / Reset /
+        # Speed / Slider) + playback tick.
+        render_timeline_controls(max_step, prefix="cy", label="Month")
 
         current     = history[st.session_state["step"]]
         current_idx = st.session_state["step"]
@@ -2489,7 +2462,7 @@ elif scenario["type"] == "cyber_cloud":
         with m3: kpi_box(KPI_DIGITAL, "cyber_dig").metric("☁️ Digital Resilience", f"{avg_dig:.0%}")
         with m4: kpi_box(KPI_FINANCIAL, "cyber_fin").metric("🏦 Financial Stability", f"{avg_fin:.0%}")
         with m5: kpi_box(KPI_ECONOMIC, "cyber_eco").metric("🌍 Economic Output", f"{avg_eco:.0%}")
-        _ew_placeholder = m6.empty()
+        _ew_placeholder = m6.container(height=110, border=False)  # fixed height: EW delta (Low/Elevated) must not shift the row below
 
         # ------------------------------------------
         # Active Attack Banner — driven by snapshot active_attack
@@ -3102,42 +3075,14 @@ elif scenario["type"] == "ctpp_concentration":
     max_step  = len(history) - 1
     proj_step = CYBER_MONTH_TO_STEP.get(CYBER_PROJECTION_START, max_step)
 
-    run_every_c = 1.0 if st.session_state["mode"] == "playback" else None
+    run_every_c = playback_interval()
 
     @st.fragment(run_every=run_every_c)
     def cyber_cloud_panel(history, max_step, proj_step, selected_path, ensemble=None):
 
-        is_playing = st.session_state["mode"] == "playback"
-        if is_playing:
-            cur = st.session_state["step"]
-            if cur < max_step:
-                st.session_state["step"] = cur + 1
-            else:
-                st.session_state["mode"] = "manual"
-                st.rerun()
-
-        # ------------------------------------------
-        # Controls
-        # ------------------------------------------
-        ctrl1, ctrl2, ctrl3 = st.columns([1, 1, 4])
-        with ctrl1:
-            if st.button("▶ Play", key="cy_play", disabled=is_playing, width='stretch'):
-                st.session_state["mode"] = "playback"
-                st.session_state["step"] = 0
-                st.rerun()
-        with ctrl2:
-            if st.button("⏸ Step", key="cy_pause", disabled=not is_playing, width='stretch'):
-                st.session_state["mode"] = "manual"
-                st.rerun()
-        with ctrl3:
-            if "cyber_sim_step" not in st.session_state:
-                st.session_state["cyber_sim_step"] = st.session_state["step"]
-            if is_playing:
-                st.session_state["cyber_sim_step"] = st.session_state["step"]
-            step = st.slider("Month", 0, max_step, key="cyber_sim_step",
-                             disabled=is_playing, label_visibility="collapsed")
-            if not is_playing:
-                st.session_state["step"] = step
+        # Shared timeline controls (Play / Stop / Step / Back / Reset /
+        # Speed / Slider) + playback tick.
+        render_timeline_controls(max_step, prefix="ctpp", label="Month")
 
         current     = history[st.session_state["step"]]
         current_idx = st.session_state["step"]
@@ -3163,7 +3108,7 @@ elif scenario["type"] == "ctpp_concentration":
         with m3: kpi_box(KPI_DIGITAL, "ctpp_dig").metric("☁️ Digital Resilience", f"{avg_dig:.0%}")
         with m4: kpi_box(KPI_FINANCIAL, "ctpp_fin").metric("🏦 Financial Stability", f"{avg_fin:.0%}")
         with m5: kpi_box(KPI_ECONOMIC, "ctpp_eco").metric("🌍 Economic Output", f"{avg_eco:.0%}")
-        _ew_placeholder = m6.empty()
+        _ew_placeholder = m6.container(height=110, border=False)  # fixed height: EW delta (Low/Elevated) must not shift the row below
 
         # --- DORA header tiles (ICT third-party concentration risk) ---
         _ctpp_edges = load_ctpp_concentration(path=selected_path)["edges"]
@@ -3793,40 +3738,14 @@ elif scenario["type"] == "critical_infra":
     max_step  = len(history) - 1
     proj_step = CRITICAL_INFRA_MONTH_TO_STEP.get(CRITICAL_INFRA_PROJECTION_START, max_step)
 
-    run_every_ci = 1.0 if st.session_state["mode"] == "playback" else None
+    run_every_ci = playback_interval()
 
     @st.fragment(run_every=run_every_ci)
     def critical_infra_panel(history, max_step, proj_step, selected_path, ensemble=None):
 
-        is_playing = st.session_state["mode"] == "playback"
-        if is_playing:
-            cur = st.session_state["step"]
-            if cur < max_step:
-                st.session_state["step"] = cur + 1
-            else:
-                st.session_state["mode"] = "manual"
-                st.rerun()
-
-        # Controls
-        ctrl1, ctrl2, ctrl3 = st.columns([1, 1, 4])
-        with ctrl1:
-            if st.button("▶ Play", key="ci_play", disabled=is_playing, width="stretch"):
-                st.session_state["mode"] = "playback"
-                st.session_state["step"] = 0
-                st.rerun()
-        with ctrl2:
-            if st.button("⏸ Step", key="ci_pause", disabled=not is_playing, width="stretch"):
-                st.session_state["mode"] = "manual"
-                st.rerun()
-        with ctrl3:
-            if "ci_sim_step" not in st.session_state:
-                st.session_state["ci_sim_step"] = st.session_state["step"]
-            if is_playing:
-                st.session_state["ci_sim_step"] = st.session_state["step"]
-            step = st.slider("Month", 0, max_step, key="ci_sim_step",
-                             disabled=is_playing, label_visibility="collapsed")
-            if not is_playing:
-                st.session_state["step"] = step
+        # Shared timeline controls (Play / Stop / Step / Back / Reset /
+        # Speed / Slider) + playback tick.
+        render_timeline_controls(max_step, prefix="ci", label="Step")
 
         current       = history[st.session_state["step"]]
         current_idx   = st.session_state["step"]
@@ -4300,7 +4219,7 @@ elif scenario["type"] == "banking_pipeline":
     max_step  = len(history) - 1
     proj_step = BANKING_MONTH_TO_STEP.get(BANKING_PROJECTION_START, max_step)
 
-    run_every_b = 1.0 if st.session_state["mode"] == "playback" else None
+    run_every_b = playback_interval()
 
     # Banking-spezifische KPI-Berechnung (DORA Four Keys + Audit Status)
     #
@@ -4314,90 +4233,9 @@ elif scenario["type"] == "banking_pipeline":
     BASE_MTTR    = {"resilient": 15, "hybrid": 60, "fragile": 240}
 
     def compute_banking_kpis(snap, path):
-        """4 Banking-KPIs aus Snapshot ableiten."""
-        # Layer-Durchschnitte
-        tech_avg = (sum(snap.get("technical_layer", {}).values())
-                    / max(len(snap.get("technical_layer", {})), 1))
-        pipe_avg = (sum(snap.get("pipeline_layer", {}).values())
-                    / max(len(snap.get("pipeline_layer", {})), 1))
-        reg_avg  = (sum(snap.get("regulatory_layer", {}).values())
-                    / max(len(snap.get("regulatory_layer", {})), 1))
-        biz_avg  = (sum(snap.get("business_layer", {}).values())
-                    / max(len(snap.get("business_layer", {})), 1))
-
-        # System Health (aus snap, schon berechnet)
-        sys_health = snap.get("system_health", 0.0)
-
-        # ----- Pipeline Velocity = Pipeline-Layer × MAX_VELOCITY[path] -----
-        # DORA Four Keys "Deployment Frequency"
-        velocity = pipe_avg * MAX_VELOCITY[path]
-
-        # ----- Audit Status = Open Findings -----
-        # findings = FINDINGS_MAX[path] × (1 - regulatory_health)
-        open_findings = round(FINDINGS_MAX[path] * (1.0 - reg_avg))
-
-        # Severity: aus Falco/OPA-Status + Findings-Count
-        falco = snap["nodes"].get("Falco", {})
-        opa = snap["nodes"].get("OPA_Gatekeeper", {})
-        falco_ok = falco.get("status", "active") == "active"
-        opa_ok = opa.get("status", "active") == "active"
-        if not falco_ok or not opa_ok or open_findings > 25:
-            severity = ("🔴", "incl. major")
-        elif open_findings > 10:
-            severity = ("🟡", "mixed")
-        else:
-            severity = ("🟢", "minor")
-
-        # ----- MTTR = BASE × (1 / Pipeline+Business-Health) -----
-        # DORA Four Keys "Time to Restore Service"
-        # Pipeline+Business reflektiert echte Recovery-Fähigkeit
-        recovery_score = (pipe_avg + biz_avg) / 2.0
-        mttr_min = BASE_MTTR[path] / max(0.05, recovery_score)
-
-        return {
-            "system_health": sys_health,
-            "velocity":      velocity,
-            "open_findings": open_findings,
-            "severity":      severity,
-            "mttr_min":      mttr_min,
-            "tech_avg":      tech_avg,
-            "pipe_avg":      pipe_avg,
-            "reg_avg":       reg_avg,
-            "biz_avg":       biz_avg,
-        }
-
-    @st.fragment(run_every=run_every_b)
-    def banking_panel(history, max_step, proj_step, selected_path, ensemble=None):
-
-        is_playing = st.session_state["mode"] == "playback"
-        if is_playing:
-            cur = st.session_state["step"]
-            if cur < max_step:
-                st.session_state["step"] = cur + 1
-            else:
-                st.session_state["mode"] = "manual"
-                st.rerun()
-
-        # Controls
-        ctrl1, ctrl2, ctrl3 = st.columns([1, 1, 4])
-        with ctrl1:
-            if st.button("▶ Play", key="bk_play", disabled=is_playing, width='stretch'):
-                st.session_state["mode"] = "playback"
-                st.session_state["step"] = 0
-                st.rerun()
-        with ctrl2:
-            if st.button("⏸ Step", key="bk_pause", disabled=not is_playing, width='stretch'):
-                st.session_state["mode"] = "manual"
-                st.rerun()
-        with ctrl3:
-            if "banking_sim_step" not in st.session_state:
-                st.session_state["banking_sim_step"] = st.session_state["step"]
-            if is_playing:
-                st.session_state["banking_sim_step"] = st.session_state["step"]
-            step = st.slider("Month", 0, max_step, key="banking_sim_step",
-                             disabled=is_playing, label_visibility="collapsed")
-            if not is_playing:
-                st.session_state["step"] = step
+        # Shared timeline controls (Play / Stop / Step / Back / Reset /
+        # Speed / Slider) + playback tick.
+        render_timeline_controls(max_step, prefix="bk", label="Step")
 
         current     = history[st.session_state["step"]]
         current_idx = st.session_state["step"]
