@@ -22,7 +22,7 @@ from core_lite.pandemic_simulation import run_pandemic_simulation
 from core_lite.financial_simulation import run_financial_simulation
 from core_lite.cyber_cloud_simulation import run_cyber_cloud_simulation
 from visualization.network_plot import plot_network, network_legend_html
-from visualization.network_views import render_network, select_network_view, select_stakeholder_profile, kpi_dim, show_intro_expander
+from visualization.network_views import render_network, select_network_view, select_stakeholder_profile, kpi_dim, show_intro_expander, render_risk_paths_list, VIEW_RISK_PATHS
 from visualization.network_views import (KPI_HEALTH, KPI_ECONOMIC, KPI_DIGITAL,
                                          KPI_FINANCIAL, KPI_STRUCTURAL, KPI_EARLYWARN,
                                          KPI_CAPACITY, KPI_OPERATIONS, KPI_SOCIAL)
@@ -2931,11 +2931,19 @@ elif scenario["type"] == "cyber_cloud":
             )
 
 
-            st.plotly_chart(
-                render_network(current["graph"], current["load"], current["edges"],
+            _net_fig = render_network(current["graph"], current["load"], current["edges"],
                              highlight_nodes=highlight_nodes, highlight_edges=highlight_edges,
-                             pos=current.get("pos"), cluster_anchors=current.get("cluster_anchors")),
-                width='stretch')
+                             pos=current.get("pos"), cluster_anchors=current.get("cluster_anchors"))
+            # Risk Paths view: network + ranking list side by side. Every other
+            # view keeps the full-width chart.
+            if st.session_state.get("network_view_mode") == VIEW_RISK_PATHS:
+                _net_col, _list_col = st.columns([2, 1])
+                with _net_col:
+                    st.plotly_chart(_net_fig, width='stretch')
+                with _list_col:
+                    render_risk_paths_list()
+            else:
+                st.plotly_chart(_net_fig, width='stretch')
 
             # Legende: drei Räume + Bridge + drei Metriken
             _cy_spaces = list({n.get('space')
@@ -3588,11 +3596,19 @@ elif scenario["type"] == "ctpp_concentration":
             )
 
 
-            st.plotly_chart(
-                render_network(current["graph"], current["load"], current["edges"],
+            _net_fig = render_network(current["graph"], current["load"], current["edges"],
                              highlight_nodes=highlight_nodes, highlight_edges=highlight_edges,
-                             pos=current.get("pos"), cluster_anchors=current.get("cluster_anchors")),
-                width='stretch')
+                             pos=current.get("pos"), cluster_anchors=current.get("cluster_anchors"))
+            # Risk Paths view: network + ranking list side by side. Every other
+            # view keeps the full-width chart.
+            if st.session_state.get("network_view_mode") == VIEW_RISK_PATHS:
+                _net_col, _list_col = st.columns([2, 1])
+                with _net_col:
+                    st.plotly_chart(_net_fig, width='stretch')
+                with _list_col:
+                    render_risk_paths_list()
+            else:
+                st.plotly_chart(_net_fig, width='stretch')
 
             # Legende: drei Räume + Bridge + drei Metriken
             _cy_spaces = list({n.get('space')

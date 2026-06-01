@@ -25,6 +25,7 @@ import networkx as nx
 import plotly.graph_objects as go
 
 from visualization.network_plot import plot_network
+from core_lite.risk_paths import compute_risk_paths
 
 
 # --- View modes -------------------------------------------------------------
@@ -34,15 +35,16 @@ VIEW_3D_CLUSTER  = "3D Clustering"
 VIEW_3D_TOPOLOGY = "3D Topology"
 VIEW_HEATMAP     = "Heatmap"
 VIEW_SANKEY      = "Sankey"
+VIEW_RISK_PATHS  = "Risk Paths"
 
 NETWORK_VIEW_MODES = [VIEW_2D_FLAT, VIEW_3D_LAYERED, VIEW_3D_CLUSTER, VIEW_3D_TOPOLOGY,
-                      VIEW_HEATMAP, VIEW_SANKEY]
+                      VIEW_HEATMAP, VIEW_SANKEY, VIEW_RISK_PATHS]
 
 # Modes implemented today. Everything else renders as 2D Flat with a hint.
 # Heatmap and Sankey are on the roadmap (shown as "coming soon" in the selector)
 # and get added here once their renderers land.
 _IMPLEMENTED = {VIEW_2D_FLAT, VIEW_3D_LAYERED, VIEW_3D_CLUSTER, VIEW_3D_TOPOLOGY,
-                VIEW_HEATMAP, VIEW_SANKEY}
+                VIEW_HEATMAP, VIEW_SANKEY, VIEW_RISK_PATHS}
 
 _PURPOSE = {
     VIEW_2D_FLAT:     "Flat layout — color = stress, shape = resonance space.",
@@ -51,6 +53,7 @@ _PURPOSE = {
     VIEW_3D_TOPOLOGY: "Free 3D force layout — overall coupling structure.",
     VIEW_HEATMAP:     "Stress over time — nodes or clusters as rows, steps as columns.",
     VIEW_SANKEY:      "Flow view — coupling throughput along edges between spaces.",
+    VIEW_RISK_PATHS:  "Top-5 structural risk paths — strongest stress-propagation chains, overlaid.",
 }
 
 # --- Stakeholder profiles (Stage 1: profile selector + default-view preset) -
@@ -925,6 +928,17 @@ def render_network(G, node_load, edge_state,
             pos=pos, cluster_anchors=cluster_anchors,
         )
 
+    if view_mode == VIEW_RISK_PATHS:
+        fig, paths = plot_network_risk_paths(
+            G, node_load, edge_state,
+            highlight_nodes=highlight_nodes, highlight_edges=highlight_edges,
+            pos=pos, cluster_anchors=cluster_anchors,
+        )
+        # Stash the ranked paths so the panel can render a matching list next
+        # to the chart (render_network stays a fig-returning drop-in).
+        st.session_state["risk_paths_last"] = paths
+        return fig
+
     return plot_network(
         G, node_load, edge_state,
         highlight_nodes=highlight_nodes, highlight_edges=highlight_edges,
@@ -1291,3 +1305,107 @@ def plot_network_sankey(G, node_load, edge_state,
         plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
     )
     return fig
+
+
+# --- Risk-path overlay view (Top-5 structural risk paths) -------------------
+# Concept 1: draw the 2D network (via plot_network) and overlay the strongest
+# stress-propagation paths as glowing lines, thickest = highest rank. Built to
+# be swappable later (concepts 2/3) via the render-mode dispatch below.
+RISK_MODE_OVERLAY = "overlay"          # concept 1 (current)
+# Future: RISK_MODE_IMPACT, RISK_MODE_SANKEY
+
+# Distinct colors for the ranked paths (rank 1 = hottest). Shared by overlay
+# and the side list so a path's color matches in both places.
+RISK_PATH_COLORS = ["#E24B4A", "#EF9F27", "#378ADD", "#1D9E75", "#A47ADD"]
+
+
+def _risk_layout(G):
+    """Reuse the same cached spring layout plot_network uses, so the overlay
+    lines sit exactly on the nodes."""
+    nodes_key = tuple(sorted(G.nodes()))
+    cache = st.session_state.get("pos_cache", {})
+    if nodes_key in cache:
+        return cache[nodes_key]
+    # Fall back to a fresh layout with the same seed plot_network uses.
+    layout = nx.spring_layout(G, seed=42, k=0.3)
+    st.session_state.setdefault("pos_cache", {})[nodes_key] = layout
+    return layout
+
+
+def plot_network_risk_paths(G, node_load, edge_state,
+                            highlight_nodes=None, highlight_edges=None,
+                            pos=None, cluster_anchors=None,
+                            top_k=5, max_len=5):
+    """2D network with the top-k structural risk paths overlaid as glowing
+    lines. Returns (figure, paths) so the caller can render a matching list.
+
+    Works from the same arguments every other view gets:
+      * node_load  -> per-node stress (the path score uses this)
+      * G          -> topology; edge coupling is read from edge attributes
+                      ('strength'/'weight') with a sensible default
+    so render_network can dispatch here without a wider signature.
+    """
+    fig = plot_network(G, node_load, edge_state,
+                       highlight_nodes=highlight_nodes,
+                       highlight_edges=highlight_edges,
+                       pos=pos, cluster_anchors=cluster_anchors)
+    layout = pos if (pos and len(pos) > 0) else _risk_layout(G)
+
+    # Assemble the snapshot the path search expects from the view arguments.
+    nodes = {n: {"stress": float(node_load.get(n, 0.0) or 0.0),
+                 "cluster": G.nodes[n].get("cluster")}
+             for n in G.nodes()}
+    edge_list = []
+    for (u, v) in G.edges():
+        d = G.edges[u, v]
+        strength = d.get("strength", d.get("weight", 0.5))
+        edge_list.append({"source": u, "target": v, "strength": strength})
+    search_snap = {"nodes": nodes, "edges": edge_list}
+    paths = compute_risk_paths(search_snap, top_k=top_k, max_len=max_len)
+
+    for rank, path in enumerate(paths):
+        color = RISK_PATH_COLORS[rank % len(RISK_PATH_COLORS)]
+        width = max(2.0, 7.0 - rank * 1.1)
+        xs, ys = [], []
+        for nid in path["nodes"]:
+            if nid not in layout:
+                xs, ys = [], []
+                break
+            xs.append(layout[nid][0])
+            ys.append(layout[nid][1])
+        if not xs:
+            continue
+        label = " → ".join(path["nodes"])
+        fig.add_trace(go.Scatter(
+            x=xs, y=ys, mode="lines+markers",
+            line=dict(color=color, width=width),
+            marker=dict(color=color, size=max(6, 12 - rank * 1.2)),
+            opacity=0.9,
+            hoverinfo="text",
+            hovertext=f"#{rank+1} · score {path['score']:.0f}<br>{label}",
+            name=f"Risk path #{rank+1}",
+            showlegend=False,
+        ))
+    return fig, paths
+
+
+def render_risk_paths_list(key: str = "risk_paths_last"):
+    """Render the Top-5 risk-path ranking next to the network overlay. Reads the
+    paths stashed by render_network (VIEW_RISK_PATHS). Colors match the overlay.
+    Safe to call even if no paths are available yet."""
+    paths = st.session_state.get(key) or []
+    st.markdown("**Top 5 Risk Paths**")
+    if not paths:
+        st.caption("No risk paths at this step.")
+        return
+    for rank, p in enumerate(paths):
+        color = RISK_PATH_COLORS[rank % len(RISK_PATH_COLORS)]
+        route = " → ".join(p["nodes"])
+        ct = p.get("cluster_transitions", 0)
+        st.markdown(
+            f"<div style='border-left:3px solid {color};padding:2px 0 2px 10px;"
+            f"margin-bottom:6px;border-radius:0;'>"
+            f"<div style='font-size:13px;font-weight:600;'>{route}</div>"
+            f"<div style='font-size:11px;color:#888;'>score {p['score']:.0f} · "
+            f"{ct} cluster transition{'s' if ct != 1 else ''}</div>"
+            f"</div>", unsafe_allow_html=True)
