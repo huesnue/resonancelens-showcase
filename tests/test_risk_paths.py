@@ -8,7 +8,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from risk_paths import compute_risk_paths, _quantile, _cluster_transitions
+from core_lite.risk_paths import compute_risk_paths, _quantile, _cluster_transitions
 
 
 def _snap(nodes, edges):
@@ -105,3 +105,37 @@ def test_edge_state_dict_form_is_accepted():
     paths = compute_risk_paths({"nodes": nodes, "edges": edge_state},
                                seed_quantile=0.0)
     assert paths and paths[0]["nodes"][0] == "a"
+
+
+def test_path_impact_no_cif_data_returns_empty():
+    # Nodes without a critical_function field -> {} (e.g. cyber scenario).
+    nodes = {"a": {"stress": 5}, "b": {"stress": 3}}
+    from core_lite.risk_paths import path_impact
+    assert path_impact(["a", "b"], nodes) == {}
+
+
+def test_path_impact_identifies_critical_function_and_ctpp():
+    from core_lite.risk_paths import path_impact
+    nodes = {
+        "prov": {"critical_function": 0, "ctpp": "yes", "substitutability": 0.2},
+        "mid":  {"critical_function": 0, "ctpp": "no"},
+        "cif":  {"critical_function": 1, "ctpp": "no"},
+    }
+    imp = path_impact(["prov", "mid", "cif"], nodes)
+    assert imp  # not empty — CIF data present
+    assert imp["endpoint_cif"] == "cif"
+    assert imp["critical_functions"] == ["cif"]
+    assert imp["ctpp_providers"] == ["prov"]
+    assert abs(imp["min_substitutability"] - 0.2) < 1e-9
+
+
+def test_path_impact_no_ctpp_on_path():
+    from core_lite.risk_paths import path_impact
+    nodes = {
+        "x": {"critical_function": 0, "ctpp": "no"},
+        "cif": {"critical_function": 1, "ctpp": "no"},
+    }
+    imp = path_impact(["x", "cif"], nodes)
+    assert imp["ctpp_providers"] == []
+    assert imp["min_substitutability"] is None
+    assert imp["endpoint_cif"] == "cif"

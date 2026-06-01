@@ -25,7 +25,7 @@ import networkx as nx
 import plotly.graph_objects as go
 
 from visualization.network_plot import plot_network
-from core_lite.risk_paths import compute_risk_paths
+from core_lite.risk_paths import compute_risk_paths, path_impact
 
 
 # --- View modes -------------------------------------------------------------
@@ -1317,11 +1317,11 @@ RISK_MODE_FLOW    = "flow"             # concept 3 (planned): sankey strands + p
 
 RISK_MODES = [RISK_MODE_OVERLAY, RISK_MODE_IMPACT, RISK_MODE_FLOW]
 # Only overlay is implemented; the others render a "coming soon" note for now.
-_RISK_MODES_IMPLEMENTED = {RISK_MODE_OVERLAY}
+_RISK_MODES_IMPLEMENTED = {RISK_MODE_OVERLAY, RISK_MODE_IMPACT}
 _RISK_MODE_LABELS = {
     RISK_MODE_OVERLAY: "Overlay",
     RISK_MODE_IMPACT:  "Impact",
-    RISK_MODE_FLOW:    "Verlauf",
+    RISK_MODE_FLOW:    "Timeline",
 }
 
 # Distinct colors for the ranked paths (rank 1 = hottest). Shared by overlay
@@ -1362,22 +1362,34 @@ def plot_network_risk_paths(G, node_load, edge_state,
     layout = pos if (pos and len(pos) > 0) else _risk_layout(G)
 
     # Assemble the snapshot the path search expects from the view arguments.
-    nodes = {n: {"stress": float(node_load.get(n, 0.0) or 0.0),
-                 "cluster": G.nodes[n].get("cluster")}
-             for n in G.nodes()}
+    # Carry the DORA attributes (critical_function / ctpp / substitutability)
+    # when the graph nodes have them, so impact mode can read them; scenarios
+    # without these fields simply omit them and impact mode shows a note.
+    nodes = {}
+    for n in G.nodes():
+        gn = G.nodes[n]
+        nd = {"stress": float(node_load.get(n, 0.0) or 0.0),
+              "cluster": gn.get("cluster")}
+        for fld in ("critical_function", "ctpp", "substitutability"):
+            if fld in gn:
+                nd[fld] = gn[fld]
+        nodes[n] = nd
     edge_list = []
     for (u, v) in G.edges():
         d = G.edges[u, v]
         strength = d.get("strength", d.get("weight", 0.5))
         edge_list.append({"source": u, "target": v, "strength": strength})
     search_snap = {"nodes": nodes, "edges": edge_list}
+    # Stash the assembled nodes (carry DORA attributes) so the impact-mode list
+    # can read critical_function / ctpp / substitutability without re-deriving.
+    st.session_state["risk_snapshot_nodes"] = nodes
     paths = compute_risk_paths(search_snap, top_k=top_k, max_len=max_len)
 
-    # Only the Overlay mode draws the path lines on the network. Impact/Verlauf
-    # (concepts 2/3) will render their own representations later; for now they
-    # show the base network and a "coming soon" note in the side panel.
+    # Overlay and Impact both draw the path lines on the network, so the side
+    # cards (score list or impact list) stay colour-linked to the routes. Only
+    # the planned Timeline mode (concept 3) will render its own representation.
     mode = st.session_state.get("risk_mode", RISK_MODE_OVERLAY)
-    if mode != RISK_MODE_OVERLAY:
+    if mode not in (RISK_MODE_OVERLAY, RISK_MODE_IMPACT):
         return fig, paths
 
     for rank, path in enumerate(paths):
@@ -1460,21 +1472,28 @@ def select_risk_mode(key: str = "risk_mode") -> str:
 
 
 def render_risk_paths_list(key: str = "risk_paths_last"):
-    """Render the Top-5 risk-path ranking next to the network overlay as
-    upgraded cards: rank, a score bar (relative to the top path), the route, and
-    a cluster-transition pill. Reads the paths stashed by render_network
-    (VIEW_RISK_PATHS); colors match the overlay. Only the Overlay mode reaches
-    here today (select_risk_mode offers implemented modes only)."""
+    """Render the Top-5 risk-path ranking next to the network. In Overlay mode:
+    rank, score bar, full route, cluster-transition pill. In Impact mode (DORA):
+    the threatened critical-or-important function, any concentrated third-party
+    providers (CTPP) on the path, and the hardest-to-substitute hop. Reads the
+    paths stashed by render_network (VIEW_RISK_PATHS); colors match the overlay."""
     paths = st.session_state.get(key) or []
-    st.markdown("**Top 5 Risk Paths**")
+    mode = st.session_state.get("risk_mode", RISK_MODE_OVERLAY)
+    title = "Critical-Function Impact" if mode == RISK_MODE_IMPACT else "Top 5 Risk Paths"
+    st.markdown(f"**{title}**")
     if not paths:
         st.caption("No risk paths at this step.")
         return
 
-    max_score = max((p.get("score", 0) for p in paths), default=0) or 1
     # 800/900 ramp stops matching RISK_PATH_COLORS, for the rank label.
     rank_text = ["#A32D2D", "#854F0B", "#185FA5", "#0F6E56", "#3C3489"]
 
+    if mode == RISK_MODE_IMPACT:
+        snap_nodes = st.session_state.get("risk_snapshot_nodes") or {}
+        _render_impact_cards(paths, rank_text, snap_nodes)
+        return
+
+    max_score = max((p.get("score", 0) for p in paths), default=0) or 1
     for rank, p in enumerate(paths):
         color = RISK_PATH_COLORS[rank % len(RISK_PATH_COLORS)]
         rcol = rank_text[rank % len(rank_text)]
@@ -1503,4 +1522,55 @@ def render_risk_paths_list(key: str = "risk_paths_last"):
             f"color:var(--color-text-secondary);padding:2px 8px;border-radius:var(--border-radius-md);"
             f"white-space:nowrap;'>"
             f"{ct} transition{'s' if ct != 1 else ''}</span></div>"
+            f"</div>", unsafe_allow_html=True)
+
+
+def _render_impact_cards(paths, rank_text, snap_nodes):
+    """Impact-mode cards (concept 2, DORA): threatened critical function, CTPP
+    providers on the path, and the hardest-to-substitute hop. If the scenario
+    carries no critical-function data (e.g. cyber), show a single note instead."""
+    # path_impact returns {} when there is no CIF data — detect that once.
+    any_impact = any(path_impact(p["nodes"], snap_nodes) for p in paths)
+    if not any_impact:
+        st.caption("No critical-function data in this scenario. "
+                   "Impact view is available for the DORA / ICT concentration scenario.")
+        return
+
+    for rank, p in enumerate(paths):
+        color = RISK_PATH_COLORS[rank % len(RISK_PATH_COLORS)]
+        rcol = rank_text[rank % len(rank_text)]
+        imp = path_impact(p["nodes"], snap_nodes)
+        full = " → ".join(p["nodes"])
+        cif = imp.get("endpoint_cif") or (
+            imp.get("critical_functions") or [None])[-1]
+        cif_label = cif if cif else "no critical function"
+        cif_bg = "var(--color-background-danger)" if cif else "var(--color-background-secondary)"
+        cif_fg = "var(--color-text-danger)" if cif else "var(--color-text-secondary)"
+        ctpp = imp.get("ctpp_providers") or []
+        ms = imp.get("min_substitutability")
+
+        # CTPP / substitutability line (only when a concentrated provider is on
+        # the path). Lower substitutability = harder to replace = higher concern.
+        if ctpp:
+            sub_txt = f" · substitutability {ms:.2f}" if ms is not None else ""
+            ctpp_line = (
+                f"<div style='font-size:11px;color:var(--color-text-secondary);margin-top:4px;'>"
+                f"via CTPP: {', '.join(ctpp)}{sub_txt}</div>")
+        else:
+            ctpp_line = (
+                f"<div style='font-size:11px;color:var(--color-text-tertiary);margin-top:4px;'>"
+                f"no concentrated provider on path</div>")
+
+        st.markdown(
+            f"<div title='{full}' style='background:var(--color-background-primary);"
+            f"border:0.5px solid var(--color-border-tertiary);border-left:3px solid {color};"
+            f"border-radius:0 var(--border-radius-md) var(--border-radius-md) 0;"
+            f"padding:7px 10px;margin-bottom:7px;'>"
+            f"<div style='display:flex;align-items:center;gap:7px;'>"
+            f"<span style='font-size:12px;font-weight:500;color:{rcol};'>#{rank+1}</span>"
+            f"<span style='font-size:11px;color:var(--color-text-secondary);'>threatens</span>"
+            f"<span style='font-size:12px;font-weight:500;background:{cif_bg};color:{cif_fg};"
+            f"padding:1px 8px;border-radius:var(--border-radius-md);'>{cif_label}</span></div>"
+            f"<div style='font-size:11px;color:var(--color-text-tertiary);margin-top:4px;'>{full}</div>"
+            f"{ctpp_line}"
             f"</div>", unsafe_allow_html=True)

@@ -154,3 +154,45 @@ def compute_risk_paths(
         })
         used.update(best["nodes"])
     return selected
+
+
+# --- Impact analysis (concept 2) -------------------------------------------
+# DORA-oriented reading of a risk path: which critical-or-important function it
+# threatens, whether it runs through a concentrated third-party provider (CTPP),
+# and how substitutable the least-substitutable hop is. Pure lookup over node
+# attributes the loader already provides (critical_function, ctpp,
+# substitutability); returns {} for scenarios without those fields (e.g. cyber).
+
+def path_impact(path_nodes, nodes):
+    """Return DORA impact metadata for one path, or {} if the scenario carries
+    no critical-function data (so callers can show a 'no CIF data' note).
+
+    Keys when available:
+      critical_functions: [node ids on the path that are critical functions]
+      endpoint_cif:       the path's last node if it is a critical function, else None
+      ctpp_providers:     [node ids on the path flagged as concentrated TPPs]
+      min_substitutability: smallest substitutability among CTPP hops on the
+                            path (lower = harder to replace = higher concern),
+                            or None if no CTPP on the path
+    """
+    has_cif_data = any("critical_function" in (nodes.get(n) or {}) for n in path_nodes)
+    if not has_cif_data:
+        return {}
+
+    crit = [n for n in path_nodes
+            if int((nodes.get(n) or {}).get("critical_function", 0) or 0) == 1]
+    endpoint = path_nodes[-1] if path_nodes else None
+    endpoint_cif = endpoint if (endpoint in crit) else None
+
+    ctpp = [n for n in path_nodes
+            if str((nodes.get(n) or {}).get("ctpp", "no")).lower() == "yes"]
+    subs = [float((nodes.get(n) or {}).get("substitutability", 1.0) or 1.0)
+            for n in ctpp]
+    min_sub = min(subs) if subs else None
+
+    return {
+        "critical_functions": crit,
+        "endpoint_cif": endpoint_cif,
+        "ctpp_providers": ctpp,
+        "min_substitutability": min_sub,
+    }
