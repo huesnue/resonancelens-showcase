@@ -22,7 +22,7 @@ from core_lite.pandemic_simulation import run_pandemic_simulation
 from core_lite.financial_simulation import run_financial_simulation
 from core_lite.cyber_cloud_simulation import run_cyber_cloud_simulation
 from visualization.network_plot import plot_network, network_legend_html
-from visualization.network_views import render_network, select_network_view, select_stakeholder_profile, kpi_dim, show_intro_expander, render_risk_paths_list, VIEW_RISK_PATHS
+from visualization.network_views import render_network, select_network_view, select_stakeholder_profile, kpi_dim, show_intro_expander, render_risk_paths_list, select_risk_mode, VIEW_RISK_PATHS
 from visualization.network_views import (KPI_HEALTH, KPI_ECONOMIC, KPI_DIGITAL,
                                          KPI_FINANCIAL, KPI_STRUCTURAL, KPI_EARLYWARN,
                                          KPI_CAPACITY, KPI_OPERATIONS, KPI_SOCIAL)
@@ -2659,7 +2659,10 @@ elif scenario["type"] == "cyber_cloud":
         # Chart | Network | Events
         # ------------------------------------------
         _state_banner_ph = _banner_box.empty()
-        col_left, col_mid, col_right = st.columns([4, 4, 2])
+        # Risk Paths view hides the timeline chart and gives its width to
+        # the network + ranking list; other views keep the [4, 4, 2] split.
+        _is_risk_view = st.session_state.get("network_view_mode") == VIEW_RISK_PATHS
+        col_left, col_mid, col_right = st.columns([0.0001, 9, 3] if _is_risk_view else [4, 4, 2])
 
         with col_left:
             dig_layer_avg = [
@@ -2889,7 +2892,10 @@ elif scenario["type"] == "cyber_cloud":
                 legend=dict(orientation="h", yanchor="bottom", y=-0.45,
                             xanchor="center", x=0.5, font=dict(size=10)),
             )
-            st.plotly_chart(fig, width='stretch')
+            # Skip the timeline chart in the Risk Paths view (col_left is
+            # collapsed there; the network gets the width instead).
+            if not _is_risk_view:
+                st.plotly_chart(fig, width='stretch')
 
         with col_mid:
             # Event-Highlights (cyber-Events haben optionale Cluster)
@@ -2937,10 +2943,11 @@ elif scenario["type"] == "cyber_cloud":
             # Risk Paths view: network + ranking list side by side. Every other
             # view keeps the full-width chart.
             if st.session_state.get("network_view_mode") == VIEW_RISK_PATHS:
-                _net_col, _list_col = st.columns([2, 1])
+                _net_col, _list_col = st.columns([3, 2])
                 with _net_col:
                     st.plotly_chart(_net_fig, width='stretch')
                 with _list_col:
+                    select_risk_mode()
                     render_risk_paths_list()
             else:
                 st.plotly_chart(_net_fig, width='stretch')
@@ -3324,7 +3331,10 @@ elif scenario["type"] == "ctpp_concentration":
         # Chart | Network | Events
         # ------------------------------------------
         _state_banner_ph = _banner_box.empty()
-        col_left, col_mid, col_right = st.columns([4, 4, 2])
+        # Risk Paths view hides the timeline chart and gives its width to
+        # the network + ranking list; other views keep the [4, 4, 2] split.
+        _is_risk_view = st.session_state.get("network_view_mode") == VIEW_RISK_PATHS
+        col_left, col_mid, col_right = st.columns([0.0001, 9, 3] if _is_risk_view else [4, 4, 2])
 
         with col_left:
             dig_layer_avg = [
@@ -3554,7 +3564,10 @@ elif scenario["type"] == "ctpp_concentration":
                 legend=dict(orientation="h", yanchor="bottom", y=-0.45,
                             xanchor="center", x=0.5, font=dict(size=10)),
             )
-            st.plotly_chart(fig, width='stretch')
+            # Skip the timeline chart in the Risk Paths view (col_left is
+            # collapsed there; the network gets the width instead).
+            if not _is_risk_view:
+                st.plotly_chart(fig, width='stretch')
 
         with col_mid:
             # Event-Highlights (cyber-Events haben optionale Cluster)
@@ -3602,10 +3615,11 @@ elif scenario["type"] == "ctpp_concentration":
             # Risk Paths view: network + ranking list side by side. Every other
             # view keeps the full-width chart.
             if st.session_state.get("network_view_mode") == VIEW_RISK_PATHS:
-                _net_col, _list_col = st.columns([2, 1])
+                _net_col, _list_col = st.columns([3, 2])
                 with _net_col:
                     st.plotly_chart(_net_fig, width='stretch')
                 with _list_col:
+                    select_risk_mode()
                     render_risk_paths_list()
             else:
                 st.plotly_chart(_net_fig, width='stretch')

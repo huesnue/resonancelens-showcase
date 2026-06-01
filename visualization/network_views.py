@@ -1311,8 +1311,18 @@ def plot_network_sankey(G, node_load, edge_state,
 # Concept 1: draw the 2D network (via plot_network) and overlay the strongest
 # stress-propagation paths as glowing lines, thickest = highest rank. Built to
 # be swappable later (concepts 2/3) via the render-mode dispatch below.
-RISK_MODE_OVERLAY = "overlay"          # concept 1 (current)
-# Future: RISK_MODE_IMPACT, RISK_MODE_SANKEY
+RISK_MODE_OVERLAY = "overlay"          # concept 1 (current): paths on the 2D net
+RISK_MODE_IMPACT  = "impact"           # concept 2 (planned): path -> critical function
+RISK_MODE_FLOW    = "flow"             # concept 3 (planned): sankey strands + persistence
+
+RISK_MODES = [RISK_MODE_OVERLAY, RISK_MODE_IMPACT, RISK_MODE_FLOW]
+# Only overlay is implemented; the others render a "coming soon" note for now.
+_RISK_MODES_IMPLEMENTED = {RISK_MODE_OVERLAY}
+_RISK_MODE_LABELS = {
+    RISK_MODE_OVERLAY: "Overlay",
+    RISK_MODE_IMPACT:  "Impact",
+    RISK_MODE_FLOW:    "Verlauf",
+}
 
 # Distinct colors for the ranked paths (rank 1 = hottest). Shared by overlay
 # and the side list so a path's color matches in both places.
@@ -1363,6 +1373,13 @@ def plot_network_risk_paths(G, node_load, edge_state,
     search_snap = {"nodes": nodes, "edges": edge_list}
     paths = compute_risk_paths(search_snap, top_k=top_k, max_len=max_len)
 
+    # Only the Overlay mode draws the path lines on the network. Impact/Verlauf
+    # (concepts 2/3) will render their own representations later; for now they
+    # show the base network and a "coming soon" note in the side panel.
+    mode = st.session_state.get("risk_mode", RISK_MODE_OVERLAY)
+    if mode != RISK_MODE_OVERLAY:
+        return fig, paths
+
     for rank, path in enumerate(paths):
         color = RISK_PATH_COLORS[rank % len(RISK_PATH_COLORS)]
         width = max(2.0, 7.0 - rank * 1.1)
@@ -1389,23 +1406,101 @@ def plot_network_risk_paths(G, node_load, edge_state,
     return fig, paths
 
 
+def _locked_mode_pills(available):
+    """Render the not-yet-implemented modes as greyed, non-clickable pills with
+    a lock icon — visible roadmap without offering a dead option."""
+    locked = [m for m in RISK_MODES if m not in available]
+    if not locked:
+        return
+    pills = "".join(
+        f"<span style='display:inline-block;font-size:12px;color:var(--color-text-tertiary);"
+        f"border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);"
+        f"padding:2px 9px;margin:0 6px 0 0;'>&#128274; {_RISK_MODE_LABELS.get(m, m)}</span>"
+        for m in locked
+    )
+    st.markdown(
+        f"<div style='margin:2px 0 10px;'>{pills}"
+        f"<span style='font-size:11px;color:var(--color-text-tertiary);'>planned</span>"
+        f"</div>", unsafe_allow_html=True)
+
+
+def select_risk_mode(key: str = "risk_mode") -> str:
+    """Render the concept switch inside the Risk Paths view and persist the
+    choice in a session_state mirror (like select_network_view). Returns the
+    active mode.
+
+    Adaptive: while only one mode is implemented, no radio is shown (a single
+    radio reads as broken) — just a 'Display: Overlay' label plus greyed,
+    locked pills for the planned modes. Once a second mode lands it joins the
+    real radio automatically and only the still-unimplemented ones stay locked.
+    """
+    available = [m for m in RISK_MODES if m in _RISK_MODES_IMPLEMENTED]
+    if not available:
+        available = [RISK_MODE_OVERLAY]
+    if key not in st.session_state or st.session_state[key] not in available:
+        st.session_state[key] = available[0]
+
+    if len(available) == 1:
+        only = available[0]
+        st.markdown(
+            f"<div style='font-size:12px;color:var(--color-text-secondary);margin-bottom:2px;'>"
+            f"Display: <span style='color:var(--color-text-primary);font-weight:500;'>"
+            f"{_RISK_MODE_LABELS.get(only, only)}</span></div>", unsafe_allow_html=True)
+        _locked_mode_pills(available)
+        st.session_state[key] = only
+        return only
+
+    idx = available.index(st.session_state[key])
+    choice = st.radio("Display", available, index=idx, key=f"{key}_widget",
+                      format_func=lambda m: _RISK_MODE_LABELS.get(m, m),
+                      horizontal=True, label_visibility="collapsed")
+    st.session_state[key] = choice
+    _locked_mode_pills(available)
+    return choice
+
+
 def render_risk_paths_list(key: str = "risk_paths_last"):
-    """Render the Top-5 risk-path ranking next to the network overlay. Reads the
-    paths stashed by render_network (VIEW_RISK_PATHS). Colors match the overlay.
-    Safe to call even if no paths are available yet."""
+    """Render the Top-5 risk-path ranking next to the network overlay as
+    upgraded cards: rank, a score bar (relative to the top path), the route, and
+    a cluster-transition pill. Reads the paths stashed by render_network
+    (VIEW_RISK_PATHS); colors match the overlay. Only the Overlay mode reaches
+    here today (select_risk_mode offers implemented modes only)."""
     paths = st.session_state.get(key) or []
     st.markdown("**Top 5 Risk Paths**")
     if not paths:
         st.caption("No risk paths at this step.")
         return
+
+    max_score = max((p.get("score", 0) for p in paths), default=0) or 1
+    # 800/900 ramp stops matching RISK_PATH_COLORS, for the rank label.
+    rank_text = ["#A32D2D", "#854F0B", "#185FA5", "#0F6E56", "#3C3489"]
+
     for rank, p in enumerate(paths):
         color = RISK_PATH_COLORS[rank % len(RISK_PATH_COLORS)]
-        route = " → ".join(p["nodes"])
+        rcol = rank_text[rank % len(rank_text)]
+        nodes = p["nodes"]
+        full = " → ".join(nodes)
+        route = full  # the list column is wide enough now; show the full route
+        score = p.get("score", 0)
+        pct = max(6, round(100 * score / max_score))
         ct = p.get("cluster_transitions", 0)
         st.markdown(
-            f"<div style='border-left:3px solid {color};padding:2px 0 2px 10px;"
-            f"margin-bottom:6px;border-radius:0;'>"
-            f"<div style='font-size:13px;font-weight:600;'>{route}</div>"
-            f"<div style='font-size:11px;color:#888;'>score {p['score']:.0f} · "
-            f"{ct} cluster transition{'s' if ct != 1 else ''}</div>"
+            f"<div title='{full}' style='background:var(--color-background-primary);"
+            f"border:0.5px solid var(--color-border-tertiary);border-left:3px solid {color};"
+            f"border-radius:0 var(--border-radius-md) var(--border-radius-md) 0;"
+            f"padding:7px 10px;margin-bottom:7px;'>"
+            f"<div style='display:flex;align-items:center;gap:7px;margin-bottom:5px;'>"
+            f"<span style='font-size:12px;font-weight:500;color:{rcol};'>#{rank+1}</span>"
+            f"<span style='font-size:13px;font-weight:500;'>{route}</span></div>"
+            f"<div style='display:flex;align-items:center;gap:8px;'>"
+            f"<div style='flex:1;height:5px;background:var(--color-border-tertiary);"
+            f"border-radius:3px;overflow:hidden;'>"
+            f"<div style='width:{pct}%;height:100%;background:{color};'></div></div>"
+            f"<span style='font-size:15px;font-weight:500;color:var(--color-text-primary);"
+            f"min-width:32px;text-align:right;'>{score:.0f}</span>"
+            f"<span style='font-size:11px;background:var(--color-background-tertiary);"
+            f"border:0.5px solid var(--color-border-secondary);"
+            f"color:var(--color-text-secondary);padding:2px 8px;border-radius:var(--border-radius-md);"
+            f"white-space:nowrap;'>"
+            f"{ct} transition{'s' if ct != 1 else ''}</span></div>"
             f"</div>", unsafe_allow_html=True)
