@@ -106,6 +106,8 @@ def plot_network(G, node_load, edge_state, highlight_nodes=None, highlight_edges
         "new":             "rgba(120,120,120,0.30)",
         "bridge_active":   "#b388ff",
         "bridge_inactive": "rgba(140,140,140,0.55)",
+        "substitution_active":   "#2BC4C4",
+        "substitution_inactive": "rgba(140,140,140,0.55)",
     }
     width_map = {
         "strong":          1.5,
@@ -114,6 +116,8 @@ def plot_network(G, node_load, edge_state, highlight_nodes=None, highlight_edges
         "new":             0.6,
         "bridge_active":   2.5,
         "bridge_inactive": 1.5,
+        "substitution_active":   2.5,
+        "substitution_inactive": 1.5,
     }
 
     for (u, v) in G.edges():
@@ -128,10 +132,11 @@ def plot_network(G, node_load, edge_state, highlight_nodes=None, highlight_edges
 
         color = color_map.get(state, "#aaaaaa")
         width = width_map.get(state, 1.5)
-        # A bridge is always dashed regardless of its activity state; colour
-        # encodes active (violet) vs inactive (grey). A bridge must never be
-        # drawn as a solid line — that would be confusable with a normal edge.
-        dash  = "dash" if state in ("bridge_active", "bridge_inactive") else None
+        # A bridge or substitution edge is always dashed regardless of its
+        # activity state; colour encodes active vs inactive. Such edges must
+        # never be drawn solid — that would be confusable with a normal edge.
+        dash  = "dash" if state in ("bridge_active", "bridge_inactive",
+                                    "substitution_active", "substitution_inactive") else None
 
         edge_traces.append(go.Scatter(
             x=[x0, x1, None],

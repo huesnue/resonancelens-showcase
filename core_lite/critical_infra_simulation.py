@@ -1076,6 +1076,10 @@ def run_critical_infra_simulation(
             # never as a solid normal edge.
             if is_bridge and state != "bridge_active":
                 state = "bridge_inactive"
+            # Same rule for substitution edges (active=teal / inactive=grey),
+            # so a substitution coupling is always recognisable as dashed.
+            if is_substitution and state != "substitution_active":
+                state = "substitution_inactive"
 
             edge_state[key] = state
 

@@ -198,13 +198,17 @@ _EDGE_COLOR = {
     "strong": "#888888", "ready": "rgba(140,140,140,0.65)", "weak": "#ff3b3b",
     "new": "rgba(120,120,120,0.30)", "bridge_active": "#b388ff",
     "bridge_inactive": "rgba(140,140,140,0.55)",
+    "substitution_active": "#2BC4C4",
+    "substitution_inactive": "rgba(140,140,140,0.55)",
 }
 _EDGE_WIDTH = {"strong": 3, "ready": 2, "weak": 2, "new": 1,
-               "bridge_active": 5, "bridge_inactive": 3}
+               "bridge_active": 5, "bridge_inactive": 3,
+               "substitution_active": 5, "substitution_inactive": 3}
 
 # Edge states that represent a cross-space bridge. A bridge must always be
 # rendered dashed (never as a solid normal edge) in every view.
-_BRIDGE_STATES = ("bridge_active", "bridge_inactive")
+_BRIDGE_STATES = ("bridge_active", "bridge_inactive",
+                  "substitution_active", "substitution_inactive")
 
 
 def _dash_segments_3d(x0, y0, z0, x1, y1, z1, n_dashes=6):
