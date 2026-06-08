@@ -66,10 +66,10 @@ _PURPOSE = {
 # every rerun. Stage 2 (KPI focus / detail depth) is intentionally not here yet.
 # With no profile chosen ("—"), behaviour is identical to before.
 PROFILE_NONE      = "—"
-PROFILE_OVERVIEW  = "Überblick"
-PROFILE_STRUCTURE = "Struktur"
-PROFILE_FLOWS     = "Flüsse"
-PROFILE_TIMELINE  = "Zeitverlauf"
+PROFILE_OVERVIEW  = "Overview"
+PROFILE_STRUCTURE = "Structure"
+PROFILE_FLOWS     = "Flows"
+PROFILE_TIMELINE  = "Timeline"
 PROFILE_DETAIL    = "Detail"
 
 STAKEHOLDER_PROFILES = [PROFILE_NONE, PROFILE_OVERVIEW, PROFILE_STRUCTURE,
@@ -164,11 +164,11 @@ def show_intro_expander(key: str = "profile_mode") -> bool:
 
 # Hint shown under the selector — view + scenario-neutral role examples.
 _PROFILE_PURPOSE = {
-    PROFILE_OVERVIEW:  "Cluster-Überblick — z.B. Executives, Vorstand.",
-    PROFILE_STRUCTURE: "Kopplungsstruktur — z.B. Regulatoren, Auditoren.",
-    PROFILE_FLOWS:     "Fluss-/Kopplungssicht — z.B. ICT-/DevOps-Teams, Netzbetreiber.",
-    PROFILE_TIMELINE:  "Schockausbreitung über Zeit — z.B. Zentralbanken, Ökonomen.",
-    PROFILE_DETAIL:    "Volles Knoten-Detail — z.B. Analysten, Fachteams.",
+    PROFILE_OVERVIEW:  "Cluster overview — e.g. executives, board.",
+    PROFILE_STRUCTURE: "Coupling structure — e.g. regulators, auditors.",
+    PROFILE_FLOWS:     "Flow / coupling view — e.g. ICT/DevOps teams, network operators.",
+    PROFILE_TIMELINE:  "Shock propagation over time — e.g. central banks, economists.",
+    PROFILE_DETAIL:    "Full per-node detail — e.g. analysts, domain teams.",
 }
 
 
@@ -244,8 +244,8 @@ def select_stakeholder_profile(key: str = "profile_mode",
     _PROFILE_DEFAULT_VIEW).
 
     The profile is GLOBAL (applies across all scenarios), so it lives once in
-    the sidebar — not per panel. Profiles are functional (Überblick / Struktur /
-    Flüsse / Zeitverlauf / Detail), valid in every scenario; stakeholder roles
+    the sidebar — not per panel. Profiles are functional (Overview / Structure /
+    Flows / Timeline / Detail), valid in every scenario; stakeholder roles
     are shown as examples in the caption.
 
     Stage 1 only: the profile presets the view; it does not yet drive KPI focus
@@ -265,8 +265,8 @@ def select_stakeholder_profile(key: str = "profile_mode",
         index=STAKEHOLDER_PROFILES.index(current),
         key=f"{key}__select",
         label_visibility="collapsed",
-        help="Wählt eine Darstellungs-Perspektive und stellt den passenden "
-             "Netzwerk-View voreinstellt. Der View ist danach frei wechselbar.",
+        help="Selects a display perspective and presets the matching network "
+             "view. You can switch the view freely afterwards.",
     )
     st.session_state[key] = chosen
 
@@ -326,7 +326,7 @@ def select_network_view(key: str = "network_view_mode",
     # — the panel knows whether its engine emits flow data, and that fact is
     # stable across reruns, unlike the live history mirror which isn't yet
     # populated/pointed at this scenario when the selector renders. If Sankey is
-    # the current view but this scenario has no flow data (e.g. the "Flüsse"
+    # the current view but this scenario has no flow data (e.g. the "Flows"
     # profile preset it elsewhere), fall back to 2D Flat. Sankey stays in the
     # list (labelled unavailable via _fmt) rather than disappearing.
     flows_ok = flows_available
@@ -336,7 +336,7 @@ def select_network_view(key: str = "network_view_mode",
 
     def _fmt(mode):
         if mode == VIEW_SANKEY and not flows_ok:
-            return f"{mode}  ·  keine Flussdaten"
+            return f"{mode}  ·  no flow data"
         return mode if mode in _IMPLEMENTED else f"{mode}  ·  coming soon"
 
     # When Sankey is offered but this scenario has no flow data, render it as a

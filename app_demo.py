@@ -132,13 +132,13 @@ def render_timeline_controls(max_step: int, prefix: str, label: str = "Step"):
                 st.rerun()
         else:
             if st.button("⏭", key=f"{prefix}_fwd", width="stretch",
-                         help="Ein Bild vorwärts", disabled=st.session_state["step"] >= max_step):
+                         help="One step forward", disabled=st.session_state["step"] >= max_step):
                 st.session_state["step"] = min(max_step, st.session_state["step"] + 1)
                 st.session_state[slider_key] = st.session_state["step"]
                 st.rerun()
     with c_back:
         if st.button("⏮", key=f"{prefix}_back", width="stretch",
-                     help="Ein Bild zurück (stoppt Animation)",
+                     help="One step back (stops animation)",
                      disabled=(not is_playing) and st.session_state["step"] <= 0):
             st.session_state["mode"] = "manual"
             st.session_state["step"] = max(0, st.session_state["step"] - 1)
@@ -146,7 +146,7 @@ def render_timeline_controls(max_step: int, prefix: str, label: str = "Step"):
             st.rerun()
     with c_reset:
         if st.button("⏮⏮", key=f"{prefix}_reset", width="stretch",
-                     help="Zurück zum Anfang (stoppt Animation)",
+                     help="Back to start (stops animation)",
                      disabled=(not is_playing) and st.session_state["step"] <= 0):
             st.session_state["mode"] = "manual"
             st.session_state["step"] = 0
@@ -517,7 +517,7 @@ if "speed" not in st.session_state:
 # SCENARIO SELECTION
 # ------------------------------------------
 with st.sidebar:
-    st.markdown("**Perspektive**")
+    st.markdown("**Perspective**")
     select_stakeholder_profile(key="profile_mode", view_key="network_view_mode")
     st.divider()
     st.markdown("**Scenario family**")
