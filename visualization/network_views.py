@@ -197,8 +197,33 @@ _SYMBOL_3D = {
 _EDGE_COLOR = {
     "strong": "#888888", "ready": "rgba(140,140,140,0.65)", "weak": "#ff3b3b",
     "new": "rgba(120,120,120,0.30)", "bridge_active": "#b388ff",
+    "bridge_inactive": "rgba(140,140,140,0.55)",
 }
-_EDGE_WIDTH = {"strong": 3, "ready": 2, "weak": 2, "new": 1, "bridge_active": 5}
+_EDGE_WIDTH = {"strong": 3, "ready": 2, "weak": 2, "new": 1,
+               "bridge_active": 5, "bridge_inactive": 3}
+
+# Edge states that represent a cross-space bridge. A bridge must always be
+# rendered dashed (never as a solid normal edge) in every view.
+_BRIDGE_STATES = ("bridge_active", "bridge_inactive")
+
+
+def _dash_segments_3d(x0, y0, z0, x1, y1, z1, n_dashes=6):
+    """Split a 3D line into dashed sub-segments (Scatter3d has no `dash`).
+
+    Returns (xs, ys, zs) with None gaps between drawn dashes, so a bridge
+    reads as a dashed line in 3D just like in 2D. Colour still encodes the
+    state (active=violet / inactive=grey)."""
+    xs, ys, zs = [], [], []
+    steps = n_dashes * 2  # alternating drawn / gap
+    for i in range(steps):
+        if i % 2 == 1:
+            continue  # gap
+        t0 = i / steps
+        t1 = (i + 1) / steps
+        xs += [x0 + (x1 - x0) * t0, x0 + (x1 - x0) * t1, None]
+        ys += [y0 + (y1 - y0) * t0, y0 + (y1 - y0) * t1, None]
+        zs += [z0 + (z1 - z0) * t0, z0 + (z1 - z0) * t1, None]
+    return xs, ys, zs
 
 _Z_GAP = 1.5     # vertical spacing between layers
 _PLANE_R = 1.35  # half-size of each tinted plane
@@ -487,7 +512,13 @@ def plot_network_3d_layered(G, node_load, edge_state, highlight_nodes=None,
         xs, ys, zs = seg.setdefault(state, ([], [], []))
         su = G.nodes[u].get("space", None); sv = G.nodes[v].get("space", None)
         (x0, y0), (x1, y1) = pos2d[u], pos2d[v]
-        xs += [x0, x1, None]; ys += [y0, y1, None]; zs += [z_of(su), z_of(sv), None]
+        zu, zv = z_of(su), z_of(sv)
+        if state in _BRIDGE_STATES:
+            # Bridges render dashed (Scatter3d has no dash → manual segments).
+            dx, dy, dz = _dash_segments_3d(x0, y0, zu, x1, y1, zv)
+            xs += dx; ys += dy; zs += dz
+        else:
+            xs += [x0, x1, None]; ys += [y0, y1, None]; zs += [zu, zv, None]
     for state, (xs, ys, zs) in seg.items():
         data.append(go.Scatter3d(
             x=xs, y=ys, z=zs, mode="lines",
@@ -682,7 +713,11 @@ def plot_network_3d_clustering(G, node_load, edge_state, highlight_nodes=None,
         state = edge_state.get(tuple(sorted((u, v))), "strong")
         xs, ys, zs = seg.setdefault(state, ([], [], []))
         (x0, y0, z0), (x1, y1, z1) = pos3d[u], pos3d[v]
-        xs += [x0, x1, None]; ys += [y0, y1, None]; zs += [z0, z1, None]
+        if state in _BRIDGE_STATES:
+            dx, dy, dz = _dash_segments_3d(x0, y0, z0, x1, y1, z1)
+            xs += dx; ys += dy; zs += dz
+        else:
+            xs += [x0, x1, None]; ys += [y0, y1, None]; zs += [z0, z1, None]
     for state, (xs, ys, zs) in seg.items():
         data.append(go.Scatter3d(
             x=xs, y=ys, z=zs, mode="lines",
@@ -800,7 +835,11 @@ def plot_network_3d_topology(G, node_load, edge_state, highlight_nodes=None,
         state = edge_state.get(tuple(sorted((u, v))), "strong")
         xs, ys, zs = seg.setdefault(state, ([], [], []))
         x0, y0, z0 = _xyz(u); x1, y1, z1 = _xyz(v)
-        xs += [x0, x1, None]; ys += [y0, y1, None]; zs += [z0, z1, None]
+        if state in _BRIDGE_STATES:
+            dx, dy, dz = _dash_segments_3d(x0, y0, z0, x1, y1, z1)
+            xs += dx; ys += dy; zs += dz
+        else:
+            xs += [x0, x1, None]; ys += [y0, y1, None]; zs += [z0, z1, None]
     for state, (xs, ys, zs) in seg.items():
         data.append(go.Scatter3d(
             x=xs, y=ys, z=zs, mode="lines",
@@ -1523,6 +1562,93 @@ def render_risk_paths_list(key: str = "risk_paths_last"):
             f"white-space:nowrap;'>"
             f"{ct} transition{'s' if ct != 1 else ''}</span></div>"
             f"</div>", unsafe_allow_html=True)
+
+
+def render_ew_lead_context(all_pairs=None, open_pair=None, current_idx=None):
+    """System-wide early-warning lead-time context, shown above the impact
+    cards. The lead time is a property of the SYSTEM (structural drift across
+    all coupled nodes), not of a single path — labelled accordingly. A
+    per-path lead time would need per-node early-warning series and validation
+    and belongs in the product phase, not the showcase.
+
+    Reads the early-warning pairs the panel already computes:
+      open_pair = (spike, None, None)  -> warning active, drop not yet confirmed
+      all_pairs = [(spike, drop, lead), ...] -> retrospective lead observed
+    """
+    box = "background:var(--color-background-secondary);border-left:3px solid {c};" \
+          "border-radius:0 var(--border-radius-md) var(--border-radius-md) 0;" \
+          "padding:6px 10px;margin-bottom:10px;font-size:11px;" \
+          "color:var(--color-text-secondary);"
+
+    # Active warning without a confirmed drop yet.
+    if open_pair and open_pair[0] is not None and current_idx is not None \
+            and open_pair[0] <= current_idx:
+        elapsed = current_idx - open_pair[0]
+        st.markdown(
+            f"<div style='{box.format(c='#EF9F27')}'>"
+            f"<strong>System-wide early warning</strong> active for "
+            f"<strong>{elapsed} month{'s' if elapsed != 1 else ''}</strong> — "
+            f"structural drift detected, system-level drop not yet confirmed."
+            f"</div>", unsafe_allow_html=True)
+        return
+
+    # Retrospective: warning preceded a confirmed drop.
+    if all_pairs:
+        spike, drop, lead = all_pairs[-1]
+        if lead and lead > 0:
+            st.markdown(
+                f"<div style='{box.format(c='#1D9E75')}'>"
+                f"<strong>System-wide early warning</strong> preceded the last "
+                f"structural drop by <strong>{lead} month{'s' if lead != 1 else ''}</strong> "
+                f"(system level, not path-specific)."
+                f"</div>", unsafe_allow_html=True)
+            return
+
+    # No active or recent warning — say nothing (keeps the panel quiet).
+
+
+def render_ew_state_line(ew, stability, stab_thr, current_idx,
+                         baseline_window=None, extra_note_on_confirmed=None):
+    """Unified EWMA early-warning state line, shown across all panels.
+
+    Wraps core_lite.ew_state.compute_ew_states and renders one compact status
+    line for the current step. The state is LEVEL-based via the stability
+    threshold (stability < stab_thr corresponds to the model's Stage-3 breach
+    St < 0, V4.1 Kap. 5.5), not delta-based — so a system that has collapsed
+    and frozen at a low level is correctly shown as CONFIRMED even when its
+    step-to-step drift is zero. `stab_thr` is the showcase health proxy's
+    threshold standing in for the model's St=0 breach point.
+
+    extra_note_on_confirmed: optional text appended only in the CONFIRMED state
+    (e.g. CTPP's "structural weakness was already latent at simulation start").
+    """
+    from core_lite.ew_state import compute_ew_states
+    if not ew or current_idx is None:
+        return
+    hi = min(current_idx + 1, len(ew), len(stability))
+    states = compute_ew_states(ew[:hi], stability[:hi], stab_thr=stab_thr,
+                               baseline_window=baseline_window)
+    idx = min(current_idx, len(states["state"]) - 1)
+    if idx < 0:
+        return
+    state_now = states["state"][idx]
+    style = {
+        "NORMAL":    ("#1D9E75", "Normal", "routine monitoring"),
+        "WARNING":   ("#EF9F27", "Warning",
+                      "drift above control limit, stability still intact"),
+        "CONFIRMED": ("#E24B4A", "Confirmed",
+                      "structural weakening has materialised"),
+    }
+    c, lbl, desc = style.get(state_now, style["NORMAL"])
+    note = (extra_note_on_confirmed if (state_now == "CONFIRMED"
+            and extra_note_on_confirmed) else "")
+    st.markdown(
+        f"<div style='background:var(--color-background-secondary);"
+        f"border-left:3px solid {c};border-radius:0 var(--border-radius-md) var(--border-radius-md) 0;"
+        f"padding:6px 12px;margin:6px 0;font-size:12px;color:var(--color-text-secondary);'>"
+        f"<strong style='color:var(--color-text-primary);'>EWMA prototype</strong> · "
+        f"<span style='color:{c};font-weight:600;'>{lbl}</span> — {desc}{note}"
+        f"</div>", unsafe_allow_html=True)
 
 
 def _render_impact_cards(paths, rank_text, snap_nodes):

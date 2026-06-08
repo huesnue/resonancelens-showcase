@@ -411,6 +411,25 @@ EVENTS_PATH_A = [
         "name": "[A] Externer Schock absorbiert — Buffer ausreichend",
         "path": "resilient"
     },
+
+    {
+        "month": "Sep 2028", "type": "capacity_increase", "cluster": "Policy",
+        "factor": 1.08, "duration": 8, "plateau": 4, "decay": 0.06,
+        "name": "[A] Antizyklische Kapitalpuffer erhoeht — Systemresilienz steigt",
+        "path": "resilient"
+    },
+    {
+        "month": "May 2029", "type": "capacity_increase", "cluster": "Banking",
+        "factor": 1.06, "duration": 8, "plateau": 4, "decay": 0.05,
+        "name": "[A] EBA-Stresstest bestanden — Kapitalausstattung der Banken robust",
+        "path": "resilient"
+    },
+    {
+        "month": "Mar 2030", "type": "capacity_increase", "cluster": "Sovereign",
+        "factor": 1.05, "duration": 6, "plateau": 3, "decay": 0.06,
+        "name": "[A] Stabile Staatsfinanzen — niedrige Risikopraemien, Spread-Konvergenz",
+        "path": "resilient"
+    },
 ]
 
 
@@ -502,6 +521,19 @@ EVENTS_PATH_B = [
         "plateau": 3,
         "decay": 0.15,
         "name": "[B] Marktfragmentierung bleibt erhöht — Strukturproblem ungelöst",
+        "path": "hybrid"
+    },
+
+    {
+        "month": "Jul 2029", "type": "uncertainty_shock", "cluster": "NBFI",
+        "factor": 0.88, "duration": 5, "plateau": 2, "decay": 0.15,
+        "name": "[B] NBFI-Liquiditaetsdruck (Fonds/Versicherer) — Teil-Ansteckung, begrenzt eingedaemmt",
+        "path": "hybrid"
+    },
+    {
+        "month": "Feb 2030", "type": "coupling_shift", "cluster": "Banking",
+        "factor": 0.94, "duration": 6, "plateau": 3, "decay": 0.10,
+        "name": "[B] Anhaltende Marktanspannung — graduelle Zunahme der Ansteckungskopplung",
         "path": "hybrid"
     },
 ]
@@ -619,6 +651,19 @@ EVENTS_PATH_C = [
         "plateau": 3,
         "decay": 0.12,
         "name": "[C] Langsame Erholung — strukturelle Narben dauerhaft",
+        "path": "fragile"
+    },
+
+    {
+        "month": "Dec 2029", "type": "supply_shock", "cluster": "Sovereign",
+        "factor": 0.55, "duration": 7, "plateau": 3, "decay": 0.12,
+        "name": "[C] Staatsschuldenkrise eskaliert — Refinanzierung mehrerer Sovereigns gefaehrdet",
+        "path": "fragile"
+    },
+    {
+        "month": "May 2030", "type": "coupling_shift", "cluster": "Banking",
+        "factor": 0.60, "duration": 8, "plateau": 4, "decay": 0.10,
+        "name": "[C] Bank-Sovereign-Doom-Loop — systemische Ansteckung im Finanzraum",
         "path": "fragile"
     },
 ]

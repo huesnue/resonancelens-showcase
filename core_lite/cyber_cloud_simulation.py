@@ -663,20 +663,19 @@ def run_cyber_cloud_simulation(
                            strength=e["strength"])
 
         # ------------------------------------------
+        # CLUSTER STRESS (fuer Layout + Propagation)
+        # ------------------------------------------
+        cluster_stress = compute_cluster_stress(nodes)
+
+        # ------------------------------------------
         # ROUTING Phase 1: Selbstversorgung
         # ------------------------------------------
-        # self_throughput[node] = intern gedeckte Nachfrage (kein Inter-Knoten-
-        # Fluss, daher keine Sankey-Kante; geht in die Knoten-Dicke / den
-        # Raum-Eigendurchsatz ein). Additiv fuer die Sankey-Ansicht.
-        self_throughput = {}
         for n in nodes.values():
             if n["status"] == "failed":
                 continue
             self_supply = min(n["supply"], n["demand"])
             n["received"] += self_supply
             n["supply"]   = max(0.0, n["supply"] - self_supply)
-            if self_supply > 0:
-                self_throughput[n["id"]] = self_supply
 
         # ------------------------------------------
         # ROUTING Phase 2: Ueberschuss-Verteilung
@@ -719,16 +718,6 @@ def run_cyber_cloud_simulation(
 
             if not moved:
                 break
-
-        # ------------------------------------------
-        # CLUSTER STRESS (nach dem Routing: 'received' ist jetzt befuellt)
-        # ------------------------------------------
-        # Muss NACH dem Routing stehen: compute_cluster_stress liest 'received',
-        # das zu Step-Beginn auf 0 zurueckgesetzt und erst durch die Routing-
-        # Phasen gefuellt wird. Vor dem Routing ergab (demand-received)/demand
-        # konstant 1.0 fuer jeden Cluster (struktureller Defekt). Der Wert wird
-        # in der Stress-Propagation (cluster_stress.get) und im Snapshot genutzt.
-        cluster_stress = compute_cluster_stress(nodes)
 
         # ------------------------------------------
         # CAPACITY BUFFER DYNAMIK (pro Knoten)
@@ -889,7 +878,6 @@ def run_cyber_cloud_simulation(
         # EDGE STATE SNAPSHOT
         # ------------------------------------------
         edge_state = {}
-        edge_flows = {}   # directed numeric flow for the Sankey view (additive)
         for e in edges:
             u, v = e["source"], e["target"]
             key = tuple(sorted((u, v)))
@@ -910,14 +898,14 @@ def run_cyber_cloud_simulation(
             else:
                 state = "new"
 
+            # A bridge must always render as a bridge (dashed), never as a solid
+            # normal edge: if it isn't actively carrying flow, mark it inactive
+            # (drawn grey-dashed) rather than letting it fall through to a solid
+            # strong/ready/new/weak state.
+            if is_bridge and state != "bridge_active":
+                state = "bridge_inactive"
+
             edge_state[key] = state
-
-            # Directed flow keyed by (source, target) — preserves direction the
-            # Sankey needs (edge_state's sorted key discards it). Only positive
-            # flows are kept; the routing only transfers along the active edge.
-            if flow and flow > 0:
-                edge_flows[(u, v)] = edge_flows.get((u, v), 0.0) + float(flow)
-
 
         # ------------------------------------------
         # STRUKTURELLE DRIFT-INDIKATOREN
@@ -961,8 +949,6 @@ def run_cyber_cloud_simulation(
             "graph":           G,
             "nodes":           {k: v.copy() for k, v in nodes.items()},
             "edges":           edge_state,
-            "edge_flows":      dict(edge_flows),  # directed flows for Sankey view
-            "self_throughput": dict(self_throughput),  # intra-node supply for Sankey
             "system_health":   system_health,
             "load":            {k: nodes[k]["stress"] for k in nodes},
             "pos":             dict(pos),

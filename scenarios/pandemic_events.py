@@ -470,6 +470,19 @@ EVENTS_PATH_A = [
         "name": "[A] Post-Pandemic Recovery — Systemstabilität hoch",
         "path": "resilient"
     },
+
+    {
+        "month": "Jun 2029", "type": "capacity_increase",
+        "factor": 1.10, "duration": 8, "plateau": 4, "decay": 0.05,
+        "name": "[A] EU-Pandemievorsorge-Programm etabliert — getestete Reaktionsketten, Stockpile-Rotation",
+        "path": "resilient"
+    },
+    {
+        "month": "Mar 2030", "type": "capacity_increase",
+        "factor": 1.08, "duration": 8, "plateau": 4, "decay": 0.05,
+        "name": "[A] Diversifizierte Medizingueter-Lieferketten produktiv — hohe Substituierbarkeit der Bezugsquellen",
+        "path": "resilient"
+    },
 ]
 
 
@@ -596,6 +609,25 @@ EVENTS_PATH_B = [
         "plateau": 2,
         "decay": 0.3,
         "name": "[B] Chronische Systeminstabilität — kein Erholungspfad",
+        "path": "hybrid"
+    },
+
+    {
+        "month": "Feb 2029", "type": "uncertainty_shock",
+        "factor": 0.88, "duration": 5, "plateau": 2, "decay": 0.15,
+        "name": "[B] Saisonale Atemwegswelle — Teil-Redundanz federt ab, Restbelastung der Kliniken bleibt",
+        "path": "hybrid"
+    },
+    {
+        "month": "Sep 2029", "type": "capacity_increase",
+        "factor": 1.08, "duration": 8, "plateau": 4, "decay": 0.06,
+        "name": "[B] Ausbau der ICU-Surge-Kapazitaeten — partielle Vorsorge greift in EU-Core",
+        "path": "hybrid"
+    },
+    {
+        "month": "Apr 2030", "type": "uncertainty_shock",
+        "factor": 0.90, "duration": 5, "plateau": 2, "decay": 0.12,
+        "name": "[B] Neue Erregervariante mit hoeherer Transmission — moderate Belastung trotz Vorbereitung",
         "path": "hybrid"
     },
 ]
@@ -747,6 +779,31 @@ EVENTS_PATH_C = [
         "plateau": 4,
         "decay": 0.15,
         "name": "[C] Langsame Erholung beginnt — strukturelle Narben",
+        "path": "fragile"
+    },
+
+    {
+        "month": "Aug 2028", "type": "capacity_shock",
+        "factor": 0.55, "duration": 6, "plateau": 3, "decay": 0.15,
+        "name": "[C] Gesundheitssystem-Ueberlastung Suedeuropa — keine Reserven, Regelversorgung bricht regional",
+        "path": "fragile"
+    },
+    {
+        "month": "Mar 2029", "type": "uncertainty_shock",
+        "factor": 0.85, "duration": 6, "plateau": 3, "decay": 0.12,
+        "name": "[C] Erneute Immun-Escape-Variante — Massnahmen greifen zu spaet, Vertrauensverlust",
+        "path": "fragile"
+    },
+    {
+        "month": "Oct 2029", "type": "capacity_shock",
+        "factor": 0.60, "duration": 6, "plateau": 3, "decay": 0.12,
+        "name": "[C] Personalmangel im Gesundheitswesen eskaliert — Kaskade in die Regelversorgung",
+        "path": "fragile"
+    },
+    {
+        "month": "May 2030", "type": "uncertainty_shock",
+        "factor": 0.80, "duration": 8, "plateau": 4, "decay": 0.10,
+        "name": "[C] Wirtschaftliche Langzeitfolgen — Konzentration der Medizingueter-Versorgung als Strukturrisiko sichtbar",
         "path": "fragile"
     },
 ]

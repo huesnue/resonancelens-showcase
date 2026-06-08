@@ -1072,6 +1072,11 @@ def run_critical_infra_simulation(
             else:
                 state = "new"
 
+            # A bridge must always render dashed (active=violet / inactive=grey),
+            # never as a solid normal edge.
+            if is_bridge and state != "bridge_active":
+                state = "bridge_inactive"
+
             edge_state[key] = state
 
         # ------------------------------------------

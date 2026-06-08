@@ -182,6 +182,19 @@ EVENTS_PROJECTION_RESILIENT = [
         "factor": 1.10, "duration": 8, "plateau": 4, "decay": 0.15,
         "name": "Self-Healing Pipeline — MTTR < 15min industry benchmark",
     },
+
+    {
+        "month": "Oct 2027", "type": "capacity_increase",
+        "cluster": "Observability",
+        "factor": 1.12, "duration": 8, "plateau": 4, "decay": 0.15,
+        "name": "Full-stack observability + automated SLO enforcement operational",
+    },
+    {
+        "month": "Mar 2028", "type": "capacity_increase",
+        "cluster": "SecurityGates",
+        "factor": 1.10, "duration": 8, "plateau": 4, "decay": 0.15,
+        "name": "Policy-as-code coverage reaches 95% — manual security gates largely removed",
+    },
 ]
 
 EVENTS_PROJECTION_HYBRID = [

@@ -22,7 +22,7 @@ from core_lite.pandemic_simulation import run_pandemic_simulation
 from core_lite.financial_simulation import run_financial_simulation
 from core_lite.cyber_cloud_simulation import run_cyber_cloud_simulation
 from visualization.network_plot import plot_network, network_legend_html
-from visualization.network_views import render_network, select_network_view, select_stakeholder_profile, kpi_dim, show_intro_expander, render_risk_paths_list, select_risk_mode, VIEW_RISK_PATHS
+from visualization.network_views import render_network, select_network_view, select_stakeholder_profile, kpi_dim, show_intro_expander, render_risk_paths_list, select_risk_mode, render_ew_lead_context, render_ew_state_line, VIEW_RISK_PATHS, RISK_MODE_IMPACT
 from visualization.network_views import (KPI_HEALTH, KPI_ECONOMIC, KPI_DIGITAL,
                                          KPI_FINANCIAL, KPI_STRUCTURAL, KPI_EARLYWARN,
                                          KPI_CAPACITY, KPI_OPERATIONS, KPI_SOCIAL)
@@ -46,6 +46,7 @@ from scenarios.cyber_cloud_events import get_events as get_cyber_cloud_events, S
 from scenarios.ctpp_concentration import load_scenario as load_ctpp_concentration
 from scenarios.ctpp_concentration_events import get_events as get_ctpp_events, STOCHASTIC_PARAMS as CTPP_STOCHASTIC_PARAMS
 from core_lite.ctpp_kpis import compute_ctpp_kpis
+from core_lite.ew_state import compute_ew_states, ew_state_at
 from core_lite.critical_infra_simulation import run_critical_infra_simulation
 from core_lite.critical_infra_ensemble import run_ensemble as run_critical_infra_ensemble
 from scenarios.critical_infra import load_scenario as load_critical_infra
@@ -931,20 +932,17 @@ elif scenario["type"] == "energy":
 
         EW_THRESHOLD, STAB_THRESHOLD = 0.35, 0.6
 
-        # EW-Gauge befüllen
+        # EW-Gauge befüllen — level-based EWMA state drives the traffic light,
+        # the delta value is kept as a secondary "drift" read-out.
         current_step_idx = st.session_state["step"]
         _ew_en_now = ew_norm_pre[current_step_idx] if current_step_idx < len(ew_norm_pre) else 0.0
-        if _ew_en_now >= 0.60:
-            _ew_en_label, _ew_en_color, _ew_en_icon = "High", "#ff3b3b", "🔴"
-        elif _ew_en_now >= 0.35:
-            _ew_en_label, _ew_en_color, _ew_en_icon = "Elevated", "#f4a261", "🟡"
-        else:
-            _ew_en_label, _ew_en_color, _ew_en_icon = "Low", "#6bd96b", "🟢"
+        _, _ew_en_icon, _ew_en_label, _ew_en_color = ew_state_at(
+            ew_norm_pre, stab_pre, STAB_THRESHOLD, current_step_idx)
         with _ew_en_placeholder:
             st.metric(
                 label="Early Warning",
                 value=f"{_ew_en_icon} {_ew_en_label}",
-                delta=f"{_ew_en_now:.0%} structural signal",
+                delta=f"{_ew_en_now:.0%} drift signal",
                 delta_color="off",
             )
 
@@ -967,37 +965,13 @@ elif scenario["type"] == "energy":
             return pairs, open_pair
 
         current_step_idx = st.session_state["step"]
-        all_pairs, open_pair = find_all_ew_pairs(
-            ew_norm_pre[:current_step_idx+1], stab_pre[:current_step_idx+1],
-            EW_THRESHOLD, STAB_THRESHOLD)
-
-        display_pair, display_open = None, False
-        if open_pair is not None:
-            display_pair, display_open = open_pair, True
-        elif all_pairs:
-            last = all_pairs[-1]
-            if current_step_idx - last[1] <= 6:
-                display_pair, display_open = last, False
 
         # Fixed-height banner box — constant Y for the charts below.
+        # The old spike/drop pairing banner has been removed; the level-based
+        # EWMA state line below is now the primary early-warning indicator.
         _banner_box = st.container(height=150, border=False)
-        if display_pair:
-            r_spike = display_pair[0]
-            r_month_spike = MONTHS[r_spike] if r_spike < len(MONTHS) else ""
-            if display_open:
-                steps_since = current_step_idx - r_spike
-                _banner_box.markdown(
-                    f"<div style='background:rgba(244,162,97,0.15);border-left:3px solid #f4a261;"
-                    f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;color:var(--color-text-primary);margin-bottom:8px;'>"
-                    f"⚠️ <strong>Early Warning active</strong> since {r_month_spike} "
-                    f"— structural weakening detected <strong>{steps_since} month{'s' if steps_since!=1 else ''} ago</strong>. "
-                    f"Stability drop not yet confirmed.</div>", unsafe_allow_html=True)
-            else:
-                _banner_box.markdown(
-                    f"<div style='background:rgba(244,162,97,0.12);border-left:3px solid #f4a261;"
-                    f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;color:var(--color-text-primary);margin-bottom:8px;'>"
-                    f"💡 <strong>Early Warning</strong> ({r_month_spike}) signaled structural weakening "
-                    f"<strong>{display_pair[2]} months</strong> before Stability visibly dropped.</div>", unsafe_allow_html=True)
+        with _banner_box:
+            render_ew_state_line(ew_norm_pre, stab_pre, STAB_THRESHOLD, current_step_idx)
 
         _state_banner_ph = _banner_box.empty()
         col_left, col_mid, col_right = st.columns([4, 4, 2])
@@ -1066,15 +1040,18 @@ elif scenario["type"] == "energy":
                         name="Median (p50)", showlegend=True,
                         line=dict(color="#4fc3f7", width=2.0, dash="dash")))
 
-            fig.add_trace(go.Scatter(x=list(range(n)), y=stability_norm, mode="lines", name="Stability",
+            # Draw series only up to the current month so the history grows
+            # step by step instead of showing the full future curve at start.
+            _vis = current_idx + 1
+            fig.add_trace(go.Scatter(x=list(range(_vis)), y=stability_norm[:_vis], mode="lines", name="Stability",
                                      line=dict(color="#4fc3f7", width=2.5)))
-            fig.add_trace(go.Scatter(x=list(range(n)), y=ew_norm, mode="lines", name="Early Warning",
+            fig.add_trace(go.Scatter(x=list(range(_vis)), y=ew_norm[:_vis], mode="lines", name="Early Warning",
                                      line=dict(color="#f4a261", width=2),
                                      fill="tozeroy", fillcolor="rgba(244,162,97,0.08)"))
 
             bracket_y_positions = [0.97, 0.90, 0.83]
             for pair_idx, (spike, drop, lead) in enumerate(all_pairs_chart):
-                if lead <= 0:
+                if lead <= 0 or drop > current_idx:
                     continue
                 bracket_y = bracket_y_positions[min(pair_idx, len(bracket_y_positions)-1)]
                 fig.add_annotation(x=spike, y=min(1.0, ew_norm[spike]+0.08),
@@ -1094,12 +1071,15 @@ elif scenario["type"] == "energy":
                 ("Feb 2026","Iran Strikes","#A32D2D"),
             ]:
                 ev_step = MONTH_TO_STEP.get(ev_month)
-                if ev_step is not None and ev_step < n:
+                if ev_step is not None and ev_step < n and ev_step <= current_idx:
                     fig.add_vline(x=ev_step, line_width=1, line_dash="dot", line_color=ev_color,
                         opacity=0.7, annotation_text=ev_label, annotation_position="top right",
                         annotation_font_size=9, annotation_font_color=ev_color)
 
-            fig.add_vline(x=current_idx, line_width=1.5, line_dash="dash", line_color="rgba(255,255,255,0.35)")
+            # Visible "current month" marker (was an almost-invisible white line).
+            fig.add_vline(x=current_idx, line_width=2, line_dash="dash", line_color="#E24B4A",
+                          opacity=0.9, annotation_text="now", annotation_position="top left",
+                          annotation_font_size=9, annotation_font_color="#E24B4A")
             window = 36
             win_end   = min(n-1, max(window-1, current_idx+6))
             win_start = max(0, win_end-window+1)
@@ -1374,17 +1354,14 @@ elif scenario["type"] == "pandemic":
 
         # EW-Gauge befüllen
         _ew_now = ew_norm[current_idx] if current_idx < len(ew_norm) else 0.0
-        if _ew_now >= 0.60:
-            _ew_label, _ew_color, _ew_icon = "High", "#ff3b3b", "🔴"
-        elif _ew_now >= 0.20:
-            _ew_label, _ew_color, _ew_icon = "Elevated", "#f4a261", "🟡"
-        else:
-            _ew_label, _ew_color, _ew_icon = "Low", "#6bd96b", "🟢"
+        # Level-based EWMA state drives the tile; delta kept as drift read-out.
+        _, _ew_icon, _ew_label, _ew_color = ew_state_at(
+            ew_norm, stability_norm, 0.75, current_idx)  # 0.75 == panel STAB_THR (defined below)
         with _ew_placeholder:
             st.metric(
                 label="Early Warning",
                 value=f"{_ew_icon} {_ew_label}",
-                delta=f"{_ew_now:.0%} structural signal",
+                delta=f"{_ew_now:.0%} drift signal",
                 delta_color="off",
             )
 
@@ -1426,7 +1403,14 @@ elif scenario["type"] == "pandemic":
                             i, found = j+1, True
                             break
                     if not found:
-                        open_pair = (spike, None, None)
+                        # Only an OPEN early warning if the system was still
+                        # stable at the spike. If stability was already below
+                        # threshold, the drop has long happened (it just never
+                        # crossed cleanly) — not a pending warning, so no open
+                        # pair. Prevents an ever-growing lead time in fragile
+                        # runs that decay monotonically.
+                        if stab[spike] >= st_thr:
+                            open_pair = (spike, None, None)
                         i += 1
                 else:
                     i += 1
@@ -1466,6 +1450,8 @@ elif scenario["type"] == "pandemic":
         # ------------------------------------------
         # Chart | Network | Events
         # ------------------------------------------
+        with _banner_box:
+            render_ew_state_line(ew_norm, stability_norm, STAB_THR, current_idx)
         _state_banner_ph = _banner_box.empty()
         col_left, col_mid, col_right = st.columns([4, 4, 2])
 
@@ -1662,8 +1648,10 @@ elif scenario["type"] == "pandemic":
                     bgcolor="rgba(0,0,0,0.35)", borderpad=2)
 
             # Current step marker
-            fig.add_vline(x=current_idx, line_width=1.5, line_dash="dash",
-                          line_color="rgba(255,255,255,0.35)")
+            fig.add_vline(x=current_idx, line_width=2, line_dash="dash",
+                          line_color="#E24B4A", opacity=0.9,
+                          annotation_text="now", annotation_position="top left",
+                          annotation_font_size=9, annotation_font_color="#E24B4A")
 
             # Sliding window: 48 months
             window = 48
@@ -1933,17 +1921,14 @@ elif scenario["type"] == "financial":
 
         # C: EW-Gauge jetzt befüllen (ew_norm verfügbar)
         _ew_now = ew_norm[current_idx] if current_idx < len(ew_norm) else 0.0
-        if _ew_now >= 0.60:
-            _ew_label, _ew_color, _ew_icon = "High", "#ff3b3b", "🔴"
-        elif _ew_now >= 0.20:
-            _ew_label, _ew_color, _ew_icon = "Elevated", "#f4a261", "🟡"
-        else:
-            _ew_label, _ew_color, _ew_icon = "Low", "#6bd96b", "🟢"
+        # Level-based EWMA state drives the tile; delta kept as drift read-out.
+        _, _ew_icon, _ew_label, _ew_color = ew_state_at(
+            ew_norm, stability_norm, 0.75, current_idx)  # 0.75 == panel STAB_THR (defined below)
         with _ew_placeholder:
             st.metric(
                 label="Early Warning",
                 value=f"{_ew_icon} {_ew_label}",
-                delta=f"{_ew_now:.0%} structural signal",
+                delta=f"{_ew_now:.0%} drift signal",
                 delta_color="off",
             )
 
@@ -1980,7 +1965,14 @@ elif scenario["type"] == "financial":
                             i, found = j+1, True
                             break
                     if not found:
-                        open_pair = (spike, None, None)
+                        # Only an OPEN early warning if the system was still
+                        # stable at the spike. If stability was already below
+                        # threshold, the drop has long happened (it just never
+                        # crossed cleanly) — not a pending warning, so no open
+                        # pair. Prevents an ever-growing lead time in fragile
+                        # runs that decay monotonically.
+                        if stab[spike] >= st_thr:
+                            open_pair = (spike, None, None)
                         i += 1
                 else:
                     i += 1
@@ -2020,6 +2012,8 @@ elif scenario["type"] == "financial":
         # ------------------------------------------
         # Chart | Network | Events
         # ------------------------------------------
+        with _banner_box:
+            render_ew_state_line(ew_norm, stability_norm, STAB_THR, current_idx)
         _state_banner_ph = _banner_box.empty()
         col_left, col_mid, col_right = st.columns([4, 4, 2])
 
@@ -2217,8 +2211,10 @@ elif scenario["type"] == "financial":
                     bgcolor="rgba(0,0,0,0.35)",
                     borderpad=2)
 
-            fig.add_vline(x=current_idx, line_width=1.5, line_dash="dash",
-                          line_color="rgba(255,255,255,0.35)")
+            fig.add_vline(x=current_idx, line_width=2, line_dash="dash",
+                          line_color="#E24B4A", opacity=0.9,
+                          annotation_text="now", annotation_position="top left",
+                          annotation_font_size=9, annotation_font_color="#E24B4A")
 
             # Gleitendes Fenster: 48 Monate
             window = 48
@@ -2548,17 +2544,14 @@ elif scenario["type"] == "cyber_cloud":
         ew_norm = [max(0.0, v / drift_max) for v in structural_drift_smooth]
 
         _ew_now = ew_norm[current_idx] if current_idx < len(ew_norm) else 0.0
-        if _ew_now >= 0.60:
-            _ew_label, _ew_color, _ew_icon = "High", "#ff3b3b", "🔴"
-        elif _ew_now >= 0.20:
-            _ew_label, _ew_color, _ew_icon = "Elevated", "#f4a261", "🟡"
-        else:
-            _ew_label, _ew_color, _ew_icon = "Low", "#6bd96b", "🟢"
+        # Level-based EWMA state drives the tile; delta kept as drift read-out.
+        _, _ew_icon, _ew_label, _ew_color = ew_state_at(
+            ew_norm, stability_norm, 0.75, current_idx)  # 0.75 == panel STAB_THR (defined below)
         with _ew_placeholder:
             st.metric(
                 label="Early Warning",
                 value=f"{_ew_icon} {_ew_label}",
-                delta=f"{_ew_now:.0%} structural signal",
+                delta=f"{_ew_now:.0%} drift signal",
                 delta_color="off",
             )
 
@@ -2620,7 +2613,14 @@ elif scenario["type"] == "cyber_cloud":
                             i, found = j+1, True
                             break
                     if not found:
-                        open_pair = (spike, None, None)
+                        # Only an OPEN early warning if the system was still
+                        # stable at the spike. If stability was already below
+                        # threshold, the drop has long happened (it just never
+                        # crossed cleanly) — not a pending warning, so no open
+                        # pair. Prevents an ever-growing lead time in fragile
+                        # runs that decay monotonically.
+                        if stab[spike] >= st_thr:
+                            open_pair = (spike, None, None)
                         i += 1
                 else:
                     i += 1
@@ -2658,6 +2658,8 @@ elif scenario["type"] == "cyber_cloud":
         # ------------------------------------------
         # Chart | Network | Events
         # ------------------------------------------
+        with _banner_box:
+            render_ew_state_line(ew_norm, stability_norm, STAB_THR, current_idx)
         _state_banner_ph = _banner_box.empty()
         # Risk Paths view hides the timeline chart and gives its width to
         # the network + ranking list; other views keep the [4, 4, 2] split.
@@ -2870,8 +2872,10 @@ elif scenario["type"] == "cyber_cloud":
                     bgcolor="rgba(0,0,0,0.35)",
                     borderpad=2)
 
-            fig.add_vline(x=current_idx, line_width=1.5, line_dash="dash",
-                          line_color="rgba(255,255,255,0.35)")
+            fig.add_vline(x=current_idx, line_width=2, line_dash="dash",
+                          line_color="#E24B4A", opacity=0.9,
+                          annotation_text="now", annotation_position="top left",
+                          annotation_font_size=9, annotation_font_color="#E24B4A")
 
             # Gleitendes Fenster: 48 Monate
             window = 48
@@ -2948,6 +2952,11 @@ elif scenario["type"] == "cyber_cloud":
                     st.plotly_chart(_net_fig, width='stretch')
                 with _list_col:
                     select_risk_mode()
+                    # System-wide early-warning lead-time context (impact mode
+                    # only). The lead is a system property, not per-path — a
+                    # per-path lead time is product-phase (needs per-node series).
+                    if st.session_state.get("risk_mode") == RISK_MODE_IMPACT:
+                        render_ew_lead_context(all_pairs_chart, open_pair_chart, current_idx)
                     render_risk_paths_list()
             else:
                 st.plotly_chart(_net_fig, width='stretch')
@@ -3220,17 +3229,15 @@ elif scenario["type"] == "ctpp_concentration":
         ew_norm = [max(0.0, v / drift_max) for v in structural_drift_smooth]
 
         _ew_now = ew_norm[current_idx] if current_idx < len(ew_norm) else 0.0
-        if _ew_now >= 0.60:
-            _ew_label, _ew_color, _ew_icon = "High", "#ff3b3b", "🔴"
-        elif _ew_now >= 0.20:
-            _ew_label, _ew_color, _ew_icon = "Elevated", "#f4a261", "🟡"
-        else:
-            _ew_label, _ew_color, _ew_icon = "Low", "#6bd96b", "🟢"
+        # Level-based EWMA state drives the tile (stab_thr 0.75 == CTPP STAB_THR,
+        # defined further below); delta value kept as a secondary drift read-out.
+        _, _ew_icon, _ew_label, _ew_color = ew_state_at(
+            ew_norm, stability_norm, 0.75, current_idx)
         with _ew_placeholder:
             st.metric(
                 label="Early Warning",
                 value=f"{_ew_icon} {_ew_label}",
-                delta=f"{_ew_now:.0%} structural signal",
+                delta=f"{_ew_now:.0%} drift signal",
                 delta_color="off",
             )
 
@@ -3255,6 +3262,17 @@ elif scenario["type"] == "ctpp_concentration":
 
         L0_THR   = 0.20
         STAB_THR = 0.75
+
+        # ------------------------------------------------------------
+        # EWMA early-warning state line (unified helper). Level-based.
+        # The CTPP-specific note reflects that the structural weakness was
+        # largely pre-loaded at t0 (latent concentration before the 2020
+        # window), so the real lead lies BEFORE the observation window.
+        # ------------------------------------------------------------
+        with _banner_box:
+            render_ew_state_line(
+                ew_norm, stability_norm, STAB_THR, current_idx,
+                extra_note_on_confirmed=" · structural weakness was already latent at simulation start")
 
         # ------------------------------------------------------------
         # EW-Spike-Detektor — Cyber-Variante
@@ -3292,40 +3310,22 @@ elif scenario["type"] == "ctpp_concentration":
                             i, found = j+1, True
                             break
                     if not found:
-                        open_pair = (spike, None, None)
+                        # Only an OPEN early warning if the system was still
+                        # stable at the spike. If stability was already below
+                        # threshold, the drop has long happened (it just never
+                        # crossed cleanly) — not a pending warning, so no open
+                        # pair. Prevents an ever-growing lead time in fragile
+                        # runs that decay monotonically.
+                        if stab[spike] >= st_thr:
+                            open_pair = (spike, None, None)
                         i += 1
                 else:
                     i += 1
             return pairs, open_pair
 
-        all_pairs, open_pair = find_ew_pairs(
-            ew_norm[:current_idx+1], stability_norm[:current_idx+1], L0_THR, STAB_THR)
-
-        display_pair, display_open = None, False
-        if open_pair:
-            display_pair, display_open = open_pair, True
-        elif all_pairs:
-            last = all_pairs[-1]
-            if current_idx - last[1] <= 8:
-                display_pair, display_open = last, False
-
-        if display_pair:
-            spike_m = CYBER_MONTHS[display_pair[0]] if display_pair[0] < len(CYBER_MONTHS) else ""
-            if display_open:
-                steps_since = current_idx - display_pair[0]
-                _banner_box.markdown(
-                    f"<div style='background:rgba(244,162,97,0.15);border-left:3px solid #f4a261;"
-                    f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;margin-bottom:8px;'>"
-                    f"⚠️ <strong>Early Warning active</strong> since {spike_m} "
-                    f"— structural weakening detected <strong>{steps_since} month{'s' if steps_since!=1 else ''} ago</strong>. "
-                    f"Stability drop not yet confirmed.</div>", unsafe_allow_html=True)
-            else:
-                _banner_box.markdown(
-                    f"<div style='background:rgba(244,162,97,0.12);border-left:3px solid #f4a261;"
-                    f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;margin-bottom:8px;'>"
-                    f"💡 <strong>Early Warning</strong> ({spike_m}) signaled structural weakening "
-                    f"<strong>{display_pair[2]} months</strong> before Stability visibly dropped.</div>",
-                    unsafe_allow_html=True)
+        # The old spike/drop pairing banner has been removed; the level-based
+        # EWMA state line above is the primary early-warning indicator now.
+        # find_ew_pairs is still used further below for the chart annotations.
 
         # ------------------------------------------
         # Chart | Network | Events
@@ -3542,8 +3542,10 @@ elif scenario["type"] == "ctpp_concentration":
                     bgcolor="rgba(0,0,0,0.35)",
                     borderpad=2)
 
-            fig.add_vline(x=current_idx, line_width=1.5, line_dash="dash",
-                          line_color="rgba(255,255,255,0.35)")
+            fig.add_vline(x=current_idx, line_width=2, line_dash="dash",
+                          line_color="#E24B4A", opacity=0.9,
+                          annotation_text="now", annotation_position="top left",
+                          annotation_font_size=9, annotation_font_color="#E24B4A")
 
             # Gleitendes Fenster: 48 Monate
             window = 48
@@ -3620,6 +3622,11 @@ elif scenario["type"] == "ctpp_concentration":
                     st.plotly_chart(_net_fig, width='stretch')
                 with _list_col:
                     select_risk_mode()
+                    # System-wide early-warning lead-time context (impact mode
+                    # only). The lead is a system property, not per-path — a
+                    # per-path lead time is product-phase (needs per-node series).
+                    if st.session_state.get("risk_mode") == RISK_MODE_IMPACT:
+                        render_ew_lead_context(all_pairs_chart, open_pair_chart, current_idx)
                     render_risk_paths_list()
             else:
                 st.plotly_chart(_net_fig, width='stretch')
@@ -3820,20 +3827,17 @@ elif scenario["type"] == "critical_infra":
         ew_norm, stability_series, L0_THR, STAB_THR = compute_critical_infra_ew(history)
         
         _ew_now = ew_norm[current_idx] if current_idx < len(ew_norm) else 0.0
-        if _ew_now >= 0.60:
-            _ew_label, _ew_icon = "High", "🔴"
-        elif _ew_now >= 0.30:
-            _ew_label, _ew_icon = "Elevated", "🟡"
-        else:
-            _ew_label, _ew_icon = "Low", "🟢"
-        
+        # Level-based EWMA state drives the tile; delta kept as drift read-out.
+        _, _ew_icon, _ew_label, _ew_color = ew_state_at(
+            ew_norm, stability_series, STAB_THR, current_idx)
+
         # 7. Kachel als Zusatz-Spalte. Falls 7-col-Layout zu eng:
         # Active-Event-Banner in 2. Zeile verschieben.
         _ew_col = st.columns([1])[0]
         _ew_col.metric(
             label="Early Warning",
             value=f"{_ew_icon} {_ew_label}",
-            delta=f"{_ew_now:.0%} structural signal",
+            delta=f"{_ew_now:.0%} drift signal",
             delta_color="off",
         )
         
@@ -3914,6 +3918,8 @@ elif scenario["type"] == "critical_infra":
                     unsafe_allow_html=True)
                 
         # --- Chart | Network | Events ---
+        with _banner_box:
+            render_ew_state_line(ew_norm, stability_series, STAB_THR, current_idx)
         _state_banner_ph = _banner_box.empty()
         col_left, col_mid, col_right = st.columns([4, 4, 2])
 
@@ -4033,8 +4039,10 @@ elif scenario["type"] == "critical_infra":
             # Projektions-Trennlinie
             fig.add_vline(x=proj_step, line_width=1.2, line_dash="dot",
                           line_color="rgba(255,255,255,0.35)")
-            fig.add_vline(x=current_idx, line_width=1.5, line_dash="dash",
-                          line_color="rgba(255,255,255,0.35)")
+            fig.add_vline(x=current_idx, line_width=2, line_dash="dash",
+                          line_color="#E24B4A", opacity=0.9,
+                          annotation_text="now", annotation_position="top left",
+                          annotation_font_size=9, annotation_font_color="#E24B4A")
 
             # Achsen: nur jedes 12. Monat anzeigen
             tick_vals = list(range(0, n, 12))
@@ -4268,9 +4276,90 @@ elif scenario["type"] == "banking_pipeline":
     BASE_MTTR    = {"resilient": 15, "hybrid": 60, "fragile": 240}
 
     def compute_banking_kpis(snap, path):
-        # Shared timeline controls (Play / Stop / Step / Back / Reset /
-        # Speed / Slider) + playback tick.
-        render_timeline_controls(max_step, prefix="bk", label="Step")
+        """4 Banking-KPIs aus Snapshot ableiten."""
+        # Layer-Durchschnitte
+        tech_avg = (sum(snap.get("technical_layer", {}).values())
+                    / max(len(snap.get("technical_layer", {})), 1))
+        pipe_avg = (sum(snap.get("pipeline_layer", {}).values())
+                    / max(len(snap.get("pipeline_layer", {})), 1))
+        reg_avg  = (sum(snap.get("regulatory_layer", {}).values())
+                    / max(len(snap.get("regulatory_layer", {})), 1))
+        biz_avg  = (sum(snap.get("business_layer", {}).values())
+                    / max(len(snap.get("business_layer", {})), 1))
+
+        # System Health (aus snap, schon berechnet)
+        sys_health = snap.get("system_health", 0.0)
+
+        # ----- Pipeline Velocity = Pipeline-Layer × MAX_VELOCITY[path] -----
+        # DORA Four Keys "Deployment Frequency"
+        velocity = pipe_avg * MAX_VELOCITY[path]
+
+        # ----- Audit Status = Open Findings -----
+        # findings = FINDINGS_MAX[path] × (1 - regulatory_health)
+        open_findings = round(FINDINGS_MAX[path] * (1.0 - reg_avg))
+
+        # Severity: aus Falco/OPA-Status + Findings-Count
+        falco = snap["nodes"].get("Falco", {})
+        opa = snap["nodes"].get("OPA_Gatekeeper", {})
+        falco_ok = falco.get("status", "active") == "active"
+        opa_ok = opa.get("status", "active") == "active"
+        if not falco_ok or not opa_ok or open_findings > 25:
+            severity = ("🔴", "incl. major")
+        elif open_findings > 10:
+            severity = ("🟡", "mixed")
+        else:
+            severity = ("🟢", "minor")
+
+        # ----- MTTR = BASE × (1 / Pipeline+Business-Health) -----
+        # DORA Four Keys "Time to Restore Service"
+        # Pipeline+Business reflektiert echte Recovery-Fähigkeit
+        recovery_score = (pipe_avg + biz_avg) / 2.0
+        mttr_min = BASE_MTTR[path] / max(0.05, recovery_score)
+
+        return {
+            "system_health": sys_health,
+            "velocity":      velocity,
+            "open_findings": open_findings,
+            "severity":      severity,
+            "mttr_min":      mttr_min,
+            "tech_avg":      tech_avg,
+            "pipe_avg":      pipe_avg,
+            "reg_avg":       reg_avg,
+            "biz_avg":       biz_avg,
+        }
+
+    @st.fragment(run_every=run_every_b)
+    def banking_panel(history, max_step, proj_step, selected_path, ensemble=None):
+
+        is_playing = st.session_state["mode"] == "playback"
+        if is_playing:
+            cur = st.session_state["step"]
+            if cur < max_step:
+                st.session_state["step"] = cur + 1
+            else:
+                st.session_state["mode"] = "manual"
+                st.rerun()
+
+        # Controls
+        ctrl1, ctrl2, ctrl3 = st.columns([1, 1, 4])
+        with ctrl1:
+            if st.button("▶ Play", key="bk_play", disabled=is_playing, width='stretch'):
+                st.session_state["mode"] = "playback"
+                st.session_state["step"] = 0
+                st.rerun()
+        with ctrl2:
+            if st.button("⏸ Step", key="bk_pause", disabled=not is_playing, width='stretch'):
+                st.session_state["mode"] = "manual"
+                st.rerun()
+        with ctrl3:
+            if "banking_sim_step" not in st.session_state:
+                st.session_state["banking_sim_step"] = st.session_state["step"]
+            if is_playing:
+                st.session_state["banking_sim_step"] = st.session_state["step"]
+            step = st.slider("Month", 0, max_step, key="banking_sim_step",
+                             disabled=is_playing, label_visibility="collapsed")
+            if not is_playing:
+                st.session_state["step"] = step
 
         current     = history[st.session_state["step"]]
         current_idx = st.session_state["step"]
@@ -4348,12 +4437,9 @@ elif scenario["type"] == "banking_pipeline":
 
         # Aktueller EW-Status für Ampel im Header
         ew_now = ew_norm[current_idx] if current_idx < len(ew_norm) else 0.0
-        if ew_now >= EW_HIGH_BK:
-            ew_label, ew_color, ew_icon = "High", "#f87171", "🔴"
-        elif ew_now >= EW_THRESHOLD_BK:
-            ew_label, ew_color, ew_icon = "Elevated", "#fbbf24", "🟡"
-        else:
-            ew_label, ew_color, ew_icon = "Calm", "#86efac", "🟢"
+        # Level-based EWMA state drives the tile; delta kept as drift read-out.
+        _, ew_icon, ew_label, ew_color = ew_state_at(
+            ew_norm, health_series, STAB_THRESHOLD_BK, current_idx)
 
         # ------------------------------------------
         # Header: 6 Spalten — Month / SysH / Velocity / Audit / MTTR / Early Warning
@@ -4468,6 +4554,8 @@ elif scenario["type"] == "banking_pipeline":
         # ------------------------------------------
         # Chart | Network | Events
         # ------------------------------------------
+        with _banner_box:
+            render_ew_state_line(ew_norm, health_series, STAB_THRESHOLD_BK, current_idx)
         _state_banner_ph = _banner_box.empty()
         col_left, col_mid, col_right = st.columns([4, 4, 2])
 
@@ -4511,19 +4599,21 @@ elif scenario["type"] == "banking_pipeline":
                         fill="tonexty", fillcolor="rgba(100,150,200,0.18)",
                         name="Ensemble p25-p75", hoverinfo="skip"))
 
-            fig.add_trace(go.Scatter(x=list(range(n)), y=sys_series, mode="lines",
+            # Draw series only up to the current month (history grows stepwise).
+            _bk_vis = current_idx + 1
+            fig.add_trace(go.Scatter(x=list(range(_bk_vis)), y=sys_series[:_bk_vis], mode="lines",
                                      name="System Health", line=dict(color="#4fc3f7", width=2.5)))
-            fig.add_trace(go.Scatter(x=list(range(n)), y=tech_series, mode="lines",
+            fig.add_trace(go.Scatter(x=list(range(_bk_vis)), y=tech_series[:_bk_vis], mode="lines",
                                      name="Technical (K8s/Kafka)", line=dict(color="#86efac", width=1.5, dash="dot")))
-            fig.add_trace(go.Scatter(x=list(range(n)), y=pipe_series, mode="lines",
+            fig.add_trace(go.Scatter(x=list(range(_bk_vis)), y=pipe_series[:_bk_vis], mode="lines",
                                      name="Pipeline (CI/CD)", line=dict(color="#c084fc", width=1.5, dash="dot")))
-            fig.add_trace(go.Scatter(x=list(range(n)), y=reg_series, mode="lines",
+            fig.add_trace(go.Scatter(x=list(range(_bk_vis)), y=reg_series[:_bk_vis], mode="lines",
                                      name="Regulatory (DORA)", line=dict(color="#fbbf24", width=1.5, dash="dot")))
-            fig.add_trace(go.Scatter(x=list(range(n)), y=biz_series, mode="lines",
+            fig.add_trace(go.Scatter(x=list(range(_bk_vis)), y=biz_series[:_bk_vis], mode="lines",
                                      name="Business (Velocity/MTTR)", line=dict(color="#ffaa66", width=1.5, dash="dot")))
 
             # Early Warning Linie (orange, gefüllt nach unten)
-            fig.add_trace(go.Scatter(x=list(range(n)), y=ew_norm, mode="lines",
+            fig.add_trace(go.Scatter(x=list(range(_bk_vis)), y=ew_norm[:_bk_vis], mode="lines",
                                      name="Early Warning",
                                      line=dict(color="#f4a261", width=2),
                                      fill="tozeroy", fillcolor="rgba(244,162,97,0.08)"))
