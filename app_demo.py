@@ -3037,7 +3037,7 @@ elif scenario["type"] == "ctpp_concentration":
     run_every_c = playback_interval()
 
     @st.fragment(run_every=run_every_c)
-    def cyber_cloud_panel(history, max_step, proj_step, selected_path, ensemble=None):
+    def ctpp_panel(history, max_step, proj_step, selected_path, ensemble=None):
 
         # Shared timeline controls (Play / Stop / Step / Back / Reset /
         # Speed / Slider) + playback tick.
@@ -3617,7 +3617,7 @@ elif scenario["type"] == "ctpp_concentration":
                 st.markdown("<div style='color:var(--color-text-secondary);font-size:11px;font-style:italic;'>"
                             "No active events at this step.</div>", unsafe_allow_html=True)
 
-    cyber_cloud_panel(history, max_step, proj_step, selected_path, ensemble=ensemble)
+    ctpp_panel(history, max_step, proj_step, selected_path, ensemble=ensemble)
     
 # ==========================================
 # CRITICAL INFRASTRUCTURE SCENARIO
