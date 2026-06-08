@@ -198,7 +198,7 @@ _EDGE_COLOR = {
     "strong": "#888888", "ready": "rgba(140,140,140,0.65)", "weak": "#ff3b3b",
     "new": "rgba(120,120,120,0.30)", "bridge_active": "#b388ff",
     "bridge_inactive": "rgba(140,140,140,0.55)",
-    "substitution_active": "#2BC4C4",
+    "substitution_active": "#E85AAD",
     "substitution_inactive": "rgba(140,140,140,0.55)",
 }
 _EDGE_WIDTH = {"strong": 3, "ready": 2, "weak": 2, "new": 1,
@@ -206,17 +206,21 @@ _EDGE_WIDTH = {"strong": 3, "ready": 2, "weak": 2, "new": 1,
                "substitution_active": 5, "substitution_inactive": 3}
 
 # Edge states that represent a cross-space bridge. A bridge must always be
-# rendered dashed (never as a solid normal edge) in every view.
-_BRIDGE_STATES = ("bridge_active", "bridge_inactive",
-                  "substitution_active", "substitution_inactive")
+# rendered DASHED (never as a solid normal edge) in every view.
+_BRIDGE_STATES = ("bridge_active", "bridge_inactive")
+# Substitution edges are an INTRA-space coupling (e.g. commuters switching
+# transport mode within the social space). They are rendered DOTTED (not
+# dashed) in their own colour, to set them apart from cross-space bridges.
+_SUBSTITUTION_STATES = ("substitution_active", "substitution_inactive")
 
 
 def _dash_segments_3d(x0, y0, z0, x1, y1, z1, n_dashes=6):
-    """Split a 3D line into dashed sub-segments (Scatter3d has no `dash`).
+    """Split a 3D line into dashed/dotted sub-segments (Scatter3d has no
+    `dash`).
 
-    Returns (xs, ys, zs) with None gaps between drawn dashes, so a bridge
-    reads as a dashed line in 3D just like in 2D. Colour still encodes the
-    state (active=violet / inactive=grey)."""
+    Returns (xs, ys, zs) with None gaps between drawn pieces, so the line
+    reads as dashed (bridges) or dotted (substitution, higher n_dashes) in 3D
+    just like in 2D. Colour still encodes the state."""
     xs, ys, zs = [], [], []
     steps = n_dashes * 2  # alternating drawn / gap
     for i in range(steps):
@@ -228,6 +232,16 @@ def _dash_segments_3d(x0, y0, z0, x1, y1, z1, n_dashes=6):
         ys += [y0 + (y1 - y0) * t0, y0 + (y1 - y0) * t1, None]
         zs += [z0 + (z1 - z0) * t0, z0 + (z1 - z0) * t1, None]
     return xs, ys, zs
+
+
+def _segments_for_state_3d(state, x0, y0, z0, x1, y1, z1):
+    """Return dashed segments for bridge states, dense dotted segments for
+    substitution states, or a single solid segment otherwise."""
+    if state in _BRIDGE_STATES:
+        return _dash_segments_3d(x0, y0, z0, x1, y1, z1, n_dashes=6)
+    if state in _SUBSTITUTION_STATES:
+        return _dash_segments_3d(x0, y0, z0, x1, y1, z1, n_dashes=14)  # dotted
+    return [x0, x1, None], [y0, y1, None], [z0, z1, None]
 
 _Z_GAP = 1.5     # vertical spacing between layers
 _PLANE_R = 1.35  # half-size of each tinted plane
@@ -517,12 +531,9 @@ def plot_network_3d_layered(G, node_load, edge_state, highlight_nodes=None,
         su = G.nodes[u].get("space", None); sv = G.nodes[v].get("space", None)
         (x0, y0), (x1, y1) = pos2d[u], pos2d[v]
         zu, zv = z_of(su), z_of(sv)
-        if state in _BRIDGE_STATES:
-            # Bridges render dashed (Scatter3d has no dash → manual segments).
-            dx, dy, dz = _dash_segments_3d(x0, y0, zu, x1, y1, zv)
-            xs += dx; ys += dy; zs += dz
-        else:
-            xs += [x0, x1, None]; ys += [y0, y1, None]; zs += [zu, zv, None]
+        # Bridges → dashed, substitution → dotted, others → solid.
+        dx, dy, dz = _segments_for_state_3d(state, x0, y0, zu, x1, y1, zv)
+        xs += dx; ys += dy; zs += dz
     for state, (xs, ys, zs) in seg.items():
         data.append(go.Scatter3d(
             x=xs, y=ys, z=zs, mode="lines",
@@ -717,11 +728,8 @@ def plot_network_3d_clustering(G, node_load, edge_state, highlight_nodes=None,
         state = edge_state.get(tuple(sorted((u, v))), "strong")
         xs, ys, zs = seg.setdefault(state, ([], [], []))
         (x0, y0, z0), (x1, y1, z1) = pos3d[u], pos3d[v]
-        if state in _BRIDGE_STATES:
-            dx, dy, dz = _dash_segments_3d(x0, y0, z0, x1, y1, z1)
-            xs += dx; ys += dy; zs += dz
-        else:
-            xs += [x0, x1, None]; ys += [y0, y1, None]; zs += [z0, z1, None]
+        dx, dy, dz = _segments_for_state_3d(state, x0, y0, z0, x1, y1, z1)
+        xs += dx; ys += dy; zs += dz
     for state, (xs, ys, zs) in seg.items():
         data.append(go.Scatter3d(
             x=xs, y=ys, z=zs, mode="lines",
@@ -839,11 +847,8 @@ def plot_network_3d_topology(G, node_load, edge_state, highlight_nodes=None,
         state = edge_state.get(tuple(sorted((u, v))), "strong")
         xs, ys, zs = seg.setdefault(state, ([], [], []))
         x0, y0, z0 = _xyz(u); x1, y1, z1 = _xyz(v)
-        if state in _BRIDGE_STATES:
-            dx, dy, dz = _dash_segments_3d(x0, y0, z0, x1, y1, z1)
-            xs += dx; ys += dy; zs += dz
-        else:
-            xs += [x0, x1, None]; ys += [y0, y1, None]; zs += [z0, z1, None]
+        dx, dy, dz = _segments_for_state_3d(state, x0, y0, z0, x1, y1, z1)
+        xs += dx; ys += dy; zs += dz
     for state, (xs, ys, zs) in seg.items():
         data.append(go.Scatter3d(
             x=xs, y=ys, z=zs, mode="lines",
