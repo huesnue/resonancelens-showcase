@@ -1043,7 +1043,7 @@ elif scenario["type"] == "energy":
             # Draw series only up to the current month so the history grows
             # step by step instead of showing the full future curve at start.
             _vis = current_idx + 1
-            fig.add_trace(go.Scatter(x=list(range(_vis)), y=stability_norm[:_vis], mode="lines", name="Stability",
+            fig.add_trace(go.Scatter(x=list(range(_vis)), y=stability_norm[:_vis], mode="lines+markers", name="Stability", marker=dict(size=4),
                                      line=dict(color="#4fc3f7", width=2.5)))
             fig.add_trace(go.Scatter(x=list(range(_vis)), y=ew_norm[:_vis], mode="lines", name="Early Warning",
                                      line=dict(color="#f4a261", width=2),
@@ -1507,9 +1507,10 @@ elif scenario["type"] == "pandemic":
 
             # Stability (combined) — historisch
             fig.add_trace(go.Scatter(
-                x=xs_hist, y=hist_slice(stability_norm), mode="lines",
+                x=xs_hist, y=hist_slice(stability_norm), mode="lines+markers",
                 name="Stability (combined)",
-                line=dict(color="#4fc3f7", width=2.5)))
+                line=dict(color="#4fc3f7", width=2.5),
+                marker=dict(size=4, color="#4fc3f7")))
 
             # Ensemble-Bänder in Projektionsphase (p10–p90, p25–p75)
             if xs_proj and ensemble:
@@ -2066,9 +2067,10 @@ elif scenario["type"] == "financial":
 
             # System Health — historisch
             fig.add_trace(go.Scatter(
-                x=xs_hist, y=hist_slice(stability_norm), mode="lines",
+                x=xs_hist, y=hist_slice(stability_norm), mode="lines+markers",
                 name="Stability (combined)",
-                line=dict(color="#4fc3f7", width=2.5)))
+                line=dict(color="#4fc3f7", width=2.5),
+                marker=dict(size=4, color="#4fc3f7")))
             # Ensemble-Bänder in Projektionsphase
             if xs_proj and ensemble:
                 hp = ensemble["health"]
@@ -2719,9 +2721,10 @@ elif scenario["type"] == "cyber_cloud":
 
             # System Health — historisch
             fig.add_trace(go.Scatter(
-                x=xs_hist, y=hist_slice(stability_norm), mode="lines",
+                x=xs_hist, y=hist_slice(stability_norm), mode="lines+markers",
                 name="Stability (combined)",
-                line=dict(color="#4fc3f7", width=2.5)))
+                line=dict(color="#4fc3f7", width=2.5),
+                marker=dict(size=4, color="#4fc3f7")))
 
             # Ensemble-Bänder in Projektionsphase
             if xs_proj and ensemble:
@@ -3389,9 +3392,10 @@ elif scenario["type"] == "ctpp_concentration":
 
             # System Health — historisch
             fig.add_trace(go.Scatter(
-                x=xs_hist, y=hist_slice(stability_norm), mode="lines",
+                x=xs_hist, y=hist_slice(stability_norm), mode="lines+markers",
                 name="Stability (combined)",
-                line=dict(color="#4fc3f7", width=2.5)))
+                line=dict(color="#4fc3f7", width=2.5),
+                marker=dict(size=4, color="#4fc3f7")))
 
             # Ensemble-Bänder in Projektionsphase
             if xs_proj and ensemble:
@@ -3926,7 +3930,10 @@ elif scenario["type"] == "critical_infra":
         with col_left:
             fig = go.Figure()
             n = len(history)
-            x_idx = list(range(n))
+            # Draw only up to the current month so history grows stepwise
+            # (matches the other scenario panels).
+            visible_end = current_idx + 1
+            x_idx = list(range(visible_end))
 
             def _layer_series(key):
                 return [
@@ -3943,8 +3950,8 @@ elif scenario["type"] == "critical_infra":
 
             # Ensemble-Band fuer System Health
             if ensemble is not None and "health" in ensemble:
-                p10 = ensemble["health"]["p10"]
-                p90 = ensemble["health"]["p90"]
+                p10 = ensemble["health"]["p10"][:visible_end]
+                p90 = ensemble["health"]["p90"][:visible_end]
                 fig.add_trace(go.Scatter(
                     x=x_idx + x_idx[::-1],
                     y=p90 + p10[::-1],
@@ -3955,23 +3962,24 @@ elif scenario["type"] == "critical_infra":
                     showlegend=True,
                 ))
 
-            fig.add_trace(go.Scatter(x=x_idx, y=health_series,
-                                     mode="lines", line=dict(color="#4fc3f7", width=2.5),
+            fig.add_trace(go.Scatter(x=x_idx, y=health_series[:visible_end],
+                                     mode="lines+markers", line=dict(color="#4fc3f7", width=2.5),
+                                     marker=dict(size=4, color="#4fc3f7"),
                                      name="System Health (median)"))
-            fig.add_trace(go.Scatter(x=x_idx, y=dig_series,
+            fig.add_trace(go.Scatter(x=x_idx, y=dig_series[:visible_end],
                                      mode="lines", line=dict(color="#4fc3f7", width=1.2, dash="dot"),
                                      name="☁️ Digital"))
-            fig.add_trace(go.Scatter(x=x_idx, y=rail_series,
+            fig.add_trace(go.Scatter(x=x_idx, y=rail_series[:visible_end],
                                      mode="lines", line=dict(color="#6bd96b", width=1.6),
                                      name="🚆 Rail"))
-            fig.add_trace(go.Scatter(x=x_idx, y=eco_series,
+            fig.add_trace(go.Scatter(x=x_idx, y=eco_series[:visible_end],
                                      mode="lines", line=dict(color="#c084fc", width=1.2, dash="dot"),
                                      name="🏭 Economic"))
-            fig.add_trace(go.Scatter(x=x_idx, y=soc_series,
+            fig.add_trace(go.Scatter(x=x_idx, y=soc_series[:visible_end],
                                      mode="lines", line=dict(color="#ffaa66", width=1.6),
                                      name="👥 Social"))
             # Rail-Share (Migrations-Indikator) auf eigener Achse
-            fig.add_trace(go.Scatter(x=x_idx, y=rshare_series,
+            fig.add_trace(go.Scatter(x=x_idx, y=rshare_series[:visible_end],
                                      mode="lines",
                                      line=dict(color="#ff9c66", width=1.2, dash="dash"),
                                      name="Rail demand share",
@@ -3980,11 +3988,11 @@ elif scenario["type"] == "critical_infra":
             # ------------------------------------------
             # EARLY WARNING — Linie + Pair-Annotations
             # ------------------------------------------
-            xs_hist = list(range(min(proj_step+1, n)))
-            xs_proj = list(range(proj_step, n)) if proj_step < n else []
-            
+            xs_hist = list(range(min(proj_step + 1, visible_end)))
+            xs_proj = list(range(proj_step, visible_end)) if visible_end > proj_step else []
+
             ew_hist = ew_norm[:len(xs_hist)]
-            ew_proj = ew_norm[proj_step:] if xs_proj else []
+            ew_proj = ew_norm[proj_step:visible_end] if xs_proj else []
             
             fig.add_trace(go.Scatter(
                 x=xs_hist, y=ew_hist, mode="lines",
@@ -4601,8 +4609,9 @@ elif scenario["type"] == "banking_pipeline":
 
             # Draw series only up to the current month (history grows stepwise).
             _bk_vis = current_idx + 1
-            fig.add_trace(go.Scatter(x=list(range(_bk_vis)), y=sys_series[:_bk_vis], mode="lines",
-                                     name="System Health", line=dict(color="#4fc3f7", width=2.5)))
+            fig.add_trace(go.Scatter(x=list(range(_bk_vis)), y=sys_series[:_bk_vis], mode="lines+markers",
+                                     name="System Health", line=dict(color="#4fc3f7", width=2.5),
+                                     marker=dict(size=4, color="#4fc3f7")))
             fig.add_trace(go.Scatter(x=list(range(_bk_vis)), y=tech_series[:_bk_vis], mode="lines",
                                      name="Technical (K8s/Kafka)", line=dict(color="#86efac", width=1.5, dash="dot")))
             fig.add_trace(go.Scatter(x=list(range(_bk_vis)), y=pipe_series[:_bk_vis], mode="lines",
@@ -4659,7 +4668,9 @@ elif scenario["type"] == "banking_pipeline":
                 ("Jun 2025", "TIBER-EU",       "#378ADD"),
             ]:
                 ev_step = BANKING_MONTH_TO_STEP.get(ev_month)
-                if ev_step is not None and ev_step < n:
+                # Only show event markers once the current month has reached
+                # them — future events stay hidden until "now" passes them.
+                if ev_step is not None and ev_step <= current_idx:
                     fig.add_vline(
                         x=ev_step, line_width=1, line_dash="dot",
                         line_color=ev_color, opacity=0.7,
@@ -4670,7 +4681,10 @@ elif scenario["type"] == "banking_pipeline":
                     )
 
             # Aktueller Step markieren
-            fig.add_vline(x=current_idx, line=dict(color="#888", width=1, dash="dash"))
+            fig.add_vline(x=current_idx, line_width=2, line_dash="dash",
+                          line_color="#E24B4A", opacity=0.9,
+                          annotation_text="now", annotation_position="top left",
+                          annotation_font_size=9, annotation_font_color="#E24B4A")
             # Projection-Trennlinie
             fig.add_vline(x=proj_step, line=dict(color="#888", width=1, dash="dot"),
                           annotation_text="Projection", annotation_position="top")
