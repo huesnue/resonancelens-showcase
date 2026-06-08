@@ -1416,36 +1416,12 @@ elif scenario["type"] == "pandemic":
                     i += 1
             return pairs, open_pair
 
-        all_pairs, open_pair = find_ew_pairs(
-            ew_norm[:current_idx+1], stability_norm[:current_idx+1], L0_THR, STAB_THR)
-
-        display_pair, display_open = None, False
-        if open_pair:
-            display_pair, display_open = open_pair, True
-        elif all_pairs:
-            last = all_pairs[-1]
-            if current_idx - last[1] <= 8:
-                display_pair, display_open = last, False
+        # The old spike/drop pairing banner has been removed; the level-based
+        # EWMA state line is the primary early-warning indicator now.
+        # find_ew_pairs is still used further below for the chart annotations.
 
         # Fixed-height banner box — constant Y for the charts below.
         _banner_box = st.container(height=150, border=False)
-        if display_pair:
-            spike_m = PANDEMIC_MONTHS[display_pair[0]] if display_pair[0] < len(PANDEMIC_MONTHS) else ""
-            if display_open:
-                steps_since = current_idx - display_pair[0]
-                _banner_box.markdown(
-                    f"<div style='background:rgba(244,162,97,0.15);border-left:3px solid #f4a261;"
-                    f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;margin-bottom:8px;'>"
-                    f"⚠️ <strong>Early Warning active</strong> since {spike_m} "
-                    f"— structural weakening detected <strong>{steps_since} month{'s' if steps_since!=1 else ''} ago</strong>. "
-                    f"Stability drop not yet confirmed.</div>", unsafe_allow_html=True)
-            else:
-                _banner_box.markdown(
-                    f"<div style='background:rgba(244,162,97,0.12);border-left:3px solid #f4a261;"
-                    f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;margin-bottom:8px;'>"
-                    f"💡 <strong>Early Warning</strong> ({spike_m}) signaled structural weakening "
-                    f"<strong>{display_pair[2]} months</strong> before Stability visibly dropped.</div>",
-                    unsafe_allow_html=True)
 
         # ------------------------------------------
         # Chart | Network | Events
@@ -1979,36 +1955,12 @@ elif scenario["type"] == "financial":
                     i += 1
             return pairs, open_pair
 
-        all_pairs, open_pair = find_ew_pairs(
-            ew_norm[:current_idx+1], stability_norm[:current_idx+1], L0_THR, STAB_THR)
-
-        display_pair, display_open = None, False
-        if open_pair:
-            display_pair, display_open = open_pair, True
-        elif all_pairs:
-            last = all_pairs[-1]
-            if current_idx - last[1] <= 8:
-                display_pair, display_open = last, False
+        # The old spike/drop pairing banner has been removed; the level-based
+        # EWMA state line is the primary early-warning indicator now.
+        # find_ew_pairs is still used further below for the chart annotations.
 
         # Fixed-height banner box — constant Y for the charts below.
         _banner_box = st.container(height=150, border=False)
-        if display_pair:
-            spike_m = FINANCIAL_MONTHS[display_pair[0]] if display_pair[0] < len(FINANCIAL_MONTHS) else ""
-            if display_open:
-                steps_since = current_idx - display_pair[0]
-                _banner_box.markdown(
-                    f"<div style='background:rgba(244,162,97,0.15);border-left:3px solid #f4a261;"
-                    f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;margin-bottom:8px;'>"
-                    f"⚠️ <strong>Early Warning active</strong> since {spike_m} "
-                    f"— structural weakening detected <strong>{steps_since} month{'s' if steps_since!=1 else ''} ago</strong>. "
-                    f"Stability drop not yet confirmed.</div>", unsafe_allow_html=True)
-            else:
-                _banner_box.markdown(
-                    f"<div style='background:rgba(244,162,97,0.12);border-left:3px solid #f4a261;"
-                    f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;margin-bottom:8px;'>"
-                    f"💡 <strong>Early Warning</strong> ({spike_m}) signaled structural weakening "
-                    f"<strong>{display_pair[2]} months</strong> before Stability visibly dropped.</div>",
-                    unsafe_allow_html=True)
 
         # ------------------------------------------
         # Chart | Network | Events
@@ -2628,34 +2580,9 @@ elif scenario["type"] == "cyber_cloud":
                     i += 1
             return pairs, open_pair
 
-        all_pairs, open_pair = find_ew_pairs(
-            ew_norm[:current_idx+1], stability_norm[:current_idx+1], L0_THR, STAB_THR)
-
-        display_pair, display_open = None, False
-        if open_pair:
-            display_pair, display_open = open_pair, True
-        elif all_pairs:
-            last = all_pairs[-1]
-            if current_idx - last[1] <= 8:
-                display_pair, display_open = last, False
-
-        if display_pair:
-            spike_m = CYBER_MONTHS[display_pair[0]] if display_pair[0] < len(CYBER_MONTHS) else ""
-            if display_open:
-                steps_since = current_idx - display_pair[0]
-                _banner_box.markdown(
-                    f"<div style='background:rgba(244,162,97,0.15);border-left:3px solid #f4a261;"
-                    f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;margin-bottom:8px;'>"
-                    f"⚠️ <strong>Early Warning active</strong> since {spike_m} "
-                    f"— structural weakening detected <strong>{steps_since} month{'s' if steps_since!=1 else ''} ago</strong>. "
-                    f"Stability drop not yet confirmed.</div>", unsafe_allow_html=True)
-            else:
-                _banner_box.markdown(
-                    f"<div style='background:rgba(244,162,97,0.12);border-left:3px solid #f4a261;"
-                    f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;margin-bottom:8px;'>"
-                    f"💡 <strong>Early Warning</strong> ({spike_m}) signaled structural weakening "
-                    f"<strong>{display_pair[2]} months</strong> before Stability visibly dropped.</div>",
-                    unsafe_allow_html=True)
+        # The old spike/drop pairing banner has been removed; the level-based
+        # EWMA state line is the primary early-warning indicator now.
+        # find_ew_pairs is still used further below for the chart annotations.
 
         # ------------------------------------------
         # Chart | Network | Events
@@ -3882,45 +3809,10 @@ elif scenario["type"] == "critical_infra":
         # ------------------------------------------
         # EW-PAIR-BANNER (Lead-Time)
         # ------------------------------------------
-        all_ew_pairs, open_ew_pair = find_ew_pairs_critical_infra(
-            ew_norm[:current_idx+1],
-            stability_series[:current_idx+1],
-            L0_THR, STAB_THR)
-        
-        display_pair, display_open = None, False
-        if open_ew_pair:
-            display_pair, display_open = open_ew_pair, True
-        elif all_ew_pairs:
-            last = all_ew_pairs[-1]
-            if current_idx - last[1] <= 8:
-                display_pair, display_open = last, False
-        
-        if display_pair:
-            spike_m = (CRITICAL_INFRA_MONTHS[display_pair[0]]
-                       if display_pair[0] < len(CRITICAL_INFRA_MONTHS) else "")
-            if display_open:
-                steps_since = current_idx - display_pair[0]
-                _banner_box.markdown(
-                    f"<div style='background:rgba(244,162,97,0.15);"
-                    f"border-left:3px solid #f4a261;"
-                    f"border-radius:0 6px 6px 0;padding:8px 14px;"
-                    f"font-size:13px;margin-bottom:8px;'>"
-                    f"⚠️ <strong>Early Warning active</strong> since {spike_m} "
-                    f"— structural weakening detected <strong>{steps_since} "
-                    f"month{'s' if steps_since!=1 else ''} ago</strong>. "
-                    f"Migration not yet confirmed.</div>",
-                    unsafe_allow_html=True)
-            else:
-                _banner_box.markdown(
-                    f"<div style='background:rgba(244,162,97,0.12);"
-                    f"border-left:3px solid #f4a261;"
-                    f"border-radius:0 6px 6px 0;padding:8px 14px;"
-                    f"font-size:13px;margin-bottom:8px;'>"
-                    f"💡 <strong>Early Warning</strong> ({spike_m}) signaled "
-                    f"structural weakening <strong>{display_pair[2]} months</strong> "
-                    f"before commuter migration visibly accelerated.</div>",
-                    unsafe_allow_html=True)
-                
+        # The old spike/drop pairing banner has been removed; the level-based
+        # EWMA state line is the primary early-warning indicator now.
+        # find_ew_pairs_critical_infra is still used below for chart annotations.
+
         # --- Chart | Network | Events ---
         with _banner_box:
             render_ew_state_line(ew_norm, stability_series, STAB_THR, current_idx)
@@ -4518,46 +4410,12 @@ elif scenario["type"] == "banking_pipeline":
                         f"↑ {ew_now:.0%} structural signal</div>", unsafe_allow_html=True)
 
         # ------------------------------------------
-        # Strukturelle EW-Banner (Banking-spezifisch):
-        # Unterscheidung zwischen permanenter Strukturschwäche (Fragile-Norm)
-        # und akuten Lead-Pair-Signalen (Resilient/Hybrid bei Schocks)
+        # The old structural EW banners (critical / acute / retrospective) have
+        # been removed; the level-based EWMA state line is the primary
+        # early-warning indicator now.
         # ------------------------------------------
         # Fixed-height banner box — constant Y for the charts below.
         _banner_box = st.container(height=150, border=False)
-        if ew_now >= EW_HIGH_BK:
-            # Strukturell-kritischer Zustand (typisch Fragile)
-            stress_now = stress_acc_series[current_idx]
-            margin_now = stab_margin_series[current_idx]
-            margin_text = ("buffer below stress floor" if margin_now < 0
-                           else "structural drift accumulating")
-            _banner_box.markdown(
-                f"<div style='background:rgba(248,113,113,0.15);border-left:3px solid #f87171;"
-                f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;color:var(--color-text-primary);margin:8px 0;'>"
-                f"🔴 <strong>Critical structural exposure</strong> — "
-                f"stress accumulation at <strong>{stress_now:.1f}</strong>, "
-                f"{margin_text}. DORA-compliance cascade likely under further shock."
-                f"</div>", unsafe_allow_html=True)
-        elif open_pair_chart is not None and open_pair_chart[0] is not None:
-            # Akute Vorwarnung: EW-Spike ohne nachfolgenden Stab-Drop
-            r_month_spike = BANKING_MONTHS[open_pair_chart[0]]
-            elapsed = current_idx - open_pair_chart[0]
-            _banner_box.markdown(
-                f"<div style='background:rgba(244,162,97,0.12);border-left:3px solid #f4a261;"
-                f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;color:var(--color-text-primary);margin:8px 0;'>"
-                f"⚠️ <strong>Early Warning active</strong> since {r_month_spike} — "
-                f"structural weakening detected <strong>{elapsed} months ago</strong>. "
-                f"System Health drop not yet confirmed.</div>", unsafe_allow_html=True)
-        elif all_pairs_chart:
-            # Retrospektives Lead-Pair: EW kam vor Stab-Drop
-            last_spike, last_drop, last_lead = all_pairs_chart[-1]
-            if last_lead > 0 and current_idx - last_drop <= 6:
-                r_month_spike = BANKING_MONTHS[last_spike]
-                _banner_box.markdown(
-                    f"<div style='background:rgba(34,197,94,0.10);border-left:3px solid #22c55e;"
-                    f"border-radius:0 6px 6px 0;padding:8px 14px;font-size:13px;color:var(--color-text-primary);margin:8px 0;'>"
-                    f"💡 <strong>Early Warning</strong> ({r_month_spike}) signaled structural weakening "
-                    f"<strong>{last_lead} months</strong> before System Health visibly dropped.</div>",
-                    unsafe_allow_html=True)
 
         # ------------------------------------------
         # Chart | Network | Events
