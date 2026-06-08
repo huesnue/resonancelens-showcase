@@ -878,6 +878,7 @@ def run_cyber_cloud_simulation(
         # EDGE STATE SNAPSHOT
         # ------------------------------------------
         edge_state = {}
+        edge_flows = {}   # directed (source, target) -> flow, for the Sankey view
         for e in edges:
             u, v = e["source"], e["target"]
             key = tuple(sorted((u, v)))
@@ -886,6 +887,9 @@ def run_cyber_cloud_simulation(
             status   = e.get("status", "active")
             strength = e.get("strength", 0.5)
             is_bridge = (e.get("type") == "bridge")
+
+            if flow > 0:
+                edge_flows[(u, v)] = edge_flows.get((u, v), 0.0) + float(flow)
 
             if status == "failed":
                 state = "weak"
@@ -949,6 +953,7 @@ def run_cyber_cloud_simulation(
             "graph":           G,
             "nodes":           {k: v.copy() for k, v in nodes.items()},
             "edges":           edge_state,
+            "edge_flows":      dict(edge_flows),
             "system_health":   system_health,
             "load":            {k: nodes[k]["stress"] for k in nodes},
             "pos":             dict(pos),
