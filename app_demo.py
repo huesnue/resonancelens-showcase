@@ -822,11 +822,11 @@ elif scenario["type"] == "energy":
     _path_col, _view_col = st.columns([3, 2])
     with _path_col:
         selected_path = st.radio(
-            "Structural pathway",
+            "Structural path",
             options=["resilient", "hybrid", "fragile"],
             format_func=lambda x: {
                 "resilient": "🟢 Resilient",
-                "hybrid":    "🟡 Hybrid (IST)",
+                "hybrid":    "🟡 Hybrid",
                 "fragile":   "🔴 Fragile",
             }[x],
             horizontal=True,
@@ -1193,12 +1193,12 @@ elif scenario["type"] == "pandemic":
     path_col, _, _view_col = st.columns([2, 2, 2])
     with path_col:
         selected_path = st.radio(
-            "Projection pathway (2025–2030)",
+            "Structural path",
             options=["resilient", "hybrid", "fragile"],
             format_func=lambda x: {
-                "resilient": "🟢 Resilient — coordinated response (stable systems)",
-                "hybrid":    "🟡 Hybrid — current state (IST)",
-                "fragile":   "🔴 Fragile — fragmented coupling failure",
+                "resilient": "🟢 Resilient",
+                "hybrid":    "🟡 Hybrid",
+                "fragile":   "🔴 Fragile",
             }[x],
             horizontal=True,
             key="pandemic_path"
